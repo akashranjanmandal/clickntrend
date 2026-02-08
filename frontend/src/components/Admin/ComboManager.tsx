@@ -1,0 +1,392 @@
+import React, { useState, useEffect } from 'react';
+import { X, Plus, Minus, Search, Package, Trash2, Save } from 'lucide-react';
+import { Product } from '../../types';
+import { formatCurrency, getImageUrl } from '../../utils/helpers';
+
+interface ComboManagerProps {
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+interface ComboProduct extends Product {
+  quantity: number;
+}
+
+const ComboManager: React.FC<ComboManagerProps> = ({ onClose, onSuccess }) => {
+  const [loading, setLoading] = useState(false);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [selectedProducts, setSelectedProducts] = useState<ComboProduct[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [comboData, setComboData] = useState({
+    name: '',
+    description: '',
+    discount_percentage: '',
+    discount_price: '',
+    image_url: '',
+  });
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const fetchProducts = async () => {
+    try {
+      const response = await fetch('/api/products');
+      const data = await response.json();
+      setProducts(data);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+    }
+  };
+
+  const addToCombo = (product: Product) => {
+    setSelectedProducts(prev => {
+      const existing = prev.find(p => p.id === product.id);
+      if (existing) {
+        return prev.map(p =>
+          p.id === product.id
+            ? { ...p, quantity: p.quantity + 1 }
+            : p
+        );
+      }
+      return [...prev, { ...product, quantity: 1 }];
+    });
+  };
+
+  const removeFromCombo = (productId: string) => {
+    setSelectedProducts(prev => prev.filter(p => p.id !== productId));
+  };
+
+  const updateQuantity = (productId: string, quantity: number) => {
+    if (quantity < 1) {
+      removeFromCombo(productId);
+      return;
+    }
+    setSelectedProducts(prev =>
+      prev.map(p => (p.id === productId ? { ...p, quantity } : p))
+    );
+  };
+
+  const calculateTotal = () => {
+    return selectedProducts.reduce(
+      (sum, product) => sum + product.price * product.quantity,
+      0
+    );
+  };
+
+  const calculateDiscountedPrice = () => {
+    const total = calculateTotal();
+    if (comboData.discount_percentage) {
+      const discount = total * (parseInt(comboData.discount_percentage) / 100);
+      return total - discount;
+    }
+    if (comboData.discount_price) {
+      return parseFloat(comboData.discount_price);
+    }
+    return total;
+  };
+
+  const filteredProducts = products.filter(product =>
+    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    product.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    product.category.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (selectedProducts.length === 0) {
+      alert('Please add at least one product to the combo');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const comboPayload = {
+        ...comboData,
+        discount_percentage: comboData.discount_percentage ? parseInt(comboData.discount_percentage) : null,
+        discount_price: comboData.discount_price ? parseFloat(comboData.discount_price) : null,
+        products: selectedProducts.map(p => ({
+          id: p.id,
+          quantity: p.quantity
+        }))
+      };
+
+      const response = await fetch('/api/admin/combos', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
+        },
+        body: JSON.stringify(comboPayload),
+      });
+
+      if (!response.ok) throw new Error('Failed to create combo');
+
+      alert('Combo created successfully!');
+      onSuccess();
+      onClose();
+    } catch (error: any) {
+      alert(`Error: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-serif font-semibold">Create New Combo</h2>
+            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Combo Details */}
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Combo Information</h3>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-2">Combo Name *</label>
+                  <input
+                    type="text"
+                    value={comboData.name}
+                    onChange={(e) => setComboData({...comboData, name: e.target.value})}
+                    required
+                    className="w-full px-4 py-3 border rounded-lg focus:border-premium-gold focus:outline-none"
+                    placeholder="Premium Anniversary Combo"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2">Description</label>
+                  <textarea
+                    value={comboData.description}
+                    onChange={(e) => setComboData({...comboData, description: e.target.value})}
+                    rows={3}
+                    className="w-full px-4 py-3 border rounded-lg focus:border-premium-gold focus:outline-none"
+                    placeholder="Describe this combo..."
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Discount %</label>
+                    <input
+                      type="number"
+                      value={comboData.discount_percentage}
+                      onChange={(e) => setComboData({...comboData, discount_percentage: e.target.value})}
+                      min="0"
+                      max="100"
+                      className="w-full px-4 py-3 border rounded-lg focus:border-premium-gold focus:outline-none"
+                      placeholder="15"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Discounted Price</label>
+                    <input
+                      type="number"
+                      value={comboData.discount_price}
+                      onChange={(e) => setComboData({...comboData, discount_price: e.target.value})}
+                      min="0"
+                      step="0.01"
+                      className="w-full px-4 py-3 border rounded-lg focus:border-premium-gold focus:outline-none"
+                      placeholder="4999"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2">Image URL (Optional)</label>
+                  <input
+                    type="text"
+                    value={comboData.image_url}
+                    onChange={(e) => setComboData({...comboData, image_url: e.target.value})}
+                    className="w-full px-4 py-3 border rounded-lg focus:border-premium-gold focus:outline-none"
+                    placeholder="https://example.com/image.jpg"
+                  />
+                </div>
+              </div>
+
+              {/* Selected Products Summary */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Selected Products ({selectedProducts.length})</h3>
+                
+                {selectedProducts.length === 0 ? (
+                  <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
+                    <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600">No products selected yet</p>
+                    <p className="text-sm text-gray-500">Add products from the list below</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-64 overflow-y-auto">
+                    {selectedProducts.map(product => (
+                      <div key={product.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          <img
+                            src={getImageUrl(product.image_url)}
+                            alt={product.name}
+                            className="w-12 h-12 object-cover rounded"
+                          />
+                          <div>
+                            <h4 className="font-medium line-clamp-1">{product.name}</h4>
+                            <p className="text-sm text-gray-600">
+                              {formatCurrency(product.price)} × {product.quantity}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-3">
+                          <div className="flex items-center space-x-2">
+                            <button
+                              type="button"
+                              onClick={() => updateQuantity(product.id, product.quantity - 1)}
+                              className="p-1 hover:bg-white rounded"
+                            >
+                              <Minus className="h-4 w-4" />
+                            </button>
+                            <span className="w-8 text-center font-medium">{product.quantity}</span>
+                            <button
+                              type="button"
+                              onClick={() => updateQuantity(product.id, product.quantity + 1)}
+                              className="p-1 hover:bg-white rounded"
+                            >
+                              <Plus className="h-4 w-4" />
+                            </button>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeFromCombo(product.id)}
+                            className="p-2 hover:bg-white rounded-lg text-red-600"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Pricing Summary */}
+                {selectedProducts.length > 0 && (
+                  <div className="mt-6 p-4 border rounded-lg">
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Subtotal:</span>
+                        <span>{formatCurrency(calculateTotal())}</span>
+                      </div>
+                      {comboData.discount_percentage && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Discount ({comboData.discount_percentage}%):</span>
+                          <span className="text-green-600">
+                            -{formatCurrency(calculateTotal() * (parseInt(comboData.discount_percentage) / 100))}
+                          </span>
+                        </div>
+                      )}
+                      <div className="border-t pt-2">
+                        <div className="flex justify-between font-bold text-lg">
+                          <span>Final Price:</span>
+                          <span className="text-premium-gold">
+                            {formatCurrency(calculateDiscountedPrice())}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Product Search */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">Available Products</h3>
+                <div className="relative w-64">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Search products..."
+                    className="w-full pl-10 pr-4 py-2 border rounded-lg focus:border-premium-gold focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-64 overflow-y-auto p-2">
+                {filteredProducts.map(product => (
+                  <div
+                    key={product.id}
+                    className="border rounded-lg p-4 hover:border-premium-gold transition-colors"
+                  >
+                    <div className="flex items-start space-x-3">
+                      <img
+                        src={getImageUrl(product.image_url)}
+                        alt={product.name}
+                        className="w-16 h-16 object-cover rounded"
+                      />
+                      <div className="flex-1">
+                        <h4 className="font-medium line-clamp-1">{product.name}</h4>
+                        <p className="text-premium-gold font-semibold">
+                          {formatCurrency(product.price)}
+                        </p>
+                        <p className="text-xs text-gray-600 line-clamp-2 mt-1">
+                          {product.description}
+                        </p>
+                        <div className="flex items-center justify-between mt-3">
+                          <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded text-xs">
+                            {product.category}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => addToCombo(product)}
+                            className="px-3 py-1 bg-premium-gold text-white text-sm rounded hover:bg-premium-burgundy"
+                          >
+                            Add
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex justify-end space-x-3 pt-6 border-t">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={loading || selectedProducts.length === 0}
+                className="px-6 py-3 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+              >
+                {loading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-5 w-5 mr-2" />
+                    Create Combo
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ComboManager;
