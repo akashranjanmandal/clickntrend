@@ -12,16 +12,16 @@ const razorpay = new Razorpay({
 });
 
 // Create order
-router.post('/create-order', async (req: express.Request, res: express.Response) => {
+router.post('/create-order', async (req, res) => {
   try {
     const { amount, currency = 'INR', receipt } = req.body;
     
-    console.log('Creating Razorpay order:', { amount, currency, receipt });
-
-    // Validate amount
+    // Validate amount is not negative
     if (!amount || amount <= 0) {
       return res.status(400).json({ error: 'Invalid amount' });
     }
+
+    console.log('Creating Razorpay order:', { amount, currency, receipt });
 
     const options = {
       amount: Math.round(amount * 100), // Convert to paise
@@ -42,144 +42,144 @@ router.post('/create-order', async (req: express.Request, res: express.Response)
     });
   } catch (error: any) {
     console.error('Razorpay order error:', error);
-    res.status(500).json({ 
-      error: 'Failed to create order', 
-      details: error.message || 'Unknown error'
-    });
+    res.status(500).json({ error: 'Failed to create order', details: error.message });
   }
 });
 
-// Verify payment and save order
-router.post('/verify-payment', async (req: express.Request, res: express.Response) => {
+// Verify payment
+router.post('/verify-payment', async (req, res) => {
   try {
-    const { 
-      razorpay_order_id, 
-      razorpay_payment_id, 
-      razorpay_signature, 
-      order_data 
-    } = req.body;
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, order_data } = req.body;
     
     console.log('=== PAYMENT VERIFICATION START ===');
     console.log('Order ID:', razorpay_order_id);
     console.log('Payment ID:', razorpay_payment_id);
-    console.log('Order data:', JSON.stringify(order_data, null, 2));
+    console.log('Order data received:', order_data);
 
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-      console.error('Missing payment details');
+      return res.status(400).json({ success: false, error: 'Missing payment details' });
+    }
+
+    // Validate order_data has required fields
+    if (!order_data || !order_data.name || !order_data.email || !order_data.phone) {
+      console.error('Missing customer data in order_data:', order_data);
       return res.status(400).json({ 
         success: false, 
-        error: 'Missing payment details' 
+        error: 'Missing customer information' 
       });
     }
 
-    // Verify signature
     const body = razorpay_order_id + "|" + razorpay_payment_id;
     const expectedSignature = crypto
       .createHmac('sha256', config.razorpayKeySecret)
-      .update(body)
+      .update(body.toString())
       .digest('hex');
 
     const isValid = expectedSignature === razorpay_signature;
 
-    if (!isValid) {
-      console.error('Invalid signature');
-      console.log('Expected:', expectedSignature);
-      console.log('Received:', razorpay_signature);
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Invalid payment signature' 
-      });
-    }
-
-    console.log('✅ Payment signature verified');
-
-    // Save order to database
-    try {
+    if (isValid) {
+      console.log('✅ Payment signature verified');
+      
+      // Save order to database
       console.log('Saving order to database...');
       
       const orderRecord = {
         razorpay_order_id,
         razorpay_payment_id,
         razorpay_signature,
-        items: order_data.items || [],
-        total_amount: order_data.total_amount || 0,
-        customer_name: order_data.customer_name || '',
-        customer_email: order_data.customer_email || '',
-        customer_phone: order_data.customer_phone || '',
+        items: order_data.items,
+        subtotal: order_data.subtotal,
+        shipping_charge: order_data.shipping_charge,
+        coupon_code: order_data.coupon_code,
+        coupon_discount: order_data.coupon_discount,
+        total_amount: order_data.total_amount,
+        customer_name: order_data.name,
+        customer_email: order_data.email,
+        customer_phone: order_data.phone,
         special_requests: order_data.specialRequests || '',
-        shipping_address: order_data.address || '',
-        shipping_city: order_data.city || '',
-        shipping_state: order_data.state || '',
-        shipping_pincode: order_data.pincode || '',
+        shipping_address: order_data.address,
+        shipping_city: order_data.city,
+        shipping_state: order_data.state,
+        shipping_pincode: order_data.pincode,
         shipping_country: 'India',
+        payment_method: 'online',
         status: 'paid',
-        paid_at: new Date().toISOString()
+        paid_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       };
 
-      console.log('Order record:', orderRecord);
+      console.log('Order record to insert:', orderRecord);
 
-      const { data: savedOrder, error: dbError } = await supabase
+      const { data: order, error } = await supabase
         .from('orders')
         .insert(orderRecord)
         .select()
         .single();
 
-      if (dbError) {
-        console.error('❌ Database error:', dbError);
-        throw dbError;
+      if (error) {
+        console.error('❌ Database insert error:', error);
+        throw error;
       }
 
-      console.log('✅ Order saved to database:', savedOrder.id);
+      console.log('✅ Order saved to database:', order.id);
 
-      // Also save order items for analytics
-      if (order_data.items && Array.isArray(order_data.items)) {
-        const orderItems = order_data.items.map((item: any) => ({
-          order_id: savedOrder.id,
-          product_id: item.id || 'custom',
-          quantity: item.quantity || 1,
-          price: item.price || 0,
-          created_at: new Date().toISOString()
-        }));
+      // Track coupon usage if applicable
+      if (order_data.coupon_code && order_data.coupon_discount > 0) {
+        try {
+          const { data: coupon } = await supabase
+            .from('coupons')
+            .select('id')
+            .eq('code', order_data.coupon_code)
+            .single();
 
-        const { error: itemsError } = await supabase
-          .from('order_items')
-          .insert(orderItems);
+          if (coupon) {
+            await supabase
+              .from('coupon_usage')
+              .insert({
+                coupon_id: coupon.id,
+                order_id: order.id,
+                customer_email: order_data.email,
+                discount_amount: order_data.coupon_discount,
+                used_at: new Date().toISOString()
+              });
 
-        if (itemsError) {
-          console.error('Failed to save order items:', itemsError);
-        } else {
-          console.log('✅ Order items saved');
+            await supabase
+              .from('coupons')
+              .update({ 
+                used_count: supabase.rpc('increment', { x: 1 }),
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', coupon.id);
+            
+            console.log('✅ Coupon usage tracked');
+          }
+        } catch (couponError) {
+          console.error('Error tracking coupon:', couponError);
         }
       }
 
+      console.log('=== PAYMENT VERIFICATION END ===');
+      
       res.json({ 
         success: true, 
-        message: 'Payment verified and order saved successfully',
-        order_id: savedOrder.id,
-        order: savedOrder
+        message: 'Payment verified successfully',
+        order_id: order.id,
+        payment_id: razorpay_payment_id
       });
-
-    } catch (dbError: any) {
-      console.error('❌ Database save error:', dbError);
-      // Even if DB save fails, payment was successful
-      res.json({ 
-        success: true, 
-        message: 'Payment verified but order save failed. Please contact support.',
-        error: dbError.message,
-        razorpay_order_id,
-        razorpay_payment_id
+    } else {
+      console.log('❌ Invalid payment signature');
+      res.status(400).json({ 
+        success: false, 
+        error: 'Invalid payment signature' 
       });
     }
-
-    console.log('=== PAYMENT VERIFICATION END ===');
-    
   } catch (error: any) {
-    console.error('🚨 Payment verification error:', error);
-    console.error('Error stack:', error.stack);
+    console.error('❌ Payment verification error:', error);
     res.status(500).json({ 
       success: false, 
       error: 'Payment verification failed',
-      details: error.message || 'Unknown error'
+      details: error.message 
     });
   }
 });

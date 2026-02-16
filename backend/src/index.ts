@@ -6,24 +6,38 @@ import adminRoutes from './routes/admin';
 import comboRoutes from './routes/combos';
 import paymentRoutes from './routes/payment';
 import orderRoutes from './routes/orders';
-
+import couponRoutes from './routes/coupons';
 
 const app = express();
 
 // Middleware
-app.use(cors({
-  origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
-  credentials: true
-}));
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      const allowedOrigins = [
+        'http://localhost:5173',
+        'http://127.0.0.1:5173',
+        process.env.CLIENT_URL,
+      ].filter(Boolean);
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error('Not allowed by CORS'));
+    },
+    credentials: true,
+  })
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Routes
-app.use('/api/products', productRoutes);
-app.use('/api/combos', comboRoutes);
-app.use('/api/payment', paymentRoutes);
-app.use('/api/orders', orderRoutes);
-app.use('/api/admin', adminRoutes);
+// IMPORTANT: Mount routes with proper paths
+app.use('/api/products', productRoutes);      // All product routes
+app.use('/api/combos', comboRoutes);          // All combo routes
+app.use('/api/orders', orderRoutes);           // All order routes (COD, etc.)
+app.use('/api/payment', paymentRoutes);        // All payment routes
+app.use('/api/coupons', couponRoutes);         // All coupon routes (validate, etc.)
+app.use('/api/admin', adminRoutes);             // All admin routes
 
 // Health check
 app.get('/health', (req, res) => {

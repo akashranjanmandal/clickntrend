@@ -12,14 +12,15 @@ import ProductUpload from './ProductUpload';
 import ComboManager from './ComboManager';
 import EditProduct from './EditProduct';
 import InvoicePDF from './InvoicePDF';
+import CouponManager from './CouponManager';
+import { Tag } from 'lucide-react';
 
 const AdminPanel: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [combos, setCombos] = useState<Combo[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'products' | 'combos' >('dashboard');
-  const [showProductUpload, setShowProductUpload] = useState(false);
+const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'products' | 'combos' | 'coupons'>('dashboard');  const [showProductUpload, setShowProductUpload] = useState(false);
   const [showComboManager, setShowComboManager] = useState(false);
   const [showEditProduct, setShowEditProduct] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -374,6 +375,7 @@ const handleEditCombo = (combo: Combo) => {
                   { id: 'orders', label: 'Orders', icon: Package },
                   { id: 'products', label: 'Products', icon: ShoppingBag },
                   { id: 'combos', label: 'Combos', icon: Package },
+                  { id: 'coupons', label: 'Coupons', icon: Tag },
                 ].map((tab) => (
                   <button
                     key={tab.id}
@@ -409,24 +411,24 @@ const handleEditCombo = (combo: Combo) => {
             </div>
           </div>
 
-          {/* Mobile Navigation */}
-          <div className="md:hidden mt-4 overflow-x-auto">
-            <div className="flex space-x-2">
-              {['dashboard', 'orders', 'products', 'combos'].map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab as any)}
-                  className={`px-3 py-2 rounded-lg text-sm whitespace-nowrap ${
-                    activeTab === tab
-                      ? 'bg-premium-gold text-white'
-                      : 'bg-gray-100 text-gray-600'
-                  }`}
-                >
-                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                </button>
-              ))}
-            </div>
-          </div>
+       {/* Mobile Navigation */}
+<div className="md:hidden mt-4 overflow-x-auto">
+  <div className="flex space-x-2">
+    {['dashboard', 'orders', 'products', 'combos', 'coupons'].map((tab) => (
+      <button
+        key={tab}
+        onClick={() => setActiveTab(tab as any)}
+        className={`px-3 py-2 rounded-lg text-sm whitespace-nowrap ${
+          activeTab === tab
+            ? 'bg-premium-gold text-white'
+            : 'bg-gray-100 text-gray-600'
+        }`}
+      >
+        {tab.charAt(0).toUpperCase() + tab.slice(1)}
+      </button>
+    ))}
+  </div>
+</div>
         </div>
       </header>
 
@@ -1159,6 +1161,9 @@ const handleEditCombo = (combo: Combo) => {
       )}
 
       {/* Invoice Modal */}
+      {activeTab === 'coupons' && (
+  <CouponManager />
+)}
       {showInvoice && selectedOrder && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
           <div className="bg-white rounded-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
