@@ -13,21 +13,24 @@ const app = express();
 
 app.use(
   cors({
-    origin: (
-      origin: string | undefined,
-      callback: (err: Error | null, allow?: boolean) => void
-    ) => {
+    origin: (origin, callback) => {
       const allowedOrigins = [
         "http://localhost:5173",
         "https://clickntrend.vercel.app",
         "https://api.gftd.in",
+        "https://www.gftd.in",
       ];
 
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
+      if (!origin) {
+        // allow server-to-server, Postman, curl
+        return callback(null, true);
       }
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(null, false); // ❗ don't throw error
     },
     credentials: true,
   })
