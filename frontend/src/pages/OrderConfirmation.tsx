@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { CheckCircle, Package, Truck, Home, ShoppingBag, Gift, Clock } from 'lucide-react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
+import { supabase } from '../utils/supabase'
 import { Order } from '../types'
 
 export default function OrderConfirmation() {
