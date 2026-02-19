@@ -17,8 +17,8 @@
     "razorpay": "^2.9.2"
   },
   "devDependencies": {
-    "@types/cors": "^2.8.17",
-    "@types/express": "^4.17.20",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^4.17.25",
     "@types/multer": "^2.0.0",
     "@types/node": "^20.8.0",
     "nodemon": "^3.1.11",
