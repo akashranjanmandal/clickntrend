@@ -20,7 +20,7 @@ const Checkout: React.FC = () => {
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [couponError, setCouponError] = useState('');
   const [couponLoading, setCouponLoading] = useState(false);
-  const API_BASE = import.meta.env.VITE_API_BASE_URL;
+  
   // Form data
   const [formData, setFormData] = useState({
     name: '',
@@ -92,7 +92,7 @@ const validateCoupon = async () => {
   try {
     console.log('Validating coupon:', couponCode);
     
-    const response = await fetch(`${API_BASE}/api/coupons/validate`, {
+    const response = await fetch('/api/coupons/validate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -180,7 +180,7 @@ const validateCoupon = async () => {
         ...formData,
       };
 
-      const response = await fetch(`${API_BASE}/api/orders/cod`, {
+      const response = await fetch('/api/orders/cod', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(orderData),
@@ -216,7 +216,7 @@ const handleOnlinePayment = async () => {
     }
 
     // Create order
-    const orderResponse = await fetch(`${API_BASE}/api/payment/create-order`, {
+    const orderResponse = await fetch('/api/payment/create-order', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -265,7 +265,7 @@ const handleOnlinePayment = async () => {
       handler: async (response: any) => {
         try {
           // Verify payment
-          const verifyResponse = await fetch(`${API_BASE}/api/payment/verify-payment`, {
+          const verifyResponse = await fetch('/api/payment/verify-payment', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
