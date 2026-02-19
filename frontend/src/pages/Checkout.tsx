@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useCart } from '../context/CartContext';
 import { formatCurrency } from '../utils/helpers';
 import { CONFIG } from '../config';
-import { motion } from 'framer-motion';
 import { Wallet, Truck, Tag, CheckCircle, XCircle, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { apiFetch } from '../utils/apiFetch';
 
 declare global {
   interface Window {
@@ -15,15 +15,16 @@ declare global {
 const Checkout: React.FC = () => {
   const { items, total, clearCart } = useCart();
   const navigate = useNavigate();
+
   const [loading, setLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'online' | 'cod'>('online');
+
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [couponError, setCouponError] = useState('');
   const [couponLoading, setCouponLoading] = useState(false);
-  
-  // Form data
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -35,50 +36,47 @@ const Checkout: React.FC = () => {
     specialRequests: '',
   });
 
-  // Calculate charges
+  /* ---------------- CALCULATIONS ---------------- */
   const subtotal = total;
   const shippingCharge = subtotal > 499 ? 0 : 79;
   const codCharge = paymentMethod === 'cod' ? 49 : 0;
-  const grandTotal = subtotal + shippingCharge + codCharge - couponDiscount;
+  const grandTotal = Math.max(
+    subtotal + shippingCharge + codCharge - couponDiscount,
+    0
+  );
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  /* ---------------- HELPERS ---------------- */
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const validateForm = () => {
-    const requiredFields = ['name', 'email', 'phone', 'address', 'city', 'state', 'pincode'];
-    for (const field of requiredFields) {
-      if (!formData[field as keyof typeof formData]) {
+    const required = ['name', 'email', 'phone', 'address', 'city', 'state', 'pincode'];
+    for (const field of required) {
+      if (!(formData as any)[field]) {
         alert(`Please fill in ${field}`);
         return false;
       }
     }
-    
-    const phoneRegex = /^\d{10}$/;
-    if (!phoneRegex.test(formData.phone)) {
+    if (!/^\d{10}$/.test(formData.phone)) {
       alert('Please enter a valid 10-digit phone number');
       return false;
     }
-    
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) {
+    if (!/^\S+@\S+\.\S+$/.test(formData.email)) {
       alert('Please enter a valid email address');
       return false;
     }
-    
-    const pincodeRegex = /^\d{6}$/;
-    if (!pincodeRegex.test(formData.pincode)) {
+    if (!/^\d{6}$/.test(formData.pincode)) {
       alert('Please enter a valid 6-digit pincode');
       return false;
     }
-
     return true;
   };
 
+  /* ---------------- COUPON ---------------- */
   const validateCoupon = async () => {
     if (!couponCode.trim()) {
       setCouponError('Please enter a coupon code');
@@ -89,9 +87,8 @@ const Checkout: React.FC = () => {
     setCouponError('');
 
     try {
-      const response = await fetch('/api/coupons/validate', {
+      const data = await apiFetch('/api/coupons/validate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           code: couponCode,
           subtotal,
@@ -99,28 +96,14 @@ const Checkout: React.FC = () => {
         }),
       });
 
-      if (!response.ok) {
-        if (response.status === 404) {
-          throw new Error('Coupon validation endpoint not found');
-        }
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Invalid coupon');
-      }
-      
-      const data = await response.json();
-
       if (data.valid) {
         setAppliedCoupon(data.coupon);
         setCouponDiscount(data.coupon.discount_amount);
-        setCouponError('');
       } else {
-        setCouponError(data.message || 'Invalid coupon');
-        setAppliedCoupon(null);
-        setCouponDiscount(0);
+        throw new Error(data.message || 'Invalid coupon');
       }
-    } catch (error: any) {
-      console.error('Validation error:', error);
-      setCouponError(error.message || 'Error validating coupon');
+    } catch (e: any) {
+      setCouponError(e.message || 'Error validating coupon');
       setAppliedCoupon(null);
       setCouponDiscount(0);
     } finally {
@@ -135,145 +118,103 @@ const Checkout: React.FC = () => {
     setCouponError('');
   };
 
-  const loadRazorpayScript = () => {
-    return new Promise((resolve) => {
-      if (window.Razorpay) {
-        resolve(true);
-        return;
-      }
-      const script = document.createElement('script');
-      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-      document.body.appendChild(script);
-    });
-  };
-
-  const handlePlaceOrder = async () => {
-    if (!validateForm()) return;
-
-    if (paymentMethod === 'online') {
-      await handleOnlinePayment();
-    } else {
-      await handleCODOrder();
-    }
-  };
-
+  /* ---------------- COD ---------------- */
   const handleCODOrder = async () => {
+    if (!validateForm()) return;
     setLoading(true);
-    try {
-      const orderData = {
-        items,
-        subtotal,
-        shipping_charge: shippingCharge,
-        cod_charge: codCharge,
-        coupon_code: appliedCoupon?.code,
-        coupon_discount: couponDiscount,
-        total_amount: grandTotal,
-        payment_method: 'cod',
-        ...formData,
-      };
 
-      const response = await fetch('/api/orders/cod', {
+    try {
+      await apiFetch('/api/orders/cod', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(orderData),
+        body: JSON.stringify({
+          items,
+          subtotal,
+          shipping_charge: shippingCharge,
+          cod_charge: codCharge,
+          coupon_code: appliedCoupon?.code,
+          coupon_discount: couponDiscount,
+          total_amount: grandTotal,
+          payment_method: 'cod',
+          ...formData,
+        }),
       });
 
-      if (response.ok) {
-        alert('Order placed successfully! You will pay ₹49 COD charges at delivery.');
-        clearCart();
-        navigate('/');
-      }
-    } catch (error) {
+      alert('Order placed successfully!');
+      clearCart();
+      navigate('/');
+    } catch {
       alert('Failed to place order. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleOnlinePayment = async () => {
-    setLoading(true);
-    try {
-      if (!validateForm()) {
-        setLoading(false);
-        return;
-      }
+  /* ---------------- RAZORPAY ---------------- */
+  const loadRazorpayScript = () =>
+    new Promise<boolean>((resolve) => {
+      if (window.Razorpay) return resolve(true);
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
 
-      const finalAmount = Math.max(grandTotal, 0);
-      
-      const scriptLoaded = await loadRazorpayScript();
-      if (!scriptLoaded) {
+  const handleOnlinePayment = async () => {
+    if (!validateForm()) return;
+    setLoading(true);
+
+    try {
+      if (!(await loadRazorpayScript())) {
         throw new Error('Razorpay SDK failed to load');
       }
 
-      const orderResponse = await fetch('/api/payment/create-order', {
+      const orderData = await apiFetch('/api/payment/create-order', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          amount: finalAmount,
+          amount: grandTotal,
           currency: 'INR',
           receipt: `receipt_${Date.now()}`,
         }),
       });
 
-      if (!orderResponse.ok) {
-        const error = await orderResponse.json();
-        throw new Error(error.error || 'Failed to create order');
-      }
-
-      const orderData = await orderResponse.json();
-
-      const orderDataForVerification = {
-        items,
-        subtotal,
-        shipping_charge: shippingCharge,
-        coupon_code: appliedCoupon?.code,
-        coupon_discount: couponDiscount,
-        total_amount: finalAmount,
-        payment_method: 'online',
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        address: formData.address,
-        city: formData.city,
-        state: formData.state,
-        pincode: formData.pincode,
-        specialRequests: formData.specialRequests,
-      };
-
-      const options = {
+      const razorpay = new window.Razorpay({
         key: CONFIG.RAZORPAY_KEY_ID,
         amount: orderData.amount,
         currency: orderData.currency,
+        order_id: orderData.id,
         name: 'LuxeGifts',
         description: 'Premium Gift Purchase',
-        order_id: orderData.id,
-        handler: async (response: any) => {
+        handler: async (res: any) => {
           try {
-            const verifyResponse = await fetch('/api/payment/verify-payment', {
+            const verify = await apiFetch('/api/payment/verify-payment', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-                order_data: orderDataForVerification,
+                razorpay_order_id: res.razorpay_order_id,
+                razorpay_payment_id: res.razorpay_payment_id,
+                razorpay_signature: res.razorpay_signature,
+                order_data: {
+                  items,
+                  subtotal,
+                  shipping_charge: shippingCharge,
+                  coupon_code: appliedCoupon?.code,
+                  coupon_discount: couponDiscount,
+                  total_amount: grandTotal,
+                  payment_method: 'online',
+                  ...formData,
+                },
               }),
             });
 
-            const verifyData = await verifyResponse.json();
-
-            if (verifyData.success) {
+            if (verify.success) {
               alert('🎉 Payment successful! Order confirmed.');
               clearCart();
               navigate('/');
             } else {
-              alert('Payment verification failed. Please contact support.');
+              alert('Payment verification failed.');
             }
-          } catch (error) {
-            console.error('Verification error:', error);
-            alert('Payment verification failed. Please contact support.');
+          } catch {
+            alert('Payment verification failed.');
           }
         },
         prefill: {
@@ -284,45 +225,45 @@ const Checkout: React.FC = () => {
         notes: {
           address: `${formData.address}, ${formData.city}, ${formData.state} - ${formData.pincode}`,
         },
-        theme: {
-          color: '#D4AF37',
-        },
+        theme: { color: '#D4AF37' },
         modal: {
-          ondismiss: function() {
-            setLoading(false);
-          }
-        }
-      };
+          ondismiss: () => setLoading(false),
+        },
+      });
 
-      const razorpay = new window.Razorpay(options);
       razorpay.open();
-    } catch (error: any) {
-      console.error('Payment error:', error);
-      alert(`Payment failed: ${error.message}`);
+    } catch (e: any) {
+      alert(e.message || 'Payment failed');
     } finally {
       setLoading(false);
     }
   };
 
-  if (items.length === 0) {
+  const handlePlaceOrder = async () => {
+    if (paymentMethod === 'online') {
+      await handleOnlinePayment();
+    } else {
+      await handleCODOrder();
+    }
+  };
+
+  /* ---------------- EMPTY CART ---------------- */
+  if (!items.length) {
     return (
       <div className="container mx-auto px-4 py-12 md:py-20 text-center">
-        <div className="max-w-md mx-auto">
-          <div className="h-16 w-16 md:h-20 md:w-20 text-gray-300 mx-auto mb-4" />
-          <h1 className="text-2xl md:text-3xl font-serif font-bold mb-4">Your cart is empty</h1>
-          <p className="text-gray-600 mb-8">Add some gifts before checking out</p>
-          <button
-            onClick={() => navigate('/products')}
-            className="px-6 py-3 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy transition-colors w-full sm:w-auto"
-          >
-            Browse Products
-          </button>
-        </div>
+        <h1 className="text-3xl font-serif font-bold mb-4">Your cart is empty</h1>
+        <button
+          onClick={() => navigate('/products')}
+          className="px-6 py-3 bg-premium-gold text-white rounded-lg"
+        >
+          Browse Products
+        </button>
       </div>
     );
   }
 
-  return (
+  /* ---------------- UI (UNCHANGED) ---------------- */
+ return (
     <div className="container mx-auto px-4 py-6 md:py-12">
       <div className="max-w-6xl mx-auto">
         {/* Back Button - Mobile Only */}
