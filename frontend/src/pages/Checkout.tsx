@@ -183,7 +183,7 @@ const Checkout: React.FC = () => {
         amount: orderData.amount,
         currency: orderData.currency,
         order_id: orderData.id,
-        name: 'LuxeGifts',
+        name: 'GFTD',
         description: 'Premium Gift Purchase',
         handler: async (res: any) => {
           try {

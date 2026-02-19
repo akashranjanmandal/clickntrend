@@ -54,19 +54,23 @@ const InvoicePDF: React.FC<InvoicePDFProps> = ({ order }) => {
       </style>
 
       {/* Print header */}
-      <div className="print-only text-center mb-8">
-        <h1 className="text-3xl font-bold text-premium-gold">LUXE GIFTS</h1>
-        <p className="text-gray-600">Premium Gift Shop</p>
-        <p className="text-sm text-gray-500">Invoice</p>
-      </div>
+ <div className="print-only text-center mb-8">
+  <img
+    src="/logo.png"
+    alt="GFTD"
+    className="h-16 mx-auto mb-2"
+  />
+  <p className="text-gray-600">Premium Gift Shop</p>
+  <p className="text-sm text-gray-500">Invoice</p>
+</div>
 
       {/* Invoice Header */}
       <div className="flex justify-between items-start mb-8 pb-6 border-b-2 border-premium-gold">
         <div>
           <h1 className="text-3xl font-serif font-bold text-premium-charcoal mb-2">GFTD</h1>
-          <p className="text-gray-600">Premium Gift Shop</p>
-          <p className="text-gray-600">support@clickntrend.com</p>
-          <p className="text-gray-600">+91 9876543210</p>
+          <p className="text-gray-600">The Art of Gifting</p>
+          <p className="text-gray-600">care@gftd.in</p>
+          <p className="text-gray-600">+91 8240398515</p>
         </div>
         
         <div className="text-right">
@@ -198,16 +202,18 @@ const InvoicePDF: React.FC<InvoicePDFProps> = ({ order }) => {
           <p className="text-sm">We appreciate your business and hope you enjoy your premium gifts.</p>
         </div>
         <div className="text-xs">
-          <p>GFTD • support@clickntrend.com • +91 9876543210</p>
+          <p>GFTD • care@gftd.in • +91 8240398515</p>
           <p className="mt-1">This is a computer-generated invoice and does not require a physical signature.</p>
           <p className="mt-1">Invoice generated on {invoiceDate} at {new Date().toLocaleTimeString()}</p>
         </div>
         
         {/* Print watermark */}
         <div className="print-only fixed bottom-10 left-0 right-0 text-center opacity-10">
-          <h1 className="text-6xl font-bold text-premium-gold">GFTD</h1>
-          <p className="text-2xl text-gray-500 mt-2">Fashion & Gifts</p>
-        </div>
+<img
+  src="/logo.png"
+  alt="GFTD"
+  className="h-14 mb-2"
+/>        </div>
       </div>
 
       {/* Print Button */}
