@@ -19,7 +19,7 @@ app.use(
     ) => {
       const allowedOrigins = [
         "http://localhost:5173",
-        "https://gift-shop.vercel.app",
+        "https://clickntrend.vercel.app",
       ];
 
       if (!origin || allowedOrigins.includes(origin)) {
