@@ -63,7 +63,7 @@ const InvoicePDF: React.FC<InvoicePDFProps> = ({ order }) => {
       {/* Invoice Header */}
       <div className="flex justify-between items-start mb-8 pb-6 border-b-2 border-premium-gold">
         <div>
-          <h1 className="text-3xl font-serif font-bold text-premium-charcoal mb-2">Click n Trend</h1>
+          <h1 className="text-3xl font-serif font-bold text-premium-charcoal mb-2">GFTD</h1>
           <p className="text-gray-600">Premium Gift Shop</p>
           <p className="text-gray-600">support@clickntrend.com</p>
           <p className="text-gray-600">+91 9876543210</p>
@@ -198,14 +198,14 @@ const InvoicePDF: React.FC<InvoicePDFProps> = ({ order }) => {
           <p className="text-sm">We appreciate your business and hope you enjoy your premium gifts.</p>
         </div>
         <div className="text-xs">
-          <p>Click n Trend Premium Gift Shop • support@clickntrend.com • +91 9876543210</p>
+          <p>GFTD • support@clickntrend.com • +91 9876543210</p>
           <p className="mt-1">This is a computer-generated invoice and does not require a physical signature.</p>
           <p className="mt-1">Invoice generated on {invoiceDate} at {new Date().toLocaleTimeString()}</p>
         </div>
         
         {/* Print watermark */}
         <div className="print-only fixed bottom-10 left-0 right-0 text-center opacity-10">
-          <h1 className="text-6xl font-bold text-premium-gold">Click n Trend</h1>
+          <h1 className="text-6xl font-bold text-premium-gold">GFTD</h1>
           <p className="text-2xl text-gray-500 mt-2">Fashion & Gifts</p>
         </div>
       </div>

@@ -28,17 +28,9 @@ const Layout: React.FC = () => {
 <Link to="/" className="flex items-center space-x-3">
   <img 
     src="/logo.png" 
-    alt="Click n Trend" 
-    className="h-14 w-auto" // Adjust size as needed
+    alt="GFTD" 
+    className="h-16 w-auto" // Adjust size as needed
   />
-  <div>
-    <span className="text-2xl font-serif font-bold text-premium-charcoal">
-      Click n Trend
-    </span>
-    <span className="block text-xs text-gray-600 font-medium -mt-1">
-      Fashion & Gifts
-    </span>
-  </div>
 </Link>
 
             {/* Desktop Navigation */}
@@ -115,10 +107,9 @@ const Layout: React.FC = () => {
               <div className="flex items-center space-x-2 mb-4">
   <img 
     src="/logo.png" 
-    alt="Click n Trend" 
+    alt="GFTD" 
     className="h-14 w-auto"
   />
-  <span className="text-xl font-serif font-bold">Click n Trend</span>
 </div>
               <p className="text-premium-cream/70">
                 Premium gifts for unforgettable moments. Crafted with care, delivered with love.
@@ -145,7 +136,7 @@ const Layout: React.FC = () => {
           </div>
           
           <div className="border-t border-premium-gold/20 mt-8 pt-8 text-center text-premium-cream/50">
-            <p>© {new Date().getFullYear()} Click n Trend. All rights reserved.</p>
+            <p>© {new Date().getFullYear()} GFTD. All rights reserved.</p>
           </div>
         </div>
       </footer>
