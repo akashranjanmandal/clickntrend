@@ -1,38 +1,31 @@
-import express from 'express';
+import express, { Request, Response, NextFunction } from "express";
 import multer from 'multer';
 import { supabase } from '../utils/supabase';
 import { requireAuth } from '../middleware/auth';
 
 const router = express.Router();
-
-// Configure multer for file upload (5MB max)
 const storage = multer.memoryStorage();
 const upload = multer({
-  storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
-  fileFilter: (req: express.Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+fileFilter: (
+  req: Request,
+  file: Express.Multer.File,
+  cb: multer.FileFilterCallback
+) => {
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/jpg"];
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Invalid file type. Only JPEG, PNG, and WebP are allowed.'));
+      cb(new Error("Invalid file type"));
     }
-  }
+  },
 });
-
-// Add multer types to Request
-declare global {
-  namespace Express {
-    interface Request {
-      file?: Express.Multer.File;
-    }
-  }
-}
 
 // ========== IMAGE UPLOAD ========== //
 
 // Upload product image
-router.post('/upload-image', requireAuth, upload.single('image'), async (req: express.Request, res: express.Response) => {
+router.post('/upload-image', requireAuth, upload.single('image'), async (req: Request, res: Response) => {
   try {
     console.log('Upload request received');
     
@@ -91,7 +84,7 @@ router.post('/upload-image', requireAuth, upload.single('image'), async (req: ex
 // ========== PRODUCTS ========== //
 
 // Get all products for admin
-router.get('/products', requireAuth, async (req: express.Request, res: express.Response) => {
+router.get('/products', requireAuth, async (req: Request, res: Response) => {
   try {
     const { data, error } = await supabase
       .from('products')
@@ -106,7 +99,7 @@ router.get('/products', requireAuth, async (req: express.Request, res: express.R
 });
 
 // Create new product
-router.post('/products', requireAuth, async (req: express.Request, res: express.Response) => {
+router.post('/products', requireAuth, async (req: Request, res: Response) => {
   try {
     const { 
       name, description, category, price, original_price, 
@@ -142,7 +135,7 @@ router.post('/products', requireAuth, async (req: express.Request, res: express.
 });
 
 // Update product
-router.put('/products/:id', requireAuth, async (req: express.Request, res: express.Response) => {
+router.put('/products/:id', requireAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const updates = req.body;
@@ -165,7 +158,7 @@ router.put('/products/:id', requireAuth, async (req: express.Request, res: expre
 });
 
 // Delete product
-router.delete('/products/:id', requireAuth, async (req: express.Request, res: express.Response) => {
+router.delete('/products/:id', requireAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     
@@ -184,7 +177,7 @@ router.delete('/products/:id', requireAuth, async (req: express.Request, res: ex
 // ========== ORDERS ========== //
 
 // Get all orders for admin
-router.get('/orders', requireAuth, async (req: express.Request, res: express.Response) => {
+router.get('/orders', requireAuth, async (req: Request, res: Response) => {
   try {
     const { data, error } = await supabase
       .from('orders')
@@ -199,7 +192,7 @@ router.get('/orders', requireAuth, async (req: express.Request, res: express.Res
 });
 
 // Get single order
-router.get('/orders/:id', requireAuth, async (req: express.Request, res: express.Response) => {
+router.get('/orders/:id', requireAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     
@@ -217,7 +210,7 @@ router.get('/orders/:id', requireAuth, async (req: express.Request, res: express
 });
 
 // Update order
-router.put('/orders/:id', requireAuth, async (req: express.Request, res: express.Response) => {
+router.put('/orders/:id', requireAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const updates = req.body;
@@ -242,7 +235,7 @@ router.put('/orders/:id', requireAuth, async (req: express.Request, res: express
 // ========== COMBOS ========== //
 
 // Get all combos for admin
-router.get('/combos', requireAuth, async (req: express.Request, res: express.Response) => {
+router.get('/combos', requireAuth, async (req: Request, res: Response) => {
   try {
     const { data, error } = await supabase
       .from('combos')
@@ -263,7 +256,7 @@ router.get('/combos', requireAuth, async (req: express.Request, res: express.Res
 });
 
 // Create new combo
-router.post('/combos', requireAuth, async (req: express.Request, res: express.Response) => {
+router.post('/combos', requireAuth, async (req: Request, res: Response) => {
   try {
     const { 
       name, description, discount_percentage, discount_price,
@@ -312,7 +305,7 @@ router.post('/combos', requireAuth, async (req: express.Request, res: express.Re
 });
 
 // Update combo
-router.put('/combos/:id', requireAuth, async (req: express.Request, res: express.Response) => {
+router.put('/combos/:id', requireAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const updates = req.body;
@@ -335,7 +328,7 @@ router.put('/combos/:id', requireAuth, async (req: express.Request, res: express
 });
 
 // Delete combo
-router.delete('/combos/:id', requireAuth, async (req: express.Request, res: express.Response) => {
+router.delete('/combos/:id', requireAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     
@@ -352,7 +345,7 @@ router.delete('/combos/:id', requireAuth, async (req: express.Request, res: expr
 });
 
 // ========== TEST ENDPOINT ========== //
-router.get('/test', (req: express.Request, res: express.Response) => {
+router.get('/test', (req: Request, res: Response) => {
   res.json({ message: 'Admin API is working!' });
 });
 

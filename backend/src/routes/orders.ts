@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response, NextFunction } from "express";
 import { supabase } from '../utils/supabase';
 import { requireAuth } from '../middleware/auth';
 

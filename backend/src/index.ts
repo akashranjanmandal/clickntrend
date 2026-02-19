@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response, NextFunction } from "express";
 import cors from 'cors';
 import config from './config';
 import productRoutes from './routes/products';

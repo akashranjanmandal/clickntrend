@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response, NextFunction } from "express";
 import { supabasePublic } from '../utils/supabase';
 
 const router = express.Router();
