@@ -20,6 +20,7 @@ app.use(
       const allowedOrigins = [
         "http://localhost:5173",
         "https://clickntrend.vercel.app",
+        "https://api.gftd.in",
       ];
 
       if (!origin || allowedOrigins.includes(origin)) {
