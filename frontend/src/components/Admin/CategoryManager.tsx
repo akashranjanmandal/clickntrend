@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { apiFetch } from '../../config';
 import {
   X, Plus, Save, Trash2, Edit, Search, RefreshCw,
   MoveUp, MoveDown, Eye, EyeOff, Palette,
   GripVertical
 } from 'lucide-react';
+import { useApi } from '../../hooks/useApi';
 
 interface Category {
   id: string;
@@ -19,6 +19,7 @@ interface Category {
 }
 
 const CategoryManager: React.FC = () => {
+  const { fetchWithAuth } = useApi();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -63,21 +64,7 @@ const CategoryManager: React.FC = () => {
   const fetchCategories = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('admin_token');
-      
-      if (!token) {
-        console.error('No admin token found');
-        window.location.href = '/admin';
-        return;
-      }
-
-      const data = await apiFetch('/api/admin/categories', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      
-      // Sort by display_order
+      const data = await fetchWithAuth('/api/admin/categories');
       const sortedData = (data || []).sort((a: Category, b: Category) => a.display_order - b.display_order);
       setCategories(sortedData);
     } catch (error: any) {
@@ -114,26 +101,22 @@ const CategoryManager: React.FC = () => {
     if (!validateForm()) return;
 
     try {
-      const token = localStorage.getItem('admin_token');
-      
-      const data = await apiFetch(
-        editingCategory ? `/api/admin/categories/${editingCategory.id}` : '/api/admin/categories',
-        {
-          method: editingCategory ? 'PUT' : 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
+      if (editingCategory) {
+        await fetchWithAuth(`/api/admin/categories/${editingCategory.id}`, {
+          method: 'PUT',
           body: JSON.stringify(formData),
-        }
-      );
-
-      if (data) {
-        await fetchCategories();
-        setShowAddModal(false);
-        setEditingCategory(null);
-        resetForm();
+        });
+      } else {
+        await fetchWithAuth('/api/admin/categories', {
+          method: 'POST',
+          body: JSON.stringify(formData),
+        });
       }
+
+      await fetchCategories();
+      setShowAddModal(false);
+      setEditingCategory(null);
+      resetForm();
     } catch (error: any) {
       console.error('Error saving category:', error);
       alert(`Failed to save category: ${error.message}`);
@@ -141,20 +124,10 @@ const CategoryManager: React.FC = () => {
   };
 
   const deleteCategory = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this category? Products in this category will need to be reassigned.')) return;
-
+    if (!confirm('Are you sure you want to delete this category?')) return;
     try {
-      const token = localStorage.getItem('admin_token');
-      const response = await fetch(`/api/admin/categories/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        await fetchCategories();
-      }
+      await fetchWithAuth(`/api/admin/categories/${id}`, { method: 'DELETE' });
+      await fetchCategories();
     } catch (error) {
       console.error('Error deleting category:', error);
     }
@@ -162,16 +135,10 @@ const CategoryManager: React.FC = () => {
 
   const toggleCategoryStatus = async (category: Category) => {
     try {
-      const token = localStorage.getItem('admin_token');
-      await apiFetch(`/api/admin/categories/${category.id}`, {
+      await fetchWithAuth(`/api/admin/categories/${category.id}`, {
         method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({ is_active: !category.is_active }),
       });
-
       await fetchCategories();
     } catch (error) {
       console.error('Error toggling category status:', error);
@@ -191,24 +158,13 @@ const CategoryManager: React.FC = () => {
     const otherCategory = categories[newIndex];
 
     try {
-      const token = localStorage.getItem('admin_token');
-      
-      // Swap display orders
       await Promise.all([
-        apiFetch(`/api/admin/categories/${category.id}`, {
+        fetchWithAuth(`/api/admin/categories/${category.id}`, {
           method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
           body: JSON.stringify({ display_order: otherCategory.display_order }),
         }),
-        apiFetch(`/api/admin/categories/${otherCategory.id}`, {
+        fetchWithAuth(`/api/admin/categories/${otherCategory.id}`, {
           method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
           body: JSON.stringify({ display_order: category.display_order }),
         }),
       ]);
@@ -273,7 +229,6 @@ const CategoryManager: React.FC = () => {
 
   return (
     <div className="bg-white rounded-xl shadow border border-gray-100 overflow-hidden">
-      {/* Header */}
       <div className="px-6 py-4 border-b bg-gradient-to-r from-gray-50 to-white">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
@@ -320,7 +275,6 @@ const CategoryManager: React.FC = () => {
         </div>
       </div>
 
-      {/* Categories Table */}
       {filteredCategories.length === 0 ? (
         <div className="p-12 text-center">
           <Palette className="h-16 w-16 text-gray-300 mx-auto mb-4" />
@@ -442,7 +396,6 @@ const CategoryManager: React.FC = () => {
         </div>
       )}
 
-      {/* Add/Edit Category Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">

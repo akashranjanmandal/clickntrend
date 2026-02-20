@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  LogOut, Package, Users, DollarSign, TrendingUp, Eye, 
-  CheckCircle, XCircle, RefreshCw, Plus, Edit, Trash2, 
-  Upload, Image as ImageIcon, Filter, Download, Search,
-  ShoppingBag, Truck, Home, MapPin, Phone, Mail, Calendar,
-  BarChart3, Settings, Shield, AlertCircle, Clock, Printer
+  LogOut, Package, DollarSign, TrendingUp, Eye, 
+  RefreshCw, Plus, Edit, Trash2, Download, Search,
+  ShoppingBag, MapPin, Phone, Mail, Calendar,
+  BarChart3, Shield, Printer, XCircle
 } from 'lucide-react';
 import { Order, Product, Combo } from '../../types';
 import CategoryManager from './CategoryManager';
@@ -14,14 +13,17 @@ import ComboManager from './ComboManager';
 import EditProduct from './EditProduct';
 import InvoicePDF from './InvoicePDF';
 import CouponManager from './CouponManager';
+import { useApi } from '../../hooks/useApi';
 import { Tag } from 'lucide-react';
 
 const AdminPanel: React.FC = () => {
+  const { fetchWithAuth } = useApi();
   const [orders, setOrders] = useState<Order[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [combos, setCombos] = useState<Combo[]>([]);
   const [loading, setLoading] = useState(true);
-const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'products' | 'combos' | 'coupons' | 'categories'>('dashboard');  const [showProductUpload, setShowProductUpload] = useState(false);
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'products' | 'combos' | 'coupons' | 'categories'>('dashboard');
+  const [showProductUpload, setShowProductUpload] = useState(false);
   const [showComboManager, setShowComboManager] = useState(false);
   const [showEditProduct, setShowEditProduct] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -42,12 +44,10 @@ const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'products' |
     averageOrderValue: 0,
   });
 
-  // Fetch all data
   useEffect(() => {
     fetchDashboardData();
   }, []);
 
-  // Filter orders when search query changes
   useEffect(() => {
     if (searchQuery.trim() === '') {
       setFilteredOrders(orders);
@@ -72,164 +72,92 @@ const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'products' |
     }
   }, [searchQuery, orders, products]);
 
-const fetchDashboardData = async () => {
-  try {
-    setLoading(true);
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
 
-    const token = localStorage.getItem('admin_token');
-    if (!token) {
-      alert('Session expired. Please login again.');
-      handleLogout();
-      return;
-    }
+      const [ordersData, productsData, combosData] = await Promise.all([
+        fetchWithAuth('/api/admin/orders'),
+        fetchWithAuth('/api/admin/products'),
+        fetchWithAuth('/api/admin/combos'),
+      ]);
 
-    const fetchWithGuard = async (url: string) => {
-      const res = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      setOrders(ordersData);
+      setFilteredOrders(ordersData);
+      setProducts(productsData);
+      setFilteredProducts(productsData);
+      setCombos(combosData);
+
+      const totalRevenue = ordersData.reduce(
+        (sum: number, o: Order) =>
+          ['paid', 'delivered', 'completed'].includes(o.status) ? sum + o.total_amount : sum,
+        0
+      );
+
+      const pendingOrders = ordersData.filter((o: Order) =>
+        ['created', 'pending', 'processing'].includes(o.status)
+      ).length;
+
+      const completedOrders = ordersData.filter((o: Order) =>
+        ['paid', 'delivered', 'completed'].includes(o.status)
+      ).length;
+
+      const thisMonth = new Date().getMonth();
+      const thisMonthRevenue = ordersData
+        .filter((o: Order) => new Date(o.created_at).getMonth() === thisMonth)
+        .reduce((sum: number, o: Order) => sum + o.total_amount, 0);
+
+      setStats({
+        totalOrders: ordersData.length,
+        totalRevenue,
+        pendingOrders,
+        completedOrders,
+        totalProducts: productsData.length,
+        totalCombos: combosData.length,
+        thisMonthRevenue,
+        averageOrderValue: ordersData.length ? totalRevenue / ordersData.length : 0,
       });
+    } catch (err) {
+      console.error('Error fetching dashboard data:', err);
+      alert('Failed to load dashboard data. Please check your connection.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      const contentType = res.headers.get('content-type');
-
-      if (!res.ok) {
-        if (res.status === 401 || res.status === 403) {
-          alert('Session expired. Please login again.');
-          handleLogout();
-          throw new Error('Unauthorized');
-        }
-        throw new Error(`API failed: ${res.status}`);
-      }
-
-      if (!contentType || !contentType.includes('application/json')) {
-        const text = await res.text();
-        console.error('Non-JSON response from', url, text);
-        throw new Error('Invalid server response');
-      }
-
-      return res.json();
-    };
-
-    const [ordersData, productsData, combosData] = await Promise.all([
-      fetchWithGuard('/api/admin/orders'),
-      fetchWithGuard('/api/admin/products'),
-      fetchWithGuard('/api/admin/combos'),
-    ]);
-
-    setOrders(ordersData);
-    setFilteredOrders(ordersData);
-    setProducts(productsData);
-    setFilteredProducts(productsData);
-    setCombos(combosData);
-
-    // Stats
-    const totalRevenue = ordersData.reduce(
-      (sum: number, o: Order) =>
-        ['paid', 'delivered', 'completed'].includes(o.status) ? sum + o.total_amount : sum,
-      0
-    );
-
-    const pendingOrders = ordersData.filter((o: Order) =>
-      ['created', 'pending', 'processing'].includes(o.status)
-    ).length;
-
-    const completedOrders = ordersData.filter((o: Order) =>
-      ['paid', 'delivered', 'completed'].includes(o.status)
-    ).length;
-
-    const thisMonth = new Date().getMonth();
-    const thisMonthRevenue = ordersData
-      .filter((o: Order) => new Date(o.created_at).getMonth() === thisMonth)
-      .reduce((sum: number, o: Order) => sum + o.total_amount, 0);
-
-    setStats({
-      totalOrders: ordersData.length,
-      totalRevenue,
-      pendingOrders,
-      completedOrders,
-      totalProducts: productsData.length,
-      totalCombos: combosData.length,
-      thisMonthRevenue,
-      averageOrderValue: ordersData.length ? totalRevenue / ordersData.length : 0,
-    });
-  } catch (err) {
-    console.error('Error fetching dashboard data:', err);
-    alert('Failed to load dashboard data.');
-  } finally {
-    setLoading(false);
-  }
-};
-const deleteCombo = async (comboId: string) => {
-  if (!confirm('Are you sure you want to delete this combo? This action cannot be undone.')) return;
-  
-  try {
-    const response = await fetch(`/api/admin/combos/${comboId}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
-      },
-    });
-
-    if (response.ok) {
-      fetchDashboardData(); // Refresh data
+  const deleteCombo = async (comboId: string) => {
+    if (!confirm('Are you sure you want to delete this combo?')) return;
+    try {
+      await fetchWithAuth(`/api/admin/combos/${comboId}`, { method: 'DELETE' });
+      await fetchDashboardData();
       alert('Combo deleted successfully!');
+    } catch (error) {
+      console.error('Error deleting combo:', error);
+      alert('Failed to delete combo');
     }
-  } catch (error) {
-    console.error('Error deleting combo:', error);
-    alert('Failed to delete combo');
-  }
-};
+  };
 
-const toggleComboStatus = async (combo: Combo) => {
-  try {
-    const newStatus = !combo.is_active;
-    const response = await fetch(`/api/admin/combos/${combo.id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
-      },
-      body: JSON.stringify({ 
-        is_active: newStatus,
-        updated_at: new Date().toISOString()
-      }),
-    });
-
-    if (response.ok) {
-      fetchDashboardData(); // Refresh data
-      alert(`Combo ${newStatus ? 'activated' : 'deactivated'} successfully!`);
+  const toggleComboStatus = async (combo: Combo) => {
+    try {
+      await fetchWithAuth(`/api/admin/combos/${combo.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ is_active: !combo.is_active }),
+      });
+      await fetchDashboardData();
+      alert(`Combo ${!combo.is_active ? 'activated' : 'deactivated'} successfully!`);
+    } catch (error) {
+      console.error('Error updating combo status:', error);
+      alert('Failed to update combo status');
     }
-  } catch (error) {
-    console.error('Error updating combo status:', error);
-    alert('Failed to update combo status');
-  }
-};
+  };
 
-const handleEditCombo = (combo: Combo) => {
-  // Add edit combo functionality
-  alert('Edit combo functionality coming soon!');
-};
   const updateOrderStatus = async (orderId: string, status: string, trackingNumber?: string) => {
     try {
-      const response = await fetch(`/api/admin/orders/${orderId}`, {
+      await fetchWithAuth(`/api/admin/orders/${orderId}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
-        },
-        body: JSON.stringify({ 
-          status,
-          tracking_number: trackingNumber || '',
-          updated_at: new Date().toISOString()
-        }),
+        body: JSON.stringify({ status, tracking_number: trackingNumber || '' }),
       });
-
-      if (response.ok) {
-        fetchDashboardData(); // Refresh data
-        if (selectedOrder?.id === orderId) {
-          setSelectedOrder({...selectedOrder, status, tracking_number: trackingNumber});
-        }
-      }
+      await fetchDashboardData();
     } catch (error) {
       console.error('Error updating order:', error);
       alert('Failed to update order status');
@@ -237,20 +165,11 @@ const handleEditCombo = (combo: Combo) => {
   };
 
   const deleteProduct = async (productId: string) => {
-    if (!confirm('Are you sure you want to delete this product? This action cannot be undone.')) return;
-    
+    if (!confirm('Are you sure you want to delete this product?')) return;
     try {
-      const response = await fetch(`/api/admin/products/${productId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
-        },
-      });
-
-      if (response.ok) {
-        fetchDashboardData(); // Refresh data
-        alert('Product deleted successfully!');
-      }
+      await fetchWithAuth(`/api/admin/products/${productId}`, { method: 'DELETE' });
+      await fetchDashboardData();
+      alert('Product deleted successfully!');
     } catch (error) {
       console.error('Error deleting product:', error);
       alert('Failed to delete product');
@@ -259,23 +178,12 @@ const handleEditCombo = (combo: Combo) => {
 
   const toggleProductStatus = async (product: Product) => {
     try {
-      const newStatus = !product.is_active;
-      const response = await fetch(`/api/admin/products/${product.id}`, {
+      await fetchWithAuth(`/api/admin/products/${product.id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
-        },
-        body: JSON.stringify({ 
-          is_active: newStatus,
-          updated_at: new Date().toISOString()
-        }),
+        body: JSON.stringify({ is_active: !product.is_active }),
       });
-
-      if (response.ok) {
-        fetchDashboardData(); // Refresh data
-        alert(`Product ${newStatus ? 'activated' : 'deactivated'} successfully!`);
-      }
+      await fetchDashboardData();
+      alert(`Product ${!product.is_active ? 'activated' : 'deactivated'} successfully!`);
     } catch (error) {
       console.error('Error updating product status:', error);
       alert('Failed to update product status');
@@ -376,7 +284,6 @@ const handleEditCombo = (combo: Combo) => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <header className="bg-white shadow-sm border-b">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
@@ -389,7 +296,6 @@ const handleEditCombo = (combo: Combo) => {
                 </div>
               </div>
               
-              {/* Navigation Tabs */}
               <div className="hidden md:flex space-x-1 ml-8">
                 {[
                   { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
@@ -397,6 +303,7 @@ const handleEditCombo = (combo: Combo) => {
                   { id: 'products', label: 'Products', icon: ShoppingBag },
                   { id: 'combos', label: 'Combos', icon: Package },
                   { id: 'coupons', label: 'Coupons', icon: Tag },
+                  { id: 'categories', label: 'Categories', icon: Tag },
                 ].map((tab) => (
                   <button
                     key={tab.id}
@@ -432,32 +339,29 @@ const handleEditCombo = (combo: Combo) => {
             </div>
           </div>
 
-       {/* Mobile Navigation */}
-<div className="md:hidden mt-4 overflow-x-auto">
-  <div className="flex space-x-2">
-    {['dashboard', 'orders', 'products', 'combos', 'coupons', 'categories'].map((tab) => (
-      <button
-        key={tab}
-        onClick={() => setActiveTab(tab as any)}
-        className={`px-3 py-2 rounded-lg text-sm whitespace-nowrap ${
-          activeTab === tab
-            ? 'bg-premium-gold text-white'
-            : 'bg-gray-100 text-gray-600'
-        }`}
-      >
-        {tab.charAt(0).toUpperCase() + tab.slice(1)}
-      </button>
-    ))}
-  </div>
-</div>
+          <div className="md:hidden mt-4 overflow-x-auto">
+            <div className="flex space-x-2">
+              {['dashboard', 'orders', 'products', 'combos', 'coupons', 'categories'].map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab as any)}
+                  className={`px-3 py-2 rounded-lg text-sm whitespace-nowrap ${
+                    activeTab === tab
+                      ? 'bg-premium-gold text-white'
+                      : 'bg-gray-100 text-gray-600'
+                  }`}
+                >
+                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </header>
 
       <div className="container mx-auto px-4 py-8">
-        {/* Dashboard Tab */}
         {activeTab === 'dashboard' && (
           <>
-            {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               <div className="bg-white rounded-xl p-6 shadow border border-gray-100">
                 <div className="flex items-center justify-between">
@@ -527,7 +431,6 @@ const handleEditCombo = (combo: Combo) => {
               </div>
             </div>
 
-            {/* Quick Actions */}
             <div className="bg-white rounded-xl shadow border border-gray-100 p-6 mb-8">
               <h2 className="text-xl font-semibold mb-6">Quick Actions</h2>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -562,7 +465,6 @@ const handleEditCombo = (combo: Combo) => {
               </div>
             </div>
 
-            {/* Recent Orders Table */}
             <div className="bg-white rounded-xl shadow border border-gray-100 overflow-hidden">
               <div className="px-6 py-4 border-b flex items-center justify-between">
                 <h2 className="text-xl font-semibold">Recent Orders</h2>
@@ -626,7 +528,6 @@ const handleEditCombo = (combo: Combo) => {
           </>
         )}
 
-        {/* Orders Tab */}
         {activeTab === 'orders' && (
           <div className="bg-white rounded-xl shadow border border-gray-100 overflow-hidden">
             <div className="px-6 py-4 border-b flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -754,7 +655,6 @@ const handleEditCombo = (combo: Combo) => {
           </div>
         )}
 
-        {/* Products Tab */}
         {activeTab === 'products' && (
           <div className="bg-white rounded-xl shadow border border-gray-100 overflow-hidden">
             <div className="px-6 py-4 border-b flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -888,175 +788,173 @@ const handleEditCombo = (combo: Combo) => {
           </div>
         )}
 
-    {/* Combos Tab */}
-{activeTab === 'combos' && (
-  <div className="bg-white rounded-xl shadow border border-gray-100 overflow-hidden">
-    <div className="px-6 py-4 border-b flex flex-col md:flex-row md:items-center justify-between gap-4">
-      <h2 className="text-xl font-semibold">All Combos ({combos.length})</h2>
-      <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search combos..."
-            className="pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:border-premium-gold w-full"
-          />
-        </div>
-        <button
-          onClick={() => setShowComboManager(true)}
-          className="flex items-center justify-center space-x-2 px-4 py-2 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy transition-colors"
-        >
-          <Plus className="h-4 w-4" />
-          <span>Create Combo</span>
-        </button>
-      </div>
-    </div>
-    
-    {combos.length === 0 ? (
-      <div className="p-8 text-center">
-        <Package className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-        <p className="text-gray-500">No combos created yet</p>
-        <button
-          onClick={() => setShowComboManager(true)}
-          className="mt-4 px-4 py-2 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy"
-        >
-          Create Your First Combo
-        </button>
-      </div>
-    ) : (
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="text-left p-4">Image</th>
-              <th className="text-left p-4">Name</th>
-              <th className="text-left p-4">Products</th>
-              <th className="text-left p-4">Price</th>
-              <th className="text-left p-4">Status</th>
-              <th className="text-left p-4">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {combos.map((combo) => {
-              const totalValue = combo.combo_products?.reduce((sum, cp) => 
-                sum + (cp.product?.price || 0) * (cp.quantity || 1), 0) || 0;
-              
-              const discountedPrice = combo.discount_percentage 
-                ? totalValue * (1 - combo.discount_percentage / 100)
-                : combo.discount_price || totalValue;
+        {activeTab === 'combos' && (
+          <div className="bg-white rounded-xl shadow border border-gray-100 overflow-hidden">
+            <div className="px-6 py-4 border-b flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <h2 className="text-xl font-semibold">All Combos ({combos.length})</h2>
+              <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search combos..."
+                    className="pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:border-premium-gold w-full"
+                  />
+                </div>
+                <button
+                  onClick={() => setShowComboManager(true)}
+                  className="flex items-center justify-center space-x-2 px-4 py-2 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy transition-colors"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span>Create Combo</span>
+                </button>
+              </div>
+            </div>
+            
+            {combos.length === 0 ? (
+              <div className="p-8 text-center">
+                <Package className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-500">No combos created yet</p>
+                <button
+                  onClick={() => setShowComboManager(true)}
+                  className="mt-4 px-4 py-2 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy"
+                >
+                  Create Your First Combo
+                </button>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="text-left p-4">Image</th>
+                      <th className="text-left p-4">Name</th>
+                      <th className="text-left p-4">Products</th>
+                      <th className="text-left p-4">Price</th>
+                      <th className="text-left p-4">Status</th>
+                      <th className="text-left p-4">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {combos.map((combo) => {
+                      const totalValue = combo.combo_products?.reduce((sum, cp) => 
+                        sum + (cp.product?.price || 0) * (cp.quantity || 1), 0) || 0;
+                      
+                      const discountedPrice = combo.discount_percentage 
+                        ? totalValue * (1 - combo.discount_percentage / 100)
+                        : combo.discount_price || totalValue;
 
-              return (
-                <tr key={combo.id} className="border-b hover:bg-gray-50">
-                  <td className="p-4">
-                    <img
-                      src={getImageUrl(combo.image_url)}
-                      alt={combo.name}
-                      className="w-16 h-16 object-cover rounded-lg"
-                      onError={(e) => {
-                        e.currentTarget.src = 'https://images.unsplash.com/photo-1511381939415-e44015466834?w=200&h=200&fit=crop';
-                      }}
-                    />
-                  </td>
-                  <td className="p-4">
-                    <div>
-                      <p className="font-medium">{combo.name}</p>
-                      <p className="text-sm text-gray-600 line-clamp-2">{combo.description}</p>
-                      {combo.discount_percentage && (
-                        <span className="inline-block mt-1 px-2 py-1 bg-red-100 text-red-800 text-xs rounded">
-                          {combo.discount_percentage}% OFF
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="p-4">
-                    <div className="flex -space-x-2">
-                      {combo.combo_products?.slice(0, 4).map((cp, idx) => (
-                        <div key={idx} className="w-8 h-8 rounded-full border-2 border-white bg-gray-200 overflow-hidden">
-                          <img 
-                            src={getImageUrl(cp.product?.image_url)} 
-                            alt={cp.product?.name}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.currentTarget.src = 'https://images.unsplash.com/photo-1511381939415-e44015466834?w=100&h=100&fit=crop';
-                            }}
-                          />
-                        </div>
-                      ))}
-                      {combo.combo_products && combo.combo_products.length > 4 && (
-                        <div className="w-8 h-8 rounded-full border-2 border-white bg-gray-800 text-white text-xs flex items-center justify-center">
-                          +{combo.combo_products.length - 4}
-                        </div>
-                      )}
-                    </div>
-                    <p className="text-xs text-gray-500 mt-2">
-                      {combo.combo_products?.length || 0} products
-                    </p>
-                  </td>
-                  <td className="p-4">
-                    <div>
-                      {combo.discount_percentage && (
-                        <p className="text-sm text-gray-500 line-through">
-                          {formatCurrency(totalValue)}
-                        </p>
-                      )}
-                      <p className="font-semibold text-premium-gold">
-                        {formatCurrency(discountedPrice)}
-                      </p>
-                    </div>
-                  </td>
-                  <td className="p-4">
-                    <button
-                      onClick={() => toggleComboStatus(combo)}
-                      className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                        combo.is_active 
-                          ? 'bg-green-100 text-green-800 hover:bg-green-200' 
-                          : 'bg-red-100 text-red-800 hover:bg-red-200'
-                      }`}
-                    >
-                      {combo.is_active ? 'Active' : 'Inactive'}
-                    </button>
-                  </td>
-                  <td className="p-4">
-                    <div className="flex space-x-2">
-                      <button 
-                        onClick={() => deleteCombo(combo.id)}
-                        className="p-2 hover:bg-gray-100 rounded transition-colors"
-                        title="Delete"
-                      >
-                        <Trash2 className="h-4 w-4 text-red-600" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    )}
-  </div>
-)}
+                      return (
+                        <tr key={combo.id} className="border-b hover:bg-gray-50">
+                          <td className="p-4">
+                            <img
+                              src={getImageUrl(combo.image_url)}
+                              alt={combo.name}
+                              className="w-16 h-16 object-cover rounded-lg"
+                              onError={(e) => {
+                                e.currentTarget.src = 'https://images.unsplash.com/photo-1511381939415-e44015466834?w=200&h=200&fit=crop';
+                              }}
+                            />
+                          </td>
+                          <td className="p-4">
+                            <div>
+                              <p className="font-medium">{combo.name}</p>
+                              <p className="text-sm text-gray-600 line-clamp-2">{combo.description}</p>
+                              {combo.discount_percentage && (
+                                <span className="inline-block mt-1 px-2 py-1 bg-red-100 text-red-800 text-xs rounded">
+                                  {combo.discount_percentage}% OFF
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-4">
+                            <div className="flex -space-x-2">
+                              {combo.combo_products?.slice(0, 4).map((cp, idx) => (
+                                <div key={idx} className="w-8 h-8 rounded-full border-2 border-white bg-gray-200 overflow-hidden">
+                                  <img 
+                                    src={getImageUrl(cp.product?.image_url)} 
+                                    alt={cp.product?.name}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      e.currentTarget.src = 'https://images.unsplash.com/photo-1511381939415-e44015466834?w=100&h=100&fit=crop';
+                                    }}
+                                  />
+                                </div>
+                              ))}
+                              {combo.combo_products && combo.combo_products.length > 4 && (
+                                <div className="w-8 h-8 rounded-full border-2 border-white bg-gray-800 text-white text-xs flex items-center justify-center">
+                                  +{combo.combo_products.length - 4}
+                                </div>
+                              )}
+                            </div>
+                            <p className="text-xs text-gray-500 mt-2">
+                              {combo.combo_products?.length || 0} products
+                            </p>
+                          </td>
+                          <td className="p-4">
+                            <div>
+                              {combo.discount_percentage && (
+                                <p className="text-sm text-gray-500 line-through">
+                                  {formatCurrency(totalValue)}
+                                </p>
+                              )}
+                              <p className="font-semibold text-premium-gold">
+                                {formatCurrency(discountedPrice)}
+                              </p>
+                            </div>
+                          </td>
+                          <td className="p-4">
+                            <button
+                              onClick={() => toggleComboStatus(combo)}
+                              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                                combo.is_active 
+                                  ? 'bg-green-100 text-green-800 hover:bg-green-200' 
+                                  : 'bg-red-100 text-red-800 hover:bg-red-200'
+                              }`}
+                            >
+                              {combo.is_active ? 'Active' : 'Inactive'}
+                            </button>
+                          </td>
+                          <td className="p-4">
+                            <div className="flex space-x-2">
+                              <button 
+                                onClick={() => deleteCombo(combo.id)}
+                                className="p-2 hover:bg-gray-100 rounded transition-colors"
+                                title="Delete"
+                              >
+                                <Trash2 className="h-4 w-4 text-red-600" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'coupons' && <CouponManager />}
+        {activeTab === 'categories' && <CategoryManager />}
       </div>
 
-      {/* Order Details Modal */}
+      {/* Modals */}
       {selectedOrder && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-serif font-semibold">Order Details</h2>
-                <button 
-                  onClick={() => setSelectedOrder(null)}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                >
+                <button onClick={() => setSelectedOrder(null)} className="p-2 hover:bg-gray-100 rounded-lg">
                   <XCircle className="h-5 w-5" />
                 </button>
               </div>
 
               <div className="grid md:grid-cols-2 gap-8">
-                {/* Customer Info */}
                 <div>
                   <h3 className="text-lg font-semibold mb-4">Customer Information</h3>
                   <div className="space-y-4">
@@ -1080,7 +978,6 @@ const handleEditCombo = (combo: Combo) => {
                     </div>
                   </div>
 
-                  {/* Shipping Address */}
                   <h3 className="text-lg font-semibold mt-8 mb-4">Shipping Address</h3>
                   <div className="space-y-2 p-4 bg-gray-50 rounded-lg">
                     <p className="font-medium">{selectedOrder.customer_name}</p>
@@ -1090,7 +987,6 @@ const handleEditCombo = (combo: Combo) => {
                   </div>
                 </div>
 
-                {/* Order Info */}
                 <div>
                   <h3 className="text-lg font-semibold mb-4">Order Information</h3>
                   <div className="space-y-4">
@@ -1129,7 +1025,6 @@ const handleEditCombo = (combo: Combo) => {
                     </div>
                   </div>
 
-                  {/* Order Items */}
                   <h3 className="text-lg font-semibold mt-8 mb-4">Order Items</h3>
                   <div className="space-y-3">
                     {Array.isArray(selectedOrder.items) ? (
@@ -1149,7 +1044,6 @@ const handleEditCombo = (combo: Combo) => {
                     )}
                   </div>
 
-                  {/* Order Total */}
                   <div className="mt-6 pt-6 border-t">
                     <div className="flex justify-between text-xl font-bold">
                       <span>Total Amount</span>
@@ -1164,13 +1058,13 @@ const handleEditCombo = (combo: Combo) => {
               <div className="mt-8 pt-6 border-t flex flex-wrap gap-3 justify-end">
                 <button
                   onClick={() => setSelectedOrder(null)}
-                  className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
                 >
                   Close
                 </button>
                 <button
                   onClick={() => generateInvoice(selectedOrder)}
-                  className="px-6 py-2 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy transition-colors flex items-center"
+                  className="px-6 py-2 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy flex items-center"
                 >
                   <Printer className="h-4 w-4 mr-2" />
                   Generate Invoice
@@ -1181,13 +1075,6 @@ const handleEditCombo = (combo: Combo) => {
         </div>
       )}
 
-      {/* Invoice Modal */}
-      {activeTab === 'coupons' && (
-  <CouponManager />
-)}
-{activeTab === 'categories' && (
-  <CategoryManager />
-)}
       {showInvoice && selectedOrder && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
           <div className="bg-white rounded-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
@@ -1202,10 +1089,7 @@ const handleEditCombo = (combo: Combo) => {
                     <Printer className="h-4 w-4" />
                     <span>Print</span>
                   </button>
-                  <button 
-                    onClick={() => setShowInvoice(false)}
-                    className="p-2 hover:bg-gray-100 rounded-lg"
-                  >
+                  <button onClick={() => setShowInvoice(false)} className="p-2 hover:bg-gray-100 rounded-lg">
                     <XCircle className="h-5 w-5" />
                   </button>
                 </div>
@@ -1219,7 +1103,6 @@ const handleEditCombo = (combo: Combo) => {
         </div>
       )}
 
-      {/* Product Upload Modal */}
       {showProductUpload && (
         <ProductUpload 
           onClose={() => setShowProductUpload(false)} 
@@ -1230,7 +1113,6 @@ const handleEditCombo = (combo: Combo) => {
         />
       )}
 
-      {/* Edit Product Modal */}
       {showEditProduct && editingProduct && (
         <EditProduct 
           product={editingProduct}
@@ -1246,7 +1128,6 @@ const handleEditCombo = (combo: Combo) => {
         />
       )}
 
-      {/* Combo Manager Modal */}
       {showComboManager && (
         <ComboManager 
           onClose={() => setShowComboManager(false)} 
