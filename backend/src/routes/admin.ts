@@ -174,6 +174,147 @@ router.delete('/products/:id', requireAuth, async (req: Request, res: Response) 
   }
 });
 
+// ========== CATEGORIES ========== //
+
+// Get all categories
+router.get('/categories', requireAuth, async (req: express.Request, res: express.Response) => {
+  try {
+    const { data, error } = await supabase
+      .from('categories')
+      .select('*')
+      .order('display_order', { ascending: true })
+      .order('name', { ascending: true });
+
+    if (error) throw error;
+    res.json(data || []);
+  } catch (error: any) {
+    console.error('Error fetching categories:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Create category
+router.post('/categories', requireAuth, async (req: express.Request, res: express.Response) => {
+  try {
+    const categoryData = req.body;
+    
+    // If no display_order provided, set to max + 1
+    if (categoryData.display_order === undefined || categoryData.display_order === 0) {
+      const { data: maxOrderData } = await supabase
+        .from('categories')
+        .select('display_order')
+        .order('display_order', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      categoryData.display_order = (maxOrderData?.display_order || 0) + 1;
+    }
+    
+    const { data, error } = await supabase
+      .from('categories')
+      .insert({
+        name: categoryData.name,
+        description: categoryData.description || '',
+        icon: categoryData.icon || '🎁',
+        color: categoryData.color || 'from-premium-gold/20 to-premium-cream',
+        display_order: categoryData.display_order,
+        is_active: categoryData.is_active !== undefined ? categoryData.is_active : true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error: any) {
+    console.error('Error creating category:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update category
+router.put('/categories/:id', requireAuth, async (req: express.Request, res: express.Response) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+    
+    const { data, error } = await supabase
+      .from('categories')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error: any) {
+    console.error('Error updating category:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete category
+router.delete('/categories/:id', requireAuth, async (req: express.Request, res: express.Response) => {
+  try {
+    const { id } = req.params;
+    
+    // First, get the category name
+    const { data: category, error: fetchError } = await supabase
+      .from('categories')
+      .select('name')
+      .eq('id', id)
+      .single();
+
+    if (fetchError) throw fetchError;
+
+    // Check if any products use this category
+    const { count, error: checkError } = await supabase
+      .from('products')
+      .select('*', { count: 'exact', head: true })
+      .eq('category', category.name);
+
+    if (checkError) throw checkError;
+
+    if (count && count > 0) {
+      return res.status(400).json({ 
+        error: `Cannot delete category: ${count} products are using this category. Please reassign them first.` 
+      });
+    }
+    
+    const { error } = await supabase
+      .from('categories')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+    res.json({ success: true, message: 'Category deleted successfully' });
+  } catch (error: any) {
+    console.error('Error deleting category:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get public categories (no auth required)
+router.get('/categories/public', async (req: express.Request, res: express.Response) => {
+  try {
+    const { data, error } = await supabase
+      .from('categories')
+      .select('name, icon, color, description')
+      .eq('is_active', true)
+      .order('display_order', { ascending: true })
+      .order('name', { ascending: true });
+
+    if (error) throw error;
+    res.json(data || []);
+  } catch (error: any) {
+    console.error('Error fetching public categories:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
 // ========== ORDERS ========== //
 
 // Get all orders for admin

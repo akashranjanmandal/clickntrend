@@ -31,9 +31,14 @@ const ComboManager: React.FC<ComboManagerProps> = ({ onClose, onSuccess }) => {
 
   const fetchProducts = async () => {
     try {
-      const response = await fetch('/api/products');
+      const token = localStorage.getItem('admin_token');
+      const response = await fetch('/api/admin/products', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
       const data = await response.json();
-      setProducts(data);
+      setProducts(data || []);
     } catch (error) {
       console.error('Error fetching products:', error);
     }
@@ -101,6 +106,7 @@ const ComboManager: React.FC<ComboManagerProps> = ({ onClose, onSuccess }) => {
 
     setLoading(true);
     try {
+      const token = localStorage.getItem('admin_token');
       const comboPayload = {
         ...comboData,
         discount_percentage: comboData.discount_percentage ? parseInt(comboData.discount_percentage) : null,
@@ -115,7 +121,7 @@ const ComboManager: React.FC<ComboManagerProps> = ({ onClose, onSuccess }) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify(comboPayload),
       });
@@ -144,7 +150,6 @@ const ComboManager: React.FC<ComboManagerProps> = ({ onClose, onSuccess }) => {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Combo Details */}
             <div className="grid md:grid-cols-2 gap-6">
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold">Combo Information</h3>
@@ -187,7 +192,7 @@ const ComboManager: React.FC<ComboManagerProps> = ({ onClose, onSuccess }) => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium mb-2">Discounted Price</label>
+                    <label className="block text-sm font-medium mb-2">Discounted Price (₹)</label>
                     <input
                       type="number"
                       value={comboData.discount_price}
@@ -212,7 +217,6 @@ const ComboManager: React.FC<ComboManagerProps> = ({ onClose, onSuccess }) => {
                 </div>
               </div>
 
-              {/* Selected Products Summary */}
               <div>
                 <h3 className="text-lg font-semibold mb-4">Selected Products ({selectedProducts.length})</h3>
                 
@@ -270,7 +274,6 @@ const ComboManager: React.FC<ComboManagerProps> = ({ onClose, onSuccess }) => {
                   </div>
                 )}
 
-                {/* Pricing Summary */}
                 {selectedProducts.length > 0 && (
                   <div className="mt-6 p-4 border rounded-lg">
                     <div className="space-y-2">
@@ -300,7 +303,6 @@ const ComboManager: React.FC<ComboManagerProps> = ({ onClose, onSuccess }) => {
               </div>
             </div>
 
-            {/* Product Search */}
             <div>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold">Available Products</h3>
@@ -355,7 +357,6 @@ const ComboManager: React.FC<ComboManagerProps> = ({ onClose, onSuccess }) => {
               </div>
             </div>
 
-            {/* Actions */}
             <div className="flex justify-end space-x-3 pt-6 border-t">
               <button
                 type="button"

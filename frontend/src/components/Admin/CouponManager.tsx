@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  X, Plus, Save, Trash2, Edit, Calendar, Percent, DollarSign, 
-  CheckCircle, XCircle, Search, Tag, Clock, AlertCircle,
-  Filter, RefreshCw, Copy, Eye, EyeOff
+  X, Plus, Save, Trash2, Edit, Percent, DollarSign, 
+  CheckCircle, XCircle, Search, Tag, RefreshCw, Copy, Eye, EyeOff
 } from 'lucide-react';
 
 interface Coupon {
@@ -72,9 +71,10 @@ const CouponManager: React.FC = () => {
   const fetchCoupons = async () => {
     try {
       setLoading(true);
+      const token = localStorage.getItem('admin_token');
       const response = await fetch('/api/coupons', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
+          'Authorization': `Bearer ${token}`,
         },
       });
       
@@ -83,7 +83,7 @@ const CouponManager: React.FC = () => {
       }
       
       const data = await response.json();
-      setCoupons(data);
+      setCoupons(data || []);
     } catch (error) {
       console.error('Error fetching coupons:', error);
     } finally {
@@ -94,16 +94,17 @@ const CouponManager: React.FC = () => {
   const fetchCouponUsage = async (couponId: string) => {
     try {
       setLoadingUsage(true);
+      const token = localStorage.getItem('admin_token');
       const response = await fetch(`/api/coupons/${couponId}/usage`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
+          'Authorization': `Bearer ${token}`,
         },
       });
       
       if (!response.ok) throw new Error('Failed to fetch usage');
       
       const data = await response.json();
-      setCouponUsage(data);
+      setCouponUsage(data || []);
     } catch (error) {
       console.error('Error fetching coupon usage:', error);
     } finally {
@@ -163,6 +164,7 @@ const CouponManager: React.FC = () => {
     if (!validateForm()) return;
 
     try {
+      const token = localStorage.getItem('admin_token');
       const couponData = {
         ...formData,
         code: formData.code.toUpperCase(),
@@ -183,13 +185,13 @@ const CouponManager: React.FC = () => {
         method: editingCoupon ? 'PUT' : 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify(couponData),
       });
 
       if (response.ok) {
-        fetchCoupons();
+        await fetchCoupons();
         setShowAddModal(false);
         setEditingCoupon(null);
         resetForm();
@@ -203,15 +205,16 @@ const CouponManager: React.FC = () => {
     if (!confirm('Are you sure you want to delete this coupon? This action cannot be undone.')) return;
 
     try {
+      const token = localStorage.getItem('admin_token');
       const response = await fetch(`/api/coupons/${id}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
+          'Authorization': `Bearer ${token}`,
         },
       });
 
       if (response.ok) {
-        fetchCoupons();
+        await fetchCoupons();
       }
     } catch (error) {
       console.error('Error deleting coupon:', error);
@@ -220,17 +223,18 @@ const CouponManager: React.FC = () => {
 
   const toggleCouponStatus = async (coupon: Coupon) => {
     try {
+      const token = localStorage.getItem('admin_token');
       const response = await fetch(`/api/coupons/${coupon.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({ is_active: !coupon.is_active }),
       });
 
       if (response.ok) {
-        fetchCoupons();
+        await fetchCoupons();
       }
     } catch (error) {
       console.error('Error toggling coupon status:', error);
@@ -345,7 +349,6 @@ const CouponManager: React.FC = () => {
 
   return (
     <div className="bg-white rounded-xl shadow border border-gray-100 overflow-hidden">
-      {/* Header */}
       <div className="px-6 py-4 border-b bg-gradient-to-r from-gray-50 to-white">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
@@ -393,7 +396,6 @@ const CouponManager: React.FC = () => {
         </div>
       </div>
 
-      {/* Stats Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 p-6 bg-gray-50 border-b">
         <div className="bg-white rounded-lg p-4 shadow-sm">
           <p className="text-sm text-gray-600">Total Coupons</p>
@@ -419,7 +421,6 @@ const CouponManager: React.FC = () => {
         </div>
       </div>
 
-      {/* Coupons Table */}
       {filteredCoupons.length === 0 ? (
         <div className="p-12 text-center">
           <Tag className="h-16 w-16 text-gray-300 mx-auto mb-4" />
@@ -517,7 +518,7 @@ const CouponManager: React.FC = () => {
                           <div 
                             className="bg-premium-gold rounded-full h-2" 
                             style={{ width: `${Math.min((coupon.used_count / coupon.usage_limit) * 100, 100)}%` }}
-                          ></div>
+                          />
                         </div>
                         <span className="text-sm">
                           {coupon.used_count}/{coupon.usage_limit}
@@ -548,6 +549,13 @@ const CouponManager: React.FC = () => {
                     </td>
                     <td className="p-4">
                       <div className="flex space-x-2">
+                        <button
+                          onClick={() => viewUsage(coupon)}
+                          className="p-2 hover:bg-gray-100 rounded transition-colors"
+                          title="View Usage"
+                        >
+                          <Eye className="h-4 w-4 text-blue-600" />
+                        </button>
                         <button
                           onClick={() => toggleCouponStatus(coupon)}
                           className="p-2 hover:bg-gray-100 rounded transition-colors"
@@ -583,7 +591,6 @@ const CouponManager: React.FC = () => {
         </div>
       )}
 
-      {/* Add/Edit Coupon Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -835,7 +842,6 @@ const CouponManager: React.FC = () => {
         </div>
       )}
 
-      {/* Usage Modal */}
       {showUsageModal && selectedCoupon && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -865,7 +871,6 @@ const CouponManager: React.FC = () => {
                 </div>
               ) : couponUsage.length === 0 ? (
                 <div className="py-12 text-center">
-                  <AlertCircle className="h-12 w-12 text-gray-300 mx-auto mb-4" />
                   <p className="text-gray-500">No usage data available</p>
                   <p className="text-sm text-gray-400 mt-2">This coupon hasn't been used yet</p>
                 </div>
@@ -903,8 +908,7 @@ const CouponManager: React.FC = () => {
                       <tbody>
                         {couponUsage.map((usage) => (
                           <tr key={usage.id} className="border-b hover:bg-gray-50">
-                            <td className="p-3">
-                            </td>
+                            <td className="p-3">{usage.customer_email}</td>
                             <td className="p-3">
                               <span className="font-mono text-sm">{usage.order_id?.slice(0, 8)}...</span>
                             </td>

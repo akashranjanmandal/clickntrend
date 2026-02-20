@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, Upload, Camera, RefreshCw } from 'lucide-react';
 import { Product } from '../../types';
+import { apiFetch } from '../../config';
 
 interface EditProductProps {
   product: Product;
@@ -13,6 +14,7 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
   const [uploadingImage, setUploadingImage] = useState(false);
   const [imagePreview, setImagePreview] = useState<string>(product.image_url);
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [categories, setCategories] = useState<string[]>([]);
   
   const [formData, setFormData] = useState({
     name: product.name,
@@ -25,7 +27,23 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
     is_active: product.is_active,
   });
 
-  const categories = ['Birthday', 'Anniversary', 'Valentine', 'Wedding', 'Corporate', 'Christmas'];
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  const fetchCategories = async () => {
+    try {
+      const token = localStorage.getItem('admin_token');
+      const data = await apiFetch('/api/admin/categories', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      setCategories(data.map((c: any) => c.name));
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+    }
+  };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -51,10 +69,11 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
     formData.append('image', imageFile);
 
     try {
+      const token = localStorage.getItem('admin_token');
       const response = await fetch('/api/admin/upload-image', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
+          'Authorization': `Bearer ${token}`,
         },
         body: formData,
       });
@@ -75,6 +94,8 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
     setLoading(true);
 
     try {
+      const token = localStorage.getItem('admin_token');
+      
       // Upload new image if changed
       const imageUrl = await uploadImage();
 
@@ -93,7 +114,7 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify(productData),
       });
@@ -122,7 +143,6 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Image Upload */}
             <div>
               <label className="block text-sm font-medium mb-3">Product Image</label>
               <div className="border-2 border-dashed border-gray-300 rounded-2xl p-6 text-center hover:border-premium-gold transition-colors">
@@ -180,7 +200,6 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
               </div>
             </div>
 
-            {/* Product Details */}
             <div className="grid md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-2">Product Name *</label>
@@ -200,6 +219,7 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
                   onChange={(e) => setFormData({...formData, category: e.target.value})}
                   className="w-full px-4 py-3 border rounded-lg focus:border-premium-gold focus:outline-none"
                 >
+                  <option value="">Select Category</option>
                   {categories.map(cat => (
                     <option key={cat} value={cat}>{cat}</option>
                   ))}

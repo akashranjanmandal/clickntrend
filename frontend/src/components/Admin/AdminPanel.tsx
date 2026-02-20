@@ -7,6 +7,7 @@ import {
   BarChart3, Settings, Shield, AlertCircle, Clock, Printer
 } from 'lucide-react';
 import { Order, Product, Combo } from '../../types';
+import CategoryManager from './CategoryManager';
 import { formatCurrency, getImageUrl } from '../../utils/helpers';
 import ProductUpload from './ProductUpload';
 import ComboManager from './ComboManager';
@@ -20,7 +21,7 @@ const AdminPanel: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [combos, setCombos] = useState<Combo[]>([]);
   const [loading, setLoading] = useState(true);
-const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'products' | 'combos' | 'coupons'>('dashboard');  const [showProductUpload, setShowProductUpload] = useState(false);
+const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'products' | 'combos' | 'coupons' | 'categories'>('dashboard');  const [showProductUpload, setShowProductUpload] = useState(false);
   const [showComboManager, setShowComboManager] = useState(false);
   const [showEditProduct, setShowEditProduct] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -434,7 +435,7 @@ const handleEditCombo = (combo: Combo) => {
        {/* Mobile Navigation */}
 <div className="md:hidden mt-4 overflow-x-auto">
   <div className="flex space-x-2">
-    {['dashboard', 'orders', 'products', 'combos', 'coupons'].map((tab) => (
+    {['dashboard', 'orders', 'products', 'combos', 'coupons', 'categories'].map((tab) => (
       <button
         key={tab}
         onClick={() => setActiveTab(tab as any)}
@@ -1183,6 +1184,9 @@ const handleEditCombo = (combo: Combo) => {
       {/* Invoice Modal */}
       {activeTab === 'coupons' && (
   <CouponManager />
+)}
+{activeTab === 'categories' && (
+  <CategoryManager />
 )}
       {showInvoice && selectedOrder && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
