@@ -71,73 +71,93 @@ const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'products' |
     }
   }, [searchQuery, orders, products]);
 
-  const fetchDashboardData = async () => {
-    try {
-      setLoading(true);
-      const [ordersRes, productsRes, combosRes] = await Promise.all([
-        fetch('/api/admin/orders', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
-          },
-        }),
-        fetch('/api/admin/products', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
-          },
-        }),
-        fetch('/api/admin/combos', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
-          },
-        })
-      ]);
+const fetchDashboardData = async () => {
+  try {
+    setLoading(true);
 
-      const ordersData = await ordersRes.json();
-      const productsData = await productsRes.json();
-      const combosData = await combosRes.json();
-
-      setOrders(ordersData);
-      setFilteredOrders(ordersData);
-      setProducts(productsData);
-      setFilteredProducts(productsData);
-      setCombos(combosData);
-
-      // Calculate statistics
-      const totalRevenue = ordersData.reduce((sum: number, order: Order) => 
-        order.status === 'paid' || order.status === 'delivered' ? sum + order.total_amount : sum, 0);
-      
-      const pendingOrders = ordersData.filter((order: Order) => 
-        ['created', 'pending', 'processing'].includes(order.status?.toLowerCase())).length;
-      
-      const completedOrders = ordersData.filter((order: Order) => 
-        ['paid', 'delivered', 'completed'].includes(order.status?.toLowerCase())).length;
-
-      const thisMonth = new Date().getMonth();
-      const thisMonthRevenue = ordersData
-        .filter((order: Order) => new Date(order.created_at).getMonth() === thisMonth)
-        .reduce((sum: number, order: Order) => sum + order.total_amount, 0);
-
-      const averageOrderValue = ordersData.length > 0 
-        ? totalRevenue / ordersData.length 
-        : 0;
-
-      setStats({
-        totalOrders: ordersData.length,
-        totalRevenue,
-        pendingOrders,
-        completedOrders,
-        totalProducts: productsData.length,
-        totalCombos: combosData.length,
-        thisMonthRevenue,
-        averageOrderValue,
-      });
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-      alert('Failed to load dashboard data. Please check your connection.');
-    } finally {
-      setLoading(false);
+    const token = localStorage.getItem('admin_token');
+    if (!token) {
+      alert('Session expired. Please login again.');
+      handleLogout();
+      return;
     }
-  };
+
+    const fetchWithGuard = async (url: string) => {
+      const res = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const contentType = res.headers.get('content-type');
+
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          alert('Session expired. Please login again.');
+          handleLogout();
+          throw new Error('Unauthorized');
+        }
+        throw new Error(`API failed: ${res.status}`);
+      }
+
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await res.text();
+        console.error('Non-JSON response from', url, text);
+        throw new Error('Invalid server response');
+      }
+
+      return res.json();
+    };
+
+    const [ordersData, productsData, combosData] = await Promise.all([
+      fetchWithGuard('/api/admin/orders'),
+      fetchWithGuard('/api/admin/products'),
+      fetchWithGuard('/api/admin/combos'),
+    ]);
+
+    setOrders(ordersData);
+    setFilteredOrders(ordersData);
+    setProducts(productsData);
+    setFilteredProducts(productsData);
+    setCombos(combosData);
+
+    // Stats
+    const totalRevenue = ordersData.reduce(
+      (sum: number, o: Order) =>
+        ['paid', 'delivered', 'completed'].includes(o.status) ? sum + o.total_amount : sum,
+      0
+    );
+
+    const pendingOrders = ordersData.filter((o: Order) =>
+      ['created', 'pending', 'processing'].includes(o.status)
+    ).length;
+
+    const completedOrders = ordersData.filter((o: Order) =>
+      ['paid', 'delivered', 'completed'].includes(o.status)
+    ).length;
+
+    const thisMonth = new Date().getMonth();
+    const thisMonthRevenue = ordersData
+      .filter((o: Order) => new Date(o.created_at).getMonth() === thisMonth)
+      .reduce((sum: number, o: Order) => sum + o.total_amount, 0);
+
+    setStats({
+      totalOrders: ordersData.length,
+      totalRevenue,
+      pendingOrders,
+      completedOrders,
+      totalProducts: productsData.length,
+      totalCombos: combosData.length,
+      thisMonthRevenue,
+      averageOrderValue: ordersData.length ? totalRevenue / ordersData.length : 0,
+    });
+  } catch (err) {
+    console.error('Error fetching dashboard data:', err);
+    alert('Failed to load dashboard data.');
+  } finally {
+    setLoading(false);
+  }
+};
 const deleteCombo = async (comboId: string) => {
   if (!confirm('Are you sure you want to delete this combo? This action cannot be undone.')) return;
   
