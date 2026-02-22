@@ -18,7 +18,7 @@ const Layout: React.FC = () => {
   return (
     <div className="min-h-screen bg-premium-cream">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-sm border-b border-premium-gold/20">
+      <header className="sticky top-0 z-50 bg-black/90 backdrop-blur-sm border-b border-premium-gold/20">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             {/* Logo */}
@@ -36,7 +36,7 @@ const Layout: React.FC = () => {
                 <Link
                   key={item.path}
                   to={item.path}
-                  className="flex items-center space-x-1 text-premium-charcoal hover:text-premium-gold transition-colors font-medium"
+                  className="flex items-center space-x-1 text-premium-cream hover:text-premium-gold transition-colors font-medium"
                 >
                   <item.icon className="h-4 w-4" />
                   <span>{item.name}</span>
@@ -46,17 +46,13 @@ const Layout: React.FC = () => {
 
             {/* Search and Cart */}
             <div className="flex items-center space-x-4">
-              <Link to="/products" className="hidden md:flex items-center justify-center w-10 h-10 rounded-full hover:bg-premium-cream transition-colors">
-                <Search className="h-5 w-5 text-premium-charcoal" />
-              </Link>
-              
               <button
                 onClick={() => setIsCartOpen(true)}
-                className="relative flex items-center justify-center w-10 h-10 rounded-full hover:bg-premium-cream transition-colors"
+                className="relative flex items-center justify-center w-10 h-10 rounded-full hover:bg-premium-gold transition-colors"
               >
-                <ShoppingBag className="h-5 w-5 text-premium-charcoal" />
+                <ShoppingBag className="h-5 w-5 text-premium-cream" />
                 {itemCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-premium-burgundy text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                  <span className="absolute -top-1 -right-1 bg-premium-burgundy text-gold text-xs rounded-full w-5 h-5 flex items-center justify-center">
                     {itemCount}
                   </span>
                 )}
