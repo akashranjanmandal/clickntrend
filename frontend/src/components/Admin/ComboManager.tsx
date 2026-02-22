@@ -102,7 +102,9 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
 
     try {
       const token = localStorage.getItem('admin_token');
-      const response = await fetch('/api/admin/upload-image', {
+      const baseUrl = import.meta.env.VITE_API_URL || '';
+      
+      const response = await fetch(`${baseUrl}/api/admin/upload-image`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData,
@@ -169,109 +171,121 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
     product.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
     product.category.toLowerCase().includes(searchTerm.toLowerCase())
   );
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  if (selectedProducts.length === 0) {
-    alert('Please add at least one product to the combo');
-    return;
-  }
 
-  setLoading(true);
-  try {
-    const token = localStorage.getItem('admin_token');
-    
-    // Upload image if selected
-    const imageUrl = await uploadImage();
-
-    // Create combo payload WITHOUT products array
-    const comboPayload = {
-      name: comboData.name,
-      description: comboData.description,
-      discount_percentage: comboData.discount_percentage ? parseInt(comboData.discount_percentage) : null,
-      discount_price: comboData.discount_price ? parseFloat(comboData.discount_price) : null,
-      image_url: imageUrl || comboData.image_url,
-      is_active: comboData.is_active
-    };
-
-    console.log('Sending combo data:', comboPayload);
-
-    const baseUrl = import.meta.env.VITE_API_URL || '';
-    const url = combo 
-      ? `${baseUrl}/api/admin/combos/${combo.id}`
-      : `${baseUrl}/api/admin/combos`;
-
-    // First, save/update the combo
-    const response = await fetch(url, {
-      method: combo ? 'PUT' : 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify(comboPayload),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ message: 'Failed to save combo' }));
-      console.error('Server response:', errorData);
-      throw new Error(errorData.message || errorData.error || 'Failed to save combo');
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (selectedProducts.length === 0) {
+      alert('Please add at least one product to the combo');
+      return;
     }
 
-    const responseData = await response.json();
-    const comboId = combo ? combo.id : responseData.combo.id;
-    
-    // Now, handle the combo products separately
-    // For update, we need to delete existing products first
-    if (combo) {
-      // Delete existing combo products
-      const deleteResponse = await fetch(`${baseUrl}/api/admin/combos/${comboId}/products`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('admin_token');
+      const baseUrl = import.meta.env.VITE_API_URL || '';
       
-      if (!deleteResponse.ok) {
-        console.error('Failed to delete existing products');
+      // Upload image if selected
+      let imageUrl = comboData.image_url;
+      if (imageFile) {
+        const uploadedUrl = await uploadImage();
+        if (uploadedUrl) {
+          imageUrl = uploadedUrl;
+        }
       }
-    }
-    
-    // Add new products
-    if (selectedProducts.length > 0) {
-      const productsPayload = {
-        products: selectedProducts.map(p => ({
-          product_id: p.id,
-          quantity: p.quantity
-        }))
+
+      // Create combo payload WITHOUT products - ensure image_url is never null
+      const comboPayload = {
+        name: comboData.name,
+        description: comboData.description,
+        discount_percentage: comboData.discount_percentage ? parseInt(comboData.discount_percentage) : null,
+        discount_price: comboData.discount_price ? parseFloat(comboData.discount_price) : null,
+        image_url: imageUrl || '', // Convert null to empty string
+        is_active: comboData.is_active
       };
+
+      console.log('Saving combo:', comboPayload);
+
+      let comboId;
       
-      const productsResponse = await fetch(`${baseUrl}/api/admin/combos/${comboId}/products`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(productsPayload),
-      });
-      
-      if (!productsResponse.ok) {
-        const errorData = await productsResponse.json();
-        console.error('Error adding products:', errorData);
-        throw new Error('Failed to add products to combo');
+      if (combo) {
+        // UPDATE existing combo
+        const updateResponse = await fetch(`${baseUrl}/api/admin/combos/${combo.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify(comboPayload),
+        });
+
+        if (!updateResponse.ok) {
+          const error = await updateResponse.json();
+          throw new Error(error.message || 'Failed to update combo');
+        }
+        
+        comboId = combo.id;
+        
+        // Delete existing products
+        await fetch(`${baseUrl}/api/admin/combos/${comboId}/products`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        
+      } else {
+        // CREATE new combo
+        const createResponse = await fetch(`${baseUrl}/api/admin/combos`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify(comboPayload),
+        });
+
+        if (!createResponse.ok) {
+          const error = await createResponse.json();
+          throw new Error(error.message || 'Failed to create combo');
+        }
+
+        const result = await createResponse.json();
+        comboId = result.combo.id;
       }
+
+      // Add products to combo
+      if (selectedProducts.length > 0) {
+        const productsPayload = {
+          products: selectedProducts.map(p => ({
+            product_id: p.id,
+            quantity: p.quantity
+          }))
+        };
+
+        const productsResponse = await fetch(`${baseUrl}/api/admin/combos/${comboId}/products`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify(productsPayload),
+        });
+
+        if (!productsResponse.ok) {
+          const error = await productsResponse.json();
+          throw new Error(error.message || 'Failed to add products');
+        }
+      }
+
+      alert(combo ? 'Combo updated successfully!' : 'Combo created successfully!');
+      onSuccess();
+      onClose();
+    } catch (error: any) {
+      console.error('Save combo error:', error);
+      alert(`Error: ${error.message}`);
+    } finally {
+      setLoading(false);
     }
+  };
 
-    console.log('Save successful:', responseData);
-
-    alert(combo ? 'Combo updated successfully!' : 'Combo created successfully!');
-    onSuccess();
-    onClose();
-  } catch (error: any) {
-    console.error('Save combo error:', error);
-    alert(`Error: ${error.message}`);
-  } finally {
-    setLoading(false);
-  }
-};
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">

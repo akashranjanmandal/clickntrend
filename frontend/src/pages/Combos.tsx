@@ -1,32 +1,47 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Package, Star, ShoppingCart, Sparkles, Tag } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
-import { fetchCombosDirectly } from '../utils/supabase';
+import { Package, Star, ShoppingCart, Sparkles, Tag, ArrowRight } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { Combo, ComboProduct } from '../types';
 import toast from 'react-hot-toast';
 import { getImageUrl, formatCurrency } from '../utils/helpers';
+import { apiFetch } from '../config';
+import { Link } from 'react-router-dom';
 
 export default function Combos() {
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [combos, setCombos] = useState<Combo[]>([]);
+  const [loading, setLoading] = useState(true);
   const { addItem } = useCart();
 
-  const { data: rawCombos = [], isLoading } = useQuery({
-    queryKey: ['combos'],
-    queryFn: fetchCombosDirectly,
-  });
+  useEffect(() => {
+    fetchCombos();
+  }, []);
 
-  // Normalize Supabase response → Combo[]
-  const combos: Combo[] = rawCombos.map((combo: any) => ({
-    ...combo,
-    combo_products: (combo.combo_products || []).map((cp: any) => ({
-      product: cp.product,
-      quantity: cp.quantity ?? 1,
-    })),
-  }));
+  const fetchCombos = async () => {
+    try {
+      setLoading(true);
+      const data = await apiFetch('/api/combos');
+      setCombos(data || []);
+    } catch (error) {
+      console.error('Error fetching combos:', error);
+      toast.error('Failed to load combos');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const categories = ['All', 'Birthday', 'Anniversary', 'Valentine', 'Luxury', 'Corporate'];
+
+  const filteredCombos = selectedCategory === 'All' 
+    ? combos 
+    : combos.filter(combo => {
+        // Filter logic based on combo products categories
+        const comboProducts = combo.combo_products || [];
+        return comboProducts.some((item: ComboProduct) => 
+          item.product.category === selectedCategory
+        );
+      });
 
   const addToCart = (combo: Combo) => {
     const comboProducts = combo.combo_products || [];
@@ -68,16 +83,31 @@ export default function Combos() {
     return { savings, percentage };
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-premium-gold mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading amazing combos...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-8">
+    <div className="container mx-auto px-4 py-12">
       {/* Header */}
-      <div className="text-center max-w-3xl mx-auto">
-        <div className="flex items-center justify-center gap-3 mb-4">
-          <Package className="w-8 h-8 text-primary-600" />
+      <div className="text-center max-w-3xl mx-auto mb-12">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center justify-center gap-3 mb-4"
+        >
+          <Package className="w-8 h-8 text-premium-gold" />
           <Sparkles className="w-8 h-8 text-yellow-500" />
           <Package className="w-8 h-8 text-purple-600" />
-        </div>
-        <h1 className="text-5xl font-serif font-bold text-gray-900 mb-4">
+        </motion.div>
+        <h1 className="text-5xl font-serif font-bold text-premium-charcoal mb-4">
           Curated Gift Combos
         </h1>
         <p className="text-xl text-gray-600">
@@ -86,14 +116,14 @@ export default function Combos() {
       </div>
 
       {/* Categories */}
-      <div className="flex flex-wrap justify-center gap-3">
+      <div className="flex flex-wrap justify-center gap-3 mb-12">
         {categories.map((category) => (
           <button
             key={category}
             onClick={() => setSelectedCategory(category)}
             className={`px-6 py-2 rounded-full transition-all ${
               selectedCategory === category
-                ? 'bg-primary-600 text-white shadow-lg'
+                ? 'bg-premium-gold text-white shadow-lg'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
@@ -103,19 +133,9 @@ export default function Combos() {
       </div>
 
       {/* Combos Grid */}
-      {isLoading ? (
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="animate-pulse">
-              <div className="bg-gray-200 rounded-2xl h-64 mb-4" />
-              <div className="h-4 bg-gray-200 rounded mb-2" />
-              <div className="h-4 bg-gray-200 rounded w-3/4" />
-            </div>
-          ))}
-        </div>
-      ) : combos.length > 0 ? (
+      {filteredCombos.length > 0 ? (
         <motion.div layout className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {combos.map((combo: Combo) => {
+          {filteredCombos.map((combo: Combo) => {
             const comboProducts = combo.combo_products || [];
             const savings = calculateSavings(combo);
 
@@ -130,9 +150,12 @@ export default function Combos() {
                 {/* Image */}
                 <div className="relative h-64 overflow-hidden">
                   <img
-                    src={getImageUrl(combo.image_url) || 'https://images.unsplash.com/photo-1544716278-e513176f20b5'}
+                    src={getImageUrl(combo.image_url)}
                     alt={combo.name}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                    onError={(e) => {
+                      e.currentTarget.src = 'https://images.unsplash.com/photo-1544716278-e513176f20b5?w=400&h=400&fit=crop';
+                    }}
                   />
 
                   {savings && (
@@ -150,12 +173,12 @@ export default function Combos() {
                 {/* Content */}
                 <div className="p-6">
                   <div className="flex justify-between items-start mb-4">
-                    <h3 className="text-xl font-semibold text-gray-900">
+                    <h3 className="text-xl font-serif font-semibold text-premium-charcoal">
                       {combo.name}
                     </h3>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 bg-yellow-50 px-2 py-1 rounded-full">
                       <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                      <span className="text-sm text-gray-600">4.9</span>
+                      <span className="text-xs text-gray-600">4.9</span>
                     </div>
                   </div>
 
@@ -166,9 +189,7 @@ export default function Combos() {
                   {/* Products */}
                   <div className="mb-6">
                     <div className="flex items-center gap-2 text-sm text-gray-500 mb-3">
-                      <span>
-                        Includes {comboProducts.length} premium items:
-                      </span>
+                      <span>Includes {comboProducts.length} premium items:</span>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {comboProducts.slice(0, 3).map((item: ComboProduct) => (
@@ -180,7 +201,7 @@ export default function Combos() {
                         </span>
                       ))}
                       {comboProducts.length > 3 && (
-                        <span className="px-3 py-1 bg-primary-100 text-primary-700 text-sm rounded-full">
+                        <span className="px-3 py-1 bg-premium-gold/10 text-premium-gold text-sm rounded-full">
                           +{comboProducts.length - 3} more
                         </span>
                       )}
@@ -192,17 +213,17 @@ export default function Combos() {
                     <div>
                       {combo.discount_price ? (
                         <>
-                          <span className="text-2xl font-bold text-gray-900">
+                          <span className="text-2xl font-bold text-premium-gold">
                             ₹{combo.discount_price.toLocaleString()}
                           </span>
                           {savings && (
-                            <span className="text-gray-400 line-through ml-2">
+                            <span className="text-gray-400 line-through ml-2 text-sm">
                               ₹{(combo.discount_price + savings.savings).toLocaleString()}
                             </span>
                           )}
                         </>
                       ) : (
-                        <span className="text-2xl font-bold text-gray-900">
+                        <span className="text-2xl font-bold text-premium-gold">
                           ₹{comboProducts
                             .reduce(
                               (sum: number, item: ComboProduct) =>
@@ -225,7 +246,7 @@ export default function Combos() {
                   {/* Add to Cart */}
                   <button
                     onClick={() => addToCart(combo)}
-                    className="w-full bg-gradient-to-r from-primary-600 to-purple-600 text-white py-3 rounded-xl font-semibold hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                    className="w-full bg-gradient-to-r from-premium-gold to-premium-burgundy text-white py-3 rounded-xl font-semibold hover:shadow-lg transition-all flex items-center justify-center gap-2"
                   >
                     <ShoppingCart className="w-5 h-5" />
                     Add to Cart
@@ -237,13 +258,20 @@ export default function Combos() {
         </motion.div>
       ) : (
         <div className="text-center py-16">
-          <Package className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-2xl font-semibold text-gray-900 mb-2">
+          <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+          <h3 className="text-2xl font-serif font-semibold text-gray-700 mb-2">
             No combos available
           </h3>
-          <p className="text-gray-600">
+          <p className="text-gray-500 mb-8">
             Check back soon for new curated gift sets!
           </p>
+          <Link
+            to="/products"
+            className="inline-flex items-center px-6 py-3 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy transition-colors"
+          >
+            Browse Products
+            <ArrowRight className="ml-2 h-5 w-5" />
+          </Link>
         </div>
       )}
     </div>
