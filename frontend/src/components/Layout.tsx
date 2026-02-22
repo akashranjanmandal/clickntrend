@@ -22,12 +22,13 @@ const Layout: React.FC = () => {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             {/* Logo */}
-            <Link to="/" className="flex items-center space-x-2">
-              <Gift className="h-8 w-8 text-premium-gold" />
-              <span className="text-2xl font-serif font-bold text-premium-charcoal">
-                GFTD
-              </span>
-            </Link>
+      <Link to="/" className="flex items-center space-x-3">
+        <img 
+          src="/logo.png" 
+          alt="GFTD" 
+          className="h-16 w-auto"
+        />
+      </Link>
 
             {/* Desktop Navigation */}
             <nav className="hidden md:flex items-center space-x-8">
@@ -106,10 +107,13 @@ const Layout: React.FC = () => {
         <div className="container mx-auto px-4 py-12">
           <div className="grid md:grid-cols-4 gap-8">
             <div>
-              <div className="flex items-center space-x-2 mb-4">
-                <Gift className="h-6 w-6 text-premium-gold" />
-                <span className="text-xl font-serif font-bold">GFTD</span>
-              </div>
+                    <Link to="/" className="flex items-center space-x-3">
+        <img 
+          src="/logo.png" 
+          alt="GFTD" 
+          className="h-16 w-auto"
+        />
+      </Link>
               <p className="text-premium-cream/70">
                 The Art Of Gifting - Premium gifts for unforgettable moments.
               </p>

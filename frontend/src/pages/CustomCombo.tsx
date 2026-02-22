@@ -295,24 +295,7 @@ const CustomCombo: React.FC = () => {
                     </p>
                   </div>
                   <div className="flex flex-col sm:flex-row gap-2">
-                    <button
-                      onClick={saveCombo}
-                      disabled={loading || selectedProducts.length === 0}
-                      className={`px-4 md:px-6 py-2.5 md:py-3 rounded-lg font-medium text-sm md:text-base flex items-center justify-center space-x-2 ${
-                        loading || selectedProducts.length === 0
-                          ? 'bg-gray-300 cursor-not-allowed'
-                          : 'bg-premium-gold hover:bg-premium-burgundy text-white'
-                      }`}
-                    >
-                      {saved ? (
-                        <>
-                          <Check className="h-4 w-4 md:h-5 md:w-5" />
-                          <span>Saved!</span>
-                        </>
-                      ) : (
-                        <span>{loading ? 'Saving...' : 'Save Combo'}</span>
-                      )}
-                    </button>
+
                     <button
                       onClick={addToCartAndCheckout}
                       disabled={selectedProducts.length === 0}
