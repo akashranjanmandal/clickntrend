@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import {
   Search, Sparkles, TrendingUp, Shield, Gift,
-  ArrowRight, Loader2
+  ArrowRight, Loader2, X
 } from 'lucide-react';
 import ProductCard from '../components/ProductCard';
 import CategoryCard from '../components/CategoryCard';
 import HeroSection from '../components/HeroSection';
 import { Product, Category, HeroContent, Stat } from '../types';
 import { apiFetch } from '../config';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const Home: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -16,17 +16,10 @@ const Home: React.FC = () => {
   const [heroes, setHeroes] = useState<HeroContent[]>([]);
   const [stats, setStats] = useState<Stat[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState<Product[]>([]);
+  const [showSearchResults, setShowSearchResults] = useState(false);
   const [loading, setLoading] = useState(true);
   const [searchLoading, setSearchLoading] = useState(false);
-
-  const presetSearches = [
-    { text: 'Anniversary Gift', icon: '💝' },
-    { text: 'Birthday Gift', icon: '🎂' },
-    { text: 'Valentine Week', icon: '❤️' },
-    { text: 'Corporate Gift', icon: '💼' },
-    { text: 'Premium Hamper', icon: '🎁' },
-    { text: 'Custom Combo', icon: '✨' }
-  ];
 
   const defaultStats = [
     { label: 'Happy Customers', value: '10K+', icon: '😊' },
@@ -45,9 +38,9 @@ const Home: React.FC = () => {
       
       const [productsData, categoriesData, heroesData, statsData] = await Promise.all([
         apiFetch('/api/products').catch(() => []),
-        apiFetch('/api/categories/public').catch(() => []),
-        apiFetch('/api/hero/public').catch(() => []),
-        apiFetch('/api/settings/public?key=stats').catch(() => ({ value: defaultStats }))
+        apiFetch('/api/categories').catch(() => []),
+        apiFetch('/api/hero').catch(() => []),
+        apiFetch('/api/settings?key=stats').catch(() => ({ value: defaultStats }))
       ]);
 
       setProducts(productsData || []);
@@ -63,28 +56,38 @@ const Home: React.FC = () => {
   };
 
   const handleSearch = async (searchText?: string) => {
-    const searchQuery = searchText || searchTerm;
+    const query = searchText || searchTerm;
     
-    if (!searchQuery.trim()) {
-      await fetchAllData();
+    if (!query.trim()) {
+      setShowSearchResults(false);
+      setSearchResults([]);
       return;
     }
 
     setSearchLoading(true);
+    setShowSearchResults(true);
+    
     try {
-      const data = await apiFetch(`/api/products/search?q=${encodeURIComponent(searchQuery)}`);
-      setProducts(data);
+      // Search by product name and category
+      const data = await apiFetch(`/api/products/search?q=${encodeURIComponent(query)}`);
+      setSearchResults(data || []);
     } catch (error) {
       console.error('Error searching products:', error);
+      setSearchResults([]);
     } finally {
       setSearchLoading(false);
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleSearch();
-    }
+  const handleCategoryClick = (category: string) => {
+    window.location.href = `/products?category=${category.toLowerCase()}`;
+  };
+
+
+  const clearSearch = () => {
+    setSearchTerm('');
+    setShowSearchResults(false);
+    setSearchResults([]);
   };
 
   if (loading) {
@@ -117,54 +120,84 @@ const Home: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             className="max-w-3xl mx-auto"
           >
-            <div className="bg-white rounded-2xl shadow-2xl p-2 flex items-center">
-              <div className="flex-1 flex items-center px-4">
-                <Search className="h-5 w-5 text-gray-400" />
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Search for perfect gifts..."
-                  className="w-full px-4 py-4 focus:outline-none"
-                />
-              </div>
-              <button
-                onClick={() => handleSearch()}
-                disabled={searchLoading}
-                className="px-8 py-4 bg-premium-gold text-white rounded-xl hover:bg-premium-burgundy transition-colors disabled:opacity-50 flex items-center gap-2"
-              >
-                {searchLoading ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  <>
-                    Search
-                    <ArrowRight className="h-5 w-5" />
-                  </>
-                )}
-              </button>
-            </div>
-
-            {/* Preset Searches */}
-            <div className="flex flex-wrap gap-3 justify-center mt-6">
-              {presetSearches.map((item, index) => (
-                <motion.button
-                  key={item.text}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: index * 0.1 }}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => {
-                    setSearchTerm(item.text);
-                    handleSearch(item.text);
-                  }}
-                  className="px-4 py-2 bg-white/90 backdrop-blur-sm border border-premium-gold/20 rounded-full hover:bg-premium-gold hover:text-white transition-all duration-300 flex items-center gap-2 shadow-lg"
+            <div className="relative">
+              <div className="bg-white rounded-2xl shadow-2xl p-2 flex items-center">
+                <div className="flex-1 flex items-center px-4">
+                  <Search className="h-5 w-5 text-gray-400" />
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                    placeholder="Search by product name or category..."
+                    className="w-full px-4 py-4 focus:outline-none"
+                  />
+                  {searchTerm && (
+                    <button onClick={clearSearch} className="p-1 hover:bg-gray-100 rounded-full">
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+                <button
+                  onClick={() => handleSearch()}
+                  disabled={searchLoading}
+                  className="px-8 py-4 bg-premium-gold text-white rounded-xl hover:bg-premium-burgundy transition-colors disabled:opacity-50 flex items-center gap-2"
                 >
-                  <span>{item.icon}</span>
-                  <span>{item.text}</span>
-                </motion.button>
-              ))}
+                  {searchLoading ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <>
+                      Search
+                      <ArrowRight className="h-5 w-5" />
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Search Results Dropdown */}
+              <AnimatePresence>
+                {showSearchResults && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border max-h-96 overflow-y-auto z-50"
+                  >
+                    {searchLoading ? (
+                      <div className="p-8 text-center">
+                        <Loader2 className="h-8 w-8 animate-spin text-premium-gold mx-auto" />
+                      </div>
+                    ) : searchResults.length > 0 ? (
+                      <div className="divide-y">
+                        {searchResults.map((product) => (
+                          <div
+                            key={product.id}
+                            onClick={() => window.location.href = `/product/${product.id}`}
+                            className="p-4 hover:bg-gray-50 cursor-pointer flex items-center gap-4"
+                          >
+                            <img
+                              src={product.image_url}
+                              alt={product.name}
+                              className="w-16 h-16 object-cover rounded-lg"
+                            />
+                            <div className="flex-1">
+                              <h4 className="font-medium">{product.name}</h4>
+                              <p className="text-sm text-gray-600">{product.category}</p>
+                              <p className="text-premium-gold font-semibold mt-1">
+                                ₹{product.price.toLocaleString()}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-8 text-center text-gray-500">
+                        No products found for "{searchTerm}"
+                      </div>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </motion.div>
         </div>
@@ -208,16 +241,23 @@ const Home: React.FC = () => {
 
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
               {categories.map((category, index) => (
-                <CategoryCard
+                <motion.div
                   key={category.id}
-                  name={category.name}
-                  icon={category.icon}
-                  icon_type={category.icon_type || 'emoji'}
-                  color={category.color}
-                  hover_effect={category.hover_effect}
-                  count={products.filter(p => p.category === category.name).length}
-                  onClick={() => window.location.href = `/products?category=${category.name.toLowerCase()}`}
-                />
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  whileHover={{ scale: 1.05 }}
+                  onClick={() => handleCategoryClick(category.name)}
+                  className={`bg-gradient-to-br ${category.color} p-6 rounded-2xl text-center cursor-pointer hover:shadow-2xl transition-all duration-300`}
+                >
+                  <div className="text-4xl mb-4">{category.icon}</div>
+                  <h3 className="font-serif text-lg font-semibold text-premium-charcoal">
+                    {category.name}
+                  </h3>
+                  <p className="text-sm text-gray-600 mt-2">
+                    {products.filter(p => p.category === category.name).length} gifts
+                  </p>
+                </motion.div>
               ))}
             </div>
           </div>

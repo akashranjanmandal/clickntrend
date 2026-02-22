@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { ShoppingCart, Star, Eye } from 'lucide-react';
+import { ShoppingCart, Star, Eye, PenTool } from 'lucide-react';
 import { Product } from '../types';
 import { formatCurrency, getImageUrl } from '../utils/helpers';
 import { useCart } from '../context/CartContext';
 import ProductDetailsModal from './ProductDetailsModal';
+import ProductCustomizationModal from './ProductCustomizationModal';
 
 interface ProductCardProps {
   product: Product;
@@ -12,24 +13,24 @@ interface ProductCardProps {
 const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const { addItem } = useCart();
   const [showDetails, setShowDetails] = useState(false);
+  const [showCustomization, setShowCustomization] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.stopPropagation();
-    addItem({
-      id: product.id,
-      name: product.name,
-      price: product.price,
-      quantity: 1,
-      image_url: product.image_url,
-      type: 'product',
-      category: product.category
-    });
-  };
-
-  const handleViewDetails = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setShowDetails(true);
+    if (product.is_customizable) {
+      setShowCustomization(true);
+    } else {
+      addItem({
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        quantity: 1,
+        image_url: product.image_url,
+        type: 'product',
+        category: product.category
+      });
+    }
   };
 
   return (
@@ -53,11 +54,17 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             </div>
           )}
           
-          {/* Action Buttons */}
+          {product.is_customizable && (
+            <div className="absolute top-4 right-4 bg-purple-600 text-white px-3 py-1 rounded-full text-sm font-semibold shadow-lg flex items-center gap-1">
+              <PenTool className="h-3 w-3" />
+              Customizable
+            </div>
+          )}
+          
           <div className="absolute inset-x-0 bottom-0 translate-y-full group-hover:translate-y-0 transition-transform duration-300 bg-gradient-to-t from-black/70 via-black/50 to-transparent p-4">
             <div className="flex gap-2">
               <button
-                onClick={handleViewDetails}
+                onClick={() => setShowDetails(true)}
                 className="flex-1 px-4 py-2 bg-white/90 backdrop-blur-sm text-premium-charcoal rounded-lg hover:bg-premium-gold hover:text-white transition-colors font-medium flex items-center justify-center gap-2"
               >
                 <Eye className="h-4 w-4" />
@@ -68,7 +75,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
                 className="flex-1 px-4 py-2 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy transition-colors font-medium flex items-center justify-center gap-2"
               >
                 <ShoppingCart className="h-4 w-4" />
-                Add to Cart
+                {product.is_customizable ? 'Customize' : 'Add to Cart'}
               </button>
             </div>
           </div>
@@ -105,17 +112,23 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
               onClick={handleAddToCart}
               className="px-4 py-2 bg-premium-gold/10 text-premium-gold rounded-lg hover:bg-premium-gold hover:text-white transition-colors font-medium text-sm"
             >
-              Add
+              {product.is_customizable ? 'Customize' : 'Add'}
             </button>
           </div>
         </div>
       </div>
 
-      {/* Product Details Modal */}
       {showDetails && (
         <ProductDetailsModal
           product={product}
           onClose={() => setShowDetails(false)}
+        />
+      )}
+
+      {showCustomization && (
+        <ProductCustomizationModal
+          product={product}
+          onClose={() => setShowCustomization(false)}
         />
       )}
     </>

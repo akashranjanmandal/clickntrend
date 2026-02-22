@@ -10,6 +10,29 @@ export interface Product {
   stock_quantity: number;
   is_active: boolean;
   created_at: string;
+  // New customization fields
+  is_customizable?: boolean;
+  customization_price?: number;
+  customization_types?: string[];
+  max_customization_characters?: number;
+}
+
+export interface CustomizationData {
+  text?: string;
+  image_url?: string;
+  image_path?: string;
+  preview_url?: string;
+}
+
+export interface CartItem {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+  image_url: string;
+  type: 'product' | 'combo' | 'custom';
+  category?: string;
+  customization?: CustomizationData;
 }
 
 export interface ComboProduct {
@@ -26,7 +49,7 @@ export interface Combo {
   image_url?: string;
   is_active: boolean;
   combo_products?: ComboProduct[];
-  products?: ComboProduct[]; // Alias for compatibility
+  products?: ComboProduct[];
   created_at: string;
 }
 
@@ -39,6 +62,7 @@ export interface Review {
   comment: string;
   is_approved: boolean;
   created_at: string;
+  product?: { name: string };
 }
 
 export interface Category {
@@ -112,16 +136,7 @@ export interface Order {
   cod_charge?: number;
   subtotal?: number;
   grand_total?: number;
-}
-
-export interface CartItem {
-  id: string;
-  name: string;
-  price: number;
-  quantity: number;
-  image_url: string;
-  type: 'product' | 'combo' | 'custom';
-  category?: string;
+  customization_data?: any;
 }
 
 export interface Coupon {

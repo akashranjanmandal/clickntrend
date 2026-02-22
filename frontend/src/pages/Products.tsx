@@ -28,7 +28,7 @@ const Products: React.FC = () => {
     try {
       const [productsData, categoriesData] = await Promise.all([
         apiFetch('/api/products').catch(() => []),
-        apiFetch('/api/categories/public').catch(() => [])
+        apiFetch('/api/categories').catch(() => [])
       ]);
       
       setProducts(productsData || []);

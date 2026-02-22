@@ -14,6 +14,9 @@ import EditProduct from './EditProduct';
 import InvoicePDF from './InvoicePDF';
 import CouponManager from './CouponManager';
 import { useApi } from '../../hooks/useApi';
+import ReviewManager from './ReviewManager';
+import HeroManager from './HeroManager';
+import { Star, Video } from 'lucide-react';
 
 const AdminPanel: React.FC = () => {
   const { fetchWithAuth } = useApi();
@@ -21,7 +24,7 @@ const AdminPanel: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [combos, setCombos] = useState<Combo[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'products' | 'combos' | 'coupons' | 'categories'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'products' | 'combos' | 'coupons' | 'categories' | 'hero' |'reviews'>('dashboard');
   const [showProductUpload, setShowProductUpload] = useState(false);
   const [showComboManager, setShowComboManager] = useState(false);
   const [showEditProduct, setShowEditProduct] = useState(false);
@@ -303,6 +306,8 @@ const AdminPanel: React.FC = () => {
                   { id: 'combos', label: 'Combos', icon: Package },
                   { id: 'coupons', label: 'Coupons', icon: Tag },
                   { id: 'categories', label: 'Categories', icon: Tag },
+                  { id: 'reviews', label: 'Reviews', icon: Star },
+                  { id: 'hero', label: 'Hero', icon: Video },
                 ].map((tab) => (
                   <button
                     key={tab.id}
@@ -340,7 +345,7 @@ const AdminPanel: React.FC = () => {
 
           <div className="md:hidden mt-4 overflow-x-auto">
             <div className="flex space-x-2">
-              {['dashboard', 'orders', 'products', 'combos', 'coupons', 'categories'].map((tab) => (
+              {['dashboard', 'orders', 'products', 'combos', 'coupons', 'categories', 'reviews', 'hero'].map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab as any)}
@@ -943,6 +948,8 @@ const AdminPanel: React.FC = () => {
 
         {activeTab === 'coupons' && <CouponManager />}
         {activeTab === 'categories' && <CategoryManager />}
+        {activeTab === 'reviews' && <ReviewManager />}
+        {activeTab === 'hero' && <HeroManager />}
       </div>
 
       {/* Modals */}
