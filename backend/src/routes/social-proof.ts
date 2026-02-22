@@ -16,18 +16,18 @@ router.get('/:productId', async (req, res) => {
       .from('social_proof_settings')
       .select('*')
       .eq('product_id', productId)
-      .single();
+      .maybeSingle();
 
-    if (settingsError && settingsError.code !== 'PGRST116') throw settingsError;
+    if (settingsError) throw settingsError;
 
     // Get stats
     const { data: stats, error: statsError } = await supabasePublic
       .from('social_proof_stats')
       .select('*')
       .eq('product_id', productId)
-      .single();
+      .maybeSingle();
 
-    if (statsError && statsError.code !== 'PGRST116') throw statsError;
+    if (statsError) throw statsError;
 
     res.json({
       text_template: settings?.text_template || '🔺{count} People are Purchasing Right Now',
@@ -45,12 +45,11 @@ router.post('/track-view', async (req, res) => {
   try {
     const { product_id } = req.body;
     
-    // Update or insert view count
     const { data: existing } = await supabase
       .from('social_proof_stats')
       .select('*')
       .eq('product_id', product_id)
-      .single();
+      .maybeSingle();
 
     if (existing) {
       await supabase
@@ -83,12 +82,11 @@ router.post('/track-purchase', async (req, res) => {
   try {
     const { product_id } = req.body;
     
-    // Update or insert purchase count
     const { data: existing } = await supabase
       .from('social_proof_stats')
       .select('*')
       .eq('product_id', product_id)
-      .single();
+      .maybeSingle();
 
     if (existing) {
       await supabase
@@ -136,7 +134,7 @@ router.get('/admin/stats', requireAuth, async (req, res) => {
 
     const formattedData = data?.map(stat => ({
       product_id: stat.product_id,
-      product_name: stat.products?.name || 'Unknown',
+      product_name: stat.products?.[0]?.name || 'Unknown',
       view_count: stat.view_count || 0,
       purchase_count: stat.purchase_count || 0,
       conversion_rate: stat.view_count > 0 

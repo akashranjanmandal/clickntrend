@@ -18,9 +18,9 @@ router.get('/active', async (req, res) => {
       .or(`end_date.is.null,end_date.gte.${now}`)
       .order('created_at', { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
 
-    if (error && error.code !== 'PGRST116') throw error;
+    if (error) throw error;
     res.json(data || null);
   } catch (error: any) {
     console.error('Error fetching active popup:', error);
@@ -90,10 +90,12 @@ router.get('/admin', requireAuth, async (req, res) => {
 // Create popup
 router.post('/admin', requireAuth, async (req, res) => {
   try {
+    const popupData = req.body;
+    
     const { data, error } = await supabase
       .from('popup_config')
       .insert({
-        ...req.body,
+        ...popupData,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
@@ -112,10 +114,12 @@ router.post('/admin', requireAuth, async (req, res) => {
 router.put('/admin/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
+    const updates = req.body;
+    
     const { data, error } = await supabase
       .from('popup_config')
       .update({
-        ...req.body,
+        ...updates,
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
@@ -174,7 +178,7 @@ router.get('/admin/:id/stats', requireAuth, async (req, res) => {
     res.json({
       totalViews,
       totalClicks,
-      conversionRate,
+      conversionRate: conversionRate.toFixed(1),
       stats: data
     });
   } catch (error: any) {

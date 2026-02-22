@@ -12,6 +12,8 @@ import heroRoutes from './routes/hero';
 import settingsRoutes from './routes/settings';
 import reviewRoutes from './routes/reviews';
 import uploadRoutes from './routes/upload';
+import popupRoutes from './routes/popups'; // ADD THIS
+import socialProofRoutes from './routes/social-proof'; // ADD THIS
 
 const app = express();
 
@@ -60,6 +62,12 @@ console.log('✅ /api/reviews registered');
 app.use("/api/upload", uploadRoutes);
 console.log('✅ /api/upload registered');
 
+app.use("/api/popups", popupRoutes); // ADD THIS
+console.log('✅ /api/popups registered');
+
+app.use("/api/social-proof", socialProofRoutes); // ADD THIS
+console.log('✅ /api/social-proof registered');
+
 app.use("/api/admin", adminRoutes);
 console.log('✅ /api/admin registered');
 
@@ -82,5 +90,7 @@ app.listen(PORT, () => {
   console.log(`⚙️ Settings: http://localhost:${PORT}/api/settings/public?key=stats`);
   console.log(`🎁 Combos: http://localhost:${PORT}/api/combos`);
   console.log(`📸 Upload: http://localhost:${PORT}/api/upload/product-images`);
+  console.log(`🎯 Popups: http://localhost:${PORT}/api/popups/active`);
+  console.log(`👥 Social Proof: http://localhost:${PORT}/api/social-proof`);
   console.log(`🔐 Admin: http://localhost:${PORT}/api/admin\n`);
 });
