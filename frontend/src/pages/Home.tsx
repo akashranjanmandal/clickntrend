@@ -7,7 +7,7 @@ import ProductCard from '../components/ProductCard';
 import CategoryCard from '../components/CategoryCard';
 import HeroSection from '../components/HeroSection';
 import { Product, Category, HeroContent, Stat } from '../types';
-import { CONFIG } from '../config';
+import { apiFetch } from '../config';
 import { motion } from 'framer-motion';
 
 const Home: React.FC = () => {
@@ -36,18 +36,13 @@ const Home: React.FC = () => {
     try {
       setLoading(true);
       
-      // Fetch all data in parallel
-      const [productsRes, categoriesRes, heroesRes, statsRes] = await Promise.all([
-        fetch('/api/products'),
-        fetch('/api/categories/public'),
-        fetch('/api/hero/public'),
-        fetch('/api/settings/public?key=stats')
+      // Use apiFetch which handles the base URL correctly
+      const [productsData, categoriesData, heroesData, statsData] = await Promise.all([
+        apiFetch('/api/products'),
+        apiFetch('/api/categories'),
+        apiFetch('/api/hero'),
+        apiFetch('/api/settings/public?key=stats')
       ]);
-
-      const productsData = await productsRes.json();
-      const categoriesData = await categoriesRes.json();
-      const heroesData = await heroesRes.json();
-      const statsData = await statsRes.json();
 
       setProducts(productsData || []);
       setCategories(categoriesData || []);
@@ -75,8 +70,7 @@ const Home: React.FC = () => {
 
     setSearchLoading(true);
     try {
-      const response = await fetch(`/api/products/search?q=${encodeURIComponent(searchQuery)}`);
-      const data = await response.json();
+      const data = await apiFetch(`/api/products/search?q=${encodeURIComponent(searchQuery)}`);
       setProducts(data);
     } catch (error) {
       console.error('Error searching products:', error);
@@ -207,6 +201,7 @@ const Home: React.FC = () => {
                   key={category.id}
                   name={category.name}
                   icon={category.icon}
+                  icon_type={category.icon_type || 'emoji'}
                   color={category.color}
                   hover_effect={category.hover_effect}
                   count={products.filter(p => p.category === category.name).length}
@@ -276,58 +271,6 @@ const Home: React.FC = () => {
               <ArrowRight className="ml-3 h-5 w-5 group-hover:translate-x-2 transition-transform" />
             </a>
           </motion.div>
-        </div>
-      </section>
-
-      {/* Features */}
-      <section className="py-20 bg-white">
-        <div className="container mx-auto px-4">
-          <div className="grid md:grid-cols-3 gap-8">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="text-center p-8 rounded-2xl bg-premium-cream/50 hover:shadow-xl transition-shadow"
-            >
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-premium-gold rounded-full mb-6">
-                <Sparkles className="h-8 w-8 text-white" />
-              </div>
-              <h3 className="text-xl font-serif font-semibold mb-3">Premium Quality</h3>
-              <p className="text-gray-600">
-                Every gift is handpicked for exceptional quality and craftsmanship.
-              </p>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="text-center p-8 rounded-2xl bg-premium-cream/50 hover:shadow-xl transition-shadow"
-            >
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-premium-gold rounded-full mb-6">
-                <Shield className="h-8 w-8 text-white" />
-              </div>
-              <h3 className="text-xl font-serif font-semibold mb-3">Secure Payment</h3>
-              <p className="text-gray-600">
-                100% secure payments with Razorpay. Your data is always protected.
-              </p>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="text-center p-8 rounded-2xl bg-premium-cream/50 hover:shadow-xl transition-shadow"
-            >
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-premium-gold rounded-full mb-6">
-                <TrendingUp className="h-8 w-8 text-white" />
-              </div>
-              <h3 className="text-xl font-serif font-semibold mb-3">Custom Combos</h3>
-              <p className="text-gray-600">
-                Create your own unique gift combos for personalized gifting experience.
-              </p>
-            </motion.div>
-          </div>
         </div>
       </section>
     </div>

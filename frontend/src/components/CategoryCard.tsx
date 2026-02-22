@@ -5,6 +5,7 @@ import * as Icons from 'lucide-react';
 interface CategoryCardProps {
   name: string;
   icon: string;
+  icon_type?: 'emoji' | 'lucide';
   color: string;
   hover_effect?: string;
   count?: number;
@@ -14,18 +15,16 @@ interface CategoryCardProps {
 const CategoryCard: React.FC<CategoryCardProps> = ({
   name,
   icon,
+  icon_type = 'emoji',
   color,
   hover_effect = 'scale',
   count,
   onClick
 }) => {
-  // Dynamically import lucide icon if it's not an emoji
-  const IconComponent = icon.length === 1 ? null : (Icons as any)[icon] || Icons.Gift;
+  const IconComponent = icon_type === 'lucide' ? (Icons as any)[icon] || Icons.Gift : null;
 
   const getHoverAnimation = () => {
     switch (hover_effect) {
-      case 'scale':
-        return { scale: 1.1 };
       case 'rotate':
         return { rotate: 5, scale: 1.05 };
       case 'bounce':
@@ -55,12 +54,10 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
       onClick={onClick}
       className={`relative bg-gradient-to-br ${color} p-6 rounded-2xl text-center cursor-pointer overflow-hidden group`}
     >
-      {/* Background Pattern */}
       <div className="absolute inset-0 opacity-0 group-hover:opacity-20 transition-opacity duration-300">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.8),transparent_70%)]" />
       </div>
 
-      {/* Icon */}
       <motion.div
         whileHover={getIconAnimation()}
         transition={{ type: 'spring', stiffness: 300 }}
@@ -73,19 +70,16 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
         )}
       </motion.div>
 
-      {/* Category Name */}
       <h3 className="font-serif text-lg font-semibold text-premium-charcoal mb-2 relative z-10">
         {name}
       </h3>
 
-      {/* Product Count */}
       {count !== undefined && (
         <p className="text-sm text-gray-600 relative z-10">
           {count} {count === 1 ? 'gift' : 'gifts'}
         </p>
       )}
 
-      {/* Shine Effect */}
       <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/30 to-transparent" />
     </motion.div>
   );

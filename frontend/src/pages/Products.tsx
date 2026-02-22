@@ -3,6 +3,7 @@ import { Filter, X, SlidersHorizontal } from 'lucide-react';
 import ProductCard from '../components/ProductCard';
 import CategoryCard from '../components/CategoryCard';
 import { Product, Category } from '../types';
+import { apiFetch } from '../config';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const Products: React.FC = () => {
@@ -25,12 +26,11 @@ const Products: React.FC = () => {
 
   const fetchData = async () => {
     try {
-      const [productsRes, categoriesRes] = await Promise.all([
-        fetch('/api/products'),
-        fetch('/api/categories/public')
+      const [productsData, categoriesData] = await Promise.all([
+        apiFetch('/api/products'),
+        apiFetch('/api/categories')
       ]);
-      const productsData = await productsRes.json();
-      const categoriesData = await categoriesRes.json();
+      
       setProducts(productsData);
       setFilteredProducts(productsData);
       setCategories(categoriesData);

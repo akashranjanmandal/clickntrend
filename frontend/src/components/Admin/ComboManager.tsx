@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Minus, Search, Package, Trash2, Save } from 'lucide-react';
+import { X, Plus, Minus, Search, Package, Trash2, Save, Upload, Camera } from 'lucide-react';
 import { Product } from '../../types';
 import { formatCurrency, getImageUrl } from '../../utils/helpers';
 
@@ -14,9 +14,13 @@ interface ComboProduct extends Product {
 
 const ComboManager: React.FC<ComboManagerProps> = ({ onClose, onSuccess }) => {
   const [loading, setLoading] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProducts, setSelectedProducts] = useState<ComboProduct[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  
   const [comboData, setComboData] = useState({
     name: '',
     description: '',
@@ -33,9 +37,7 @@ const ComboManager: React.FC<ComboManagerProps> = ({ onClose, onSuccess }) => {
     try {
       const token = localStorage.getItem('admin_token');
       const response = await fetch('/api/admin/products', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+        headers: { 'Authorization': `Bearer ${token}` },
       });
       const data = await response.json();
       setProducts(data || []);
@@ -44,14 +46,54 @@ const ComboManager: React.FC<ComboManagerProps> = ({ onClose, onSuccess }) => {
     }
   };
 
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Image size should be less than 5MB');
+        return;
+      }
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const uploadImage = async (): Promise<string | null> => {
+    if (!imageFile) return comboData.image_url || null;
+
+    setUploadingImage(true);
+    const formData = new FormData();
+    formData.append('image', imageFile);
+
+    try {
+      const token = localStorage.getItem('admin_token');
+      const response = await fetch('/api/admin/upload-image', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error('Upload failed');
+      const data = await response.json();
+      return data.image_url;
+    } catch (error) {
+      console.error('Upload error:', error);
+      return null;
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   const addToCombo = (product: Product) => {
     setSelectedProducts(prev => {
       const existing = prev.find(p => p.id === product.id);
       if (existing) {
         return prev.map(p =>
-          p.id === product.id
-            ? { ...p, quantity: p.quantity + 1 }
-            : p
+          p.id === product.id ? { ...p, quantity: p.quantity + 1 } : p
         );
       }
       return [...prev, { ...product, quantity: 1 }];
@@ -107,10 +149,15 @@ const ComboManager: React.FC<ComboManagerProps> = ({ onClose, onSuccess }) => {
     setLoading(true);
     try {
       const token = localStorage.getItem('admin_token');
+      
+      // Upload image if selected
+      const imageUrl = await uploadImage();
+
       const comboPayload = {
         ...comboData,
         discount_percentage: comboData.discount_percentage ? parseInt(comboData.discount_percentage) : null,
         discount_price: comboData.discount_price ? parseFloat(comboData.discount_price) : null,
+        image_url: imageUrl || comboData.image_url,
         products: selectedProducts.map(p => ({
           id: p.id,
           quantity: p.quantity
@@ -150,6 +197,52 @@ const ComboManager: React.FC<ComboManagerProps> = ({ onClose, onSuccess }) => {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Image Upload Section */}
+            <div>
+              <label className="block text-sm font-medium mb-3">Combo Image</label>
+              <div className="border-2 border-dashed border-gray-300 rounded-2xl p-6 text-center hover:border-premium-gold transition-colors">
+                {imagePreview || comboData.image_url ? (
+                  <div className="relative">
+                    <img 
+                      src={imagePreview || getImageUrl(comboData.image_url)} 
+                      alt="Preview" 
+                      className="mx-auto max-h-48 rounded-lg"
+                    />
+                    <div className="absolute bottom-2 right-2">
+                      <label className="p-2 bg-white shadow-md rounded-full hover:bg-gray-50 cursor-pointer">
+                        <Camera className="h-4 w-4" />
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageChange}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <Camera className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600 mb-2">Click to upload combo image</p>
+                    <p className="text-sm text-gray-500 mb-4">JPEG, PNG, WebP (Max 5MB)</p>
+                    <label className="inline-flex items-center px-4 py-2 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy cursor-pointer">
+                      <Upload className="h-4 w-4 mr-2" />
+                      Choose Image
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageChange}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                )}
+                {uploadingImage && (
+                  <div className="mt-2 text-sm text-blue-600">Uploading...</div>
+                )}
+              </div>
+            </div>
+
             <div className="grid md:grid-cols-2 gap-6">
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold">Combo Information</h3>
@@ -204,17 +297,6 @@ const ComboManager: React.FC<ComboManagerProps> = ({ onClose, onSuccess }) => {
                     />
                   </div>
                 </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-2">Image URL (Optional)</label>
-                  <input
-                    type="text"
-                    value={comboData.image_url}
-                    onChange={(e) => setComboData({...comboData, image_url: e.target.value})}
-                    className="w-full px-4 py-3 border rounded-lg focus:border-premium-gold focus:outline-none"
-                    placeholder="https://example.com/image.jpg"
-                  />
-                </div>
               </div>
 
               <div>
@@ -224,7 +306,6 @@ const ComboManager: React.FC<ComboManagerProps> = ({ onClose, onSuccess }) => {
                   <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
                     <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                     <p className="text-gray-600">No products selected yet</p>
-                    <p className="text-sm text-gray-500">Add products from the list below</p>
                   </div>
                 ) : (
                   <div className="space-y-3 max-h-64 overflow-y-auto">

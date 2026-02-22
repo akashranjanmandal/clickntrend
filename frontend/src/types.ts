@@ -12,6 +12,24 @@ export interface Product {
   created_at: string;
 }
 
+export interface ComboProduct {
+  product: Product;
+  quantity: number;
+}
+
+export interface Combo {
+  id: string;
+  name: string;
+  description: string;
+  discount_percentage?: number;
+  discount_price?: number;
+  image_url?: string;
+  is_active: boolean;
+  combo_products?: ComboProduct[];
+  products?: ComboProduct[]; // Alias for compatibility
+  created_at: string;
+}
+
 export interface Review {
   id: string;
   product_id: string;
@@ -63,6 +81,39 @@ export interface SiteSettings {
   stats: Stat[];
 }
 
+export interface Order {
+  id: string;
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+  items: CartItem[];
+  total_amount: number;
+  customer_name: string;
+  customer_email: string;
+  customer_phone?: string;
+  special_requests?: string;
+  status: string;
+  tracking_number?: string;
+  admin_notes?: string;
+  paid_at?: string;
+  created_at: string;
+  shipping_address?: string;
+  shipping_city?: string;
+  shipping_state?: string;
+  shipping_pincode?: string;
+  shipping_country?: string;
+  shipping_method?: string;
+  shipping_cost?: number;
+  estimated_delivery?: string;
+  payment_method?: string;
+  coupon_code?: string;
+  coupon_discount?: number;
+  shipping_charge?: number;
+  cod_charge?: number;
+  subtotal?: number;
+  grand_total?: number;
+}
+
 export interface CartItem {
   id: string;
   name: string;
@@ -71,4 +122,31 @@ export interface CartItem {
   image_url: string;
   type: 'product' | 'combo' | 'custom';
   category?: string;
+}
+
+export interface Coupon {
+  id: string;
+  code: string;
+  description: string;
+  discount_type: 'percentage' | 'fixed';
+  discount_value: number;
+  min_order_amount?: number;
+  max_discount_amount?: number;
+  usage_limit: number;
+  used_count: number;
+  per_user_limit: number;
+  start_date?: string;
+  end_date?: string;
+  applicable_categories?: string[];
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface CouponUsage {
+  id: string;
+  coupon_id: string;
+  order_id: string;
+  customer_email: string;
+  discount_amount: number;
+  used_at: string;
 }

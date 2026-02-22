@@ -1,68 +1,72 @@
-import { useState } from 'react'
-import { motion } from 'framer-motion'
-import { Package, Star, ShoppingCart, Sparkles, Tag, Users } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
-import { fetchCombosDirectly } from '../utils/supabase'
-import { useCart } from '../context/CartContext'
-import { Combo, ComboProduct } from '../types'
-import toast from 'react-hot-toast'
+import { useState } from 'react';
+import { motion } from 'framer-motion';
+import { Package, Star, ShoppingCart, Sparkles, Tag } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { fetchCombosDirectly } from '../utils/supabase';
+import { useCart } from '../context/CartContext';
+import { Combo, ComboProduct } from '../types';
+import toast from 'react-hot-toast';
+import { getImageUrl, formatCurrency } from '../utils/helpers';
 
 export default function Combos() {
-  const [selectedCategory, setSelectedCategory] = useState('All')
-  const { addItem } = useCart()
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const { addItem } = useCart();
 
   const { data: rawCombos = [], isLoading } = useQuery({
     queryKey: ['combos'],
     queryFn: fetchCombosDirectly,
-  })
+  });
 
   // Normalize Supabase response → Combo[]
   const combos: Combo[] = rawCombos.map((combo: any) => ({
     ...combo,
-    products: (combo.combo_products || []).map((cp: any) => ({
+    combo_products: (combo.combo_products || []).map((cp: any) => ({
       product: cp.product,
       quantity: cp.quantity ?? 1,
     })),
-  }))
+  }));
 
-  const categories = ['All', 'Birthday', 'Anniversary', 'Valentine', 'Luxury', 'Corporate']
+  const categories = ['All', 'Birthday', 'Anniversary', 'Valentine', 'Luxury', 'Corporate'];
 
   const addToCart = (combo: Combo) => {
-    const originalPrice = combo.products.reduce(
+    const comboProducts = combo.combo_products || [];
+    const originalPrice = comboProducts.reduce(
       (sum: number, item: ComboProduct) =>
         sum + item.product.price * item.quantity,
       0
-    )
+    );
 
-    const finalPrice = combo.discount_price ?? originalPrice
+    const finalPrice = combo.discount_price ?? originalPrice;
 
     addItem({
       id: `combo-${combo.id}`,
       name: combo.name,
       price: finalPrice,
       quantity: 1,
-      image_url: combo.image_url,
-    })
+      image_url: combo.image_url || '',
+      type: 'combo',
+    });
 
-    toast.success('Combo added to cart!')
-  }
+    toast.success('Combo added to cart!');
+  };
 
   const calculateSavings = (combo: Combo) => {
-    if (!combo.discount_price) return null
+    if (!combo.discount_price) return null;
 
-    const originalPrice = combo.products.reduce(
+    const comboProducts = combo.combo_products || [];
+    const originalPrice = comboProducts.reduce(
       (sum: number, item: ComboProduct) =>
         sum + item.product.price * item.quantity,
       0
-    )
+    );
 
-    if (originalPrice <= combo.discount_price) return null
+    if (originalPrice <= combo.discount_price) return null;
 
-    const savings = originalPrice - combo.discount_price
-    const percentage = Math.round((savings / originalPrice) * 100)
+    const savings = originalPrice - combo.discount_price;
+    const percentage = Math.round((savings / originalPrice) * 100);
 
-    return { savings, percentage }
-  }
+    return { savings, percentage };
+  };
 
   return (
     <div className="space-y-8">
@@ -112,7 +116,8 @@ export default function Combos() {
       ) : combos.length > 0 ? (
         <motion.div layout className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
           {combos.map((combo: Combo) => {
-            const savings = calculateSavings(combo)
+            const comboProducts = combo.combo_products || [];
+            const savings = calculateSavings(combo);
 
             return (
               <motion.div
@@ -125,10 +130,7 @@ export default function Combos() {
                 {/* Image */}
                 <div className="relative h-64 overflow-hidden">
                   <img
-                    src={
-                      combo.image_url ||
-                      'https://images.unsplash.com/photo-1544716278-e513176f20b5'
-                    }
+                    src={getImageUrl(combo.image_url) || 'https://images.unsplash.com/photo-1544716278-e513176f20b5'}
                     alt={combo.name}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                   />
@@ -164,13 +166,12 @@ export default function Combos() {
                   {/* Products */}
                   <div className="mb-6">
                     <div className="flex items-center gap-2 text-sm text-gray-500 mb-3">
-                      <Users className="w-4 h-4" />
                       <span>
-                        Includes {combo.products.length} premium items:
+                        Includes {comboProducts.length} premium items:
                       </span>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {combo.products.slice(0, 3).map((item: ComboProduct) => (
+                      {comboProducts.slice(0, 3).map((item: ComboProduct) => (
                         <span
                           key={item.product.id}
                           className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded-full"
@@ -178,9 +179,9 @@ export default function Combos() {
                           {item.quantity}x {item.product.name.split(' ')[0]}
                         </span>
                       ))}
-                      {combo.products.length > 3 && (
+                      {comboProducts.length > 3 && (
                         <span className="px-3 py-1 bg-primary-100 text-primary-700 text-sm rounded-full">
-                          +{combo.products.length - 3} more
+                          +{comboProducts.length - 3} more
                         </span>
                       )}
                     </div>
@@ -202,7 +203,7 @@ export default function Combos() {
                         </>
                       ) : (
                         <span className="text-2xl font-bold text-gray-900">
-                          ₹{combo.products
+                          ₹{comboProducts
                             .reduce(
                               (sum: number, item: ComboProduct) =>
                                 sum + item.product.price * item.quantity,
@@ -231,7 +232,7 @@ export default function Combos() {
                   </button>
                 </div>
               </motion.div>
-            )
+            );
           })}
         </motion.div>
       ) : (
@@ -246,5 +247,5 @@ export default function Combos() {
         </div>
       )}
     </div>
-  )
+  );
 }

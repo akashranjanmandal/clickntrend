@@ -3,9 +3,9 @@ import {
   LogOut, Package, DollarSign, TrendingUp, Eye, 
   RefreshCw, Plus, Edit, Trash2, Download, Search,
   ShoppingBag, MapPin, Phone, Mail, Calendar,
-  BarChart3, Shield, Printer, XCircle
+  BarChart3, Shield, Printer, XCircle, Tag
 } from 'lucide-react';
-import { Order, Product, Combo } from '../../types';
+import { Order, Product, Combo, ComboProduct } from '../../types';
 import CategoryManager from './CategoryManager';
 import { formatCurrency, getImageUrl } from '../../utils/helpers';
 import ProductUpload from './ProductUpload';
@@ -14,7 +14,6 @@ import EditProduct from './EditProduct';
 import InvoicePDF from './InvoicePDF';
 import CouponManager from './CouponManager';
 import { useApi } from '../../hooks/useApi';
-import { Tag } from 'lucide-react';
 
 const AdminPanel: React.FC = () => {
   const { fetchWithAuth } = useApi();
@@ -839,8 +838,12 @@ const AdminPanel: React.FC = () => {
                   </thead>
                   <tbody>
                     {combos.map((combo) => {
-                      const totalValue = combo.combo_products?.reduce((sum, cp) => 
-                        sum + (cp.product?.price || 0) * (cp.quantity || 1), 0) || 0;
+                      const comboProducts = combo.combo_products || [];
+                      const totalValue = comboProducts.reduce(
+                        (sum: number, cp: ComboProduct) => 
+                          sum + (cp.product?.price || 0) * (cp.quantity || 1), 
+                        0
+                      );
                       
                       const discountedPrice = combo.discount_percentage 
                         ? totalValue * (1 - combo.discount_percentage / 100)
@@ -871,7 +874,7 @@ const AdminPanel: React.FC = () => {
                           </td>
                           <td className="p-4">
                             <div className="flex -space-x-2">
-                              {combo.combo_products?.slice(0, 4).map((cp, idx) => (
+                              {comboProducts.slice(0, 4).map((cp: ComboProduct, idx: number) => (
                                 <div key={idx} className="w-8 h-8 rounded-full border-2 border-white bg-gray-200 overflow-hidden">
                                   <img 
                                     src={getImageUrl(cp.product?.image_url)} 
@@ -883,14 +886,14 @@ const AdminPanel: React.FC = () => {
                                   />
                                 </div>
                               ))}
-                              {combo.combo_products && combo.combo_products.length > 4 && (
+                              {comboProducts.length > 4 && (
                                 <div className="w-8 h-8 rounded-full border-2 border-white bg-gray-800 text-white text-xs flex items-center justify-center">
-                                  +{combo.combo_products.length - 4}
+                                  +{comboProducts.length - 4}
                                 </div>
                               )}
                             </div>
                             <p className="text-xs text-gray-500 mt-2">
-                              {combo.combo_products?.length || 0} products
+                              {comboProducts.length} products
                             </p>
                           </td>
                           <td className="p-4">
