@@ -10,7 +10,8 @@ import ProductDetailsModal from '../components/ProductDetailsModal';
 import { Product, Category, HeroContent, Stat } from '../types';
 import { apiFetch } from '../config';
 import { motion, AnimatePresence } from 'framer-motion';
-
+import ComboCard from '../components/ComboCard';
+import { Combo } from '../types';
 const Home: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -22,7 +23,7 @@ const Home: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchLoading, setSearchLoading] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-
+const [combos, setCombos] = useState<Combo[]>([]);
   const defaultStats = [
     { label: 'Happy Customers', value: '10K+', icon: '😊' },
     { label: 'Premium Gifts', value: '500+', icon: '🎁' },
@@ -34,28 +35,30 @@ const Home: React.FC = () => {
     fetchAllData();
   }, []);
 
-  const fetchAllData = async () => {
-    try {
-      setLoading(true);
-      
-      const [productsData, categoriesData, heroesData, statsData] = await Promise.all([
-        apiFetch('/api/products').catch(() => []),
-        apiFetch('/api/categories').catch(() => []),
-        apiFetch('/api/hero').catch(() => []),
-        apiFetch('/api/settings?key=stats').catch(() => ({ value: defaultStats }))
-      ]);
+const fetchAllData = async () => {
+  try {
+    setLoading(true);
+    
+    const [productsData, categoriesData, heroesData, statsData, combosData] = await Promise.all([
+      apiFetch('/api/products').catch(() => []),
+      apiFetch('/api/categories').catch(() => []),
+      apiFetch('/api/hero').catch(() => []),
+      apiFetch('/api/settings?key=stats').catch(() => ({ value: defaultStats })),
+      apiFetch('/api/combos').catch(() => [])
+    ]);
 
-      setProducts(productsData || []);
-      setCategories(categoriesData || []);
-      setHeroes(heroesData || []);
-      setStats(statsData?.value || defaultStats);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      setStats(defaultStats);
-    } finally {
-      setLoading(false);
-    }
-  };
+    setProducts(productsData || []);
+    setCategories(categoriesData || []);
+    setHeroes(heroesData || []);
+    setStats(statsData?.value || defaultStats);
+    setCombos(combosData || []);
+  } catch (error) {
+    console.error('Error fetching data:', error);
+    setStats(defaultStats);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleSearch = async (searchText?: string) => {
     const query = searchText || searchTerm;
@@ -201,7 +204,6 @@ const Home: React.FC = () => {
         </div>
       </section>
 
-      {/* Rest of your sections... */}
       <section className="py-16 bg-white">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
@@ -288,7 +290,41 @@ const Home: React.FC = () => {
           </div>
         </div>
       </section>
+{/* Featured Combos */}
+{combos.length > 0 && (
+  <section className="py-20 bg-gradient-to-b from-white to-premium-cream/30">
+    <div className="container mx-auto px-4">
+      <div className="flex flex-col md:flex-row items-center justify-between mb-12">
+        <div>
+          <h2 className="text-4xl font-serif font-bold">
+            Curated <span className="text-premium-gold">Gift Combos</span>
+          </h2>
+          <p className="text-gray-600 mt-2">Expertly crafted gift sets for every occasion</p>
+        </div>
+        <a
+          href="/combos"
+          className="mt-4 md:mt-0 inline-flex items-center px-6 py-3 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy transition-colors group"
+        >
+          <span>View All Combos</span>
+          <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+        </a>
+      </div>
 
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+        {combos.slice(0, 3).map((combo, index) => (
+          <motion.div
+            key={combo.id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.1 }}
+          >
+            <ComboCard combo={combo} />
+          </motion.div>
+        ))}
+      </div>
+    </div>
+  </section>
+)}
       {/* CTA Section */}
       <section className="py-20 bg-gradient-to-r from-premium-charcoal to-premium-burgundy text-white">
         <div className="container mx-auto px-4 text-center">

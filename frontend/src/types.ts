@@ -93,6 +93,8 @@ export interface HeroContent {
   cta_link?: string;
   is_active: boolean;
   display_order: number;
+  created_at: string;
+  content_alignment?: 'left' | 'center' | 'right'; // Add this line
 }
 
 export interface Stat {
