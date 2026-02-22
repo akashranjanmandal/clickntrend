@@ -19,14 +19,13 @@ import HeroManager from './HeroManager';
 import { Star, Video } from 'lucide-react';
 import PopupManager from './PopupManager';
 import { Gift } from 'lucide-react';  
-import SocialProofStats from './SocialProofStats';
 const AdminPanel: React.FC = () => {
   const { fetchWithAuth } = useApi();
   const [orders, setOrders] = useState<Order[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [combos, setCombos] = useState<Combo[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'products' | 'combos' | 'coupons' | 'categories' | 'hero' |'reviews' |'popups' |'analytics'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'products' | 'combos' | 'coupons' | 'categories' | 'hero' |'reviews' |'popups'>('dashboard');
   const [showProductUpload, setShowProductUpload] = useState(false);
   const [showComboManager, setShowComboManager] = useState(false);
   const [showEditProduct, setShowEditProduct] = useState(false);
@@ -315,7 +314,6 @@ const handleEditCombo = (combo: Combo) => {
                   { id: 'reviews', label: 'Reviews', icon: Star },
                   { id: 'hero', label: 'Hero', icon: Video },
                   { id: 'popups', label: 'Popups', icon: Gift },
-                  { id: 'analytics', label: 'Analytics', icon: TrendingUp },
                 ].map((tab) => (
                   <button
                     key={tab.id}
@@ -353,7 +351,7 @@ const handleEditCombo = (combo: Combo) => {
 
           <div className="md:hidden mt-4 overflow-x-auto">
             <div className="flex space-x-2">
-              {['dashboard', 'orders', 'products', 'combos', 'coupons', 'categories', 'reviews', 'hero','popups','analytics'].map((tab) => (
+              {['dashboard', 'orders', 'products', 'combos', 'coupons', 'categories', 'reviews', 'hero','popups'].map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab as any)}
@@ -966,7 +964,6 @@ const handleEditCombo = (combo: Combo) => {
         {activeTab === 'reviews' && <ReviewManager />}
         {activeTab === 'hero' && <HeroManager />}
         {activeTab === 'popups' && <PopupManager />}
-        {activeTab === 'analytics' && <SocialProofStats />}
       </div>
 
       {/* Modals */}
