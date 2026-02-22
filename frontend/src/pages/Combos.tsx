@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Package, Star, ShoppingCart, Sparkles, Tag, ArrowRight } from 'lucide-react';
+import { Package, Star, ShoppingCart, Sparkles, Tag, ArrowRight, Filter } from 'lucide-react';
 import { useCart } from '../context/CartContext';
-import { Combo, ComboProduct } from '../types';
+import { Combo, ComboProduct, Category } from '../types';
 import toast from 'react-hot-toast';
 import { getImageUrl, formatCurrency } from '../utils/helpers';
 import { apiFetch } from '../config';
@@ -11,29 +11,45 @@ import { Link } from 'react-router-dom';
 export default function Combos() {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [combos, setCombos] = useState<Combo[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const { addItem } = useCart();
 
   useEffect(() => {
-    fetchCombos();
+    fetchData();
   }, []);
 
-  const fetchCombos = async () => {
+  const fetchData = async () => {
     try {
       setLoading(true);
-      console.log('Fetching combos from API...');
-      const data = await apiFetch('/api/combos');
-      console.log('Combos fetched:', data);
-      setCombos(data || []);
+      
+      // Fetch both combos and categories
+      const [combosData, categoriesData] = await Promise.all([
+        apiFetch('/api/combos').catch(() => []),
+        apiFetch('/api/categories/public').catch(() => [])
+      ]);
+      
+      console.log('Combos fetched:', combosData);
+      console.log('Categories fetched:', categoriesData);
+      
+      setCombos(combosData || []);
+      setCategories(categoriesData || []);
     } catch (error) {
-      console.error('Error fetching combos:', error);
+      console.error('Error fetching data:', error);
       toast.error('Failed to load combos');
     } finally {
       setLoading(false);
     }
   };
 
-  const categories = ['All', 'Birthday', 'Anniversary', 'Valentine', 'Corporate', 'Christmas'];
+  // Get unique categories from combo products
+  const availableCategories = ['All', ...new Set(
+    combos.flatMap(combo => 
+      (combo.combo_products || [])
+        .map(item => item.product?.category)
+        .filter(Boolean)
+    )
+  )];
 
   const filteredCombos = selectedCategory === 'All' 
     ? combos 
@@ -146,10 +162,10 @@ export default function Combos() {
         </p>
       </div>
 
-      {/* Categories Filter */}
-      {combos.length > 0 && (
+      {/* Dynamic Categories Filter */}
+      {availableCategories.length > 1 && (
         <div className="flex flex-wrap justify-center gap-3 mb-12">
-          {categories.map((category) => (
+          {availableCategories.map((category) => (
             <button
               key={category}
               onClick={() => setSelectedCategory(category)}
@@ -239,6 +255,18 @@ export default function Combos() {
                         </span>
                       )}
                     </div>
+
+                    {/* Display categories of products in this combo */}
+                    <div className="mt-3 flex flex-wrap gap-1">
+                      {[...new Set(comboProducts.map(item => item.product?.category).filter(Boolean))].map(cat => (
+                        <span
+                          key={cat}
+                          className="text-xs px-2 py-1 bg-premium-cream text-premium-charcoal rounded-full"
+                        >
+                          {cat}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 )}
 
@@ -294,6 +322,7 @@ export default function Combos() {
       {/* Show message if no combos match the selected category */}
       {filteredCombos.length === 0 && combos.length > 0 && (
         <div className="text-center py-12">
+          <Filter className="h-12 w-12 text-gray-300 mx-auto mb-4" />
           <p className="text-gray-500 text-lg">No combos found in this category.</p>
           <button
             onClick={() => setSelectedCategory('All')}

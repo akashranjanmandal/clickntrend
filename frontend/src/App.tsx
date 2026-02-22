@@ -4,6 +4,7 @@ import { CartProvider } from './context/CartContext';
 import Layout from './components/Layout';
 import Home from './pages/Home';
 import Products from './pages/Products';
+import Combos from './pages/Combos'; // Add this import
 import CustomCombo from './pages/CustomCombo';
 import Checkout from './pages/Checkout';
 import AdminLogin from './pages/AdminLogin';
@@ -19,6 +20,7 @@ function App() {
           <Route path="/" element={<Layout />}>
             <Route index element={<Home />} />
             <Route path="/products" element={<Products />} />
+            <Route path="/combos" element={<Combos />} /> {/* Add this route */}
             <Route path="/custom-combo" element={<CustomCombo />} />
             <Route path="/checkout" element={<Checkout />} />
           </Route>
