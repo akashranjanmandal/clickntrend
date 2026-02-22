@@ -13,24 +13,24 @@ const PopupManager: React.FC = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingPopup, setEditingPopup] = useState<PopupConfig | null>(null);
 
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    image_url: '',
-    discount_text: 'Rs {value} off on {collection} Collection',
-    discount_value: '100',
-    timer_enabled: true,
-    timer_hours: 0,
-    timer_minutes: 59,
-    timer_seconds: 46,
-    offer_text: 'Catch your discount before the timer runs out.',
-    cta_text: 'Order Now',
-    cta_link: '/products?category=holi',
-    cash_on_delivery_text: 'Cash on Delivery',
-    prepaid_discount_text: '5% Extra off on Prepaid orders',
-    is_active: true,
-    display_frequency: 'once_per_session',
-  });
+const [formData, setFormData] = useState({
+  title: '',
+  description: '',
+  image_url: '',
+  discount_text: 'Rs {value} off on {collection} Collection',
+  discount_value: '100',
+  timer_enabled: true,
+  timer_hours: 0,
+  timer_minutes: 59,
+  timer_seconds: 46,
+  offer_text: 'Catch your discount before the timer runs out.',
+  cta_text: 'Order Now',
+  cta_link: '/products?category=holi',
+  cash_on_delivery_text: 'Cash on Delivery',
+  prepaid_discount_text: '5% Extra off on Prepaid orders',
+  is_active: true,
+  display_frequency: 'once_per_session',
+});
 
   useEffect(() => {
     fetchPopups();
@@ -328,34 +328,43 @@ const PopupManager: React.FC = () => {
                     <div>
                       <label className="block text-sm font-medium mb-2">Hours</label>
                       <input
-                        type="number"
-                        value={formData.timer_hours}
-                        onChange={(e) => setFormData({...formData, timer_hours: parseInt(e.target.value)})}
-                        className="w-full px-4 py-2 border rounded-lg"
-                        min="0"
-                      />
+  type="number"
+  value={formData.timer_hours || 0}
+  onChange={(e) => setFormData({
+    ...formData, 
+    timer_hours: parseInt(e.target.value) || 0
+  })}
+  className="w-full px-4 py-2 border rounded-lg"
+  min="0"
+/>
                     </div>
                     <div>
                       <label className="block text-sm font-medium mb-2">Minutes</label>
-                      <input
-                        type="number"
-                        value={formData.timer_minutes}
-                        onChange={(e) => setFormData({...formData, timer_minutes: parseInt(e.target.value)})}
-                        className="w-full px-4 py-2 border rounded-lg"
-                        min="0"
-                        max="59"
-                      />
+      <input
+  type="number"
+  value={formData.timer_minutes || 0}
+  onChange={(e) => setFormData({
+    ...formData, 
+    timer_minutes: parseInt(e.target.value) || 0
+  })}
+  className="w-full px-4 py-2 border rounded-lg"
+  min="0"
+  max="59"
+/>
                     </div>
                     <div>
                       <label className="block text-sm font-medium mb-2">Seconds</label>
-                      <input
-                        type="number"
-                        value={formData.timer_seconds}
-                        onChange={(e) => setFormData({...formData, timer_seconds: parseInt(e.target.value)})}
-                        className="w-full px-4 py-2 border rounded-lg"
-                        min="0"
-                        max="59"
-                      />
+<input
+  type="number"
+  value={formData.timer_seconds || 0}
+  onChange={(e) => setFormData({
+    ...formData, 
+    timer_seconds: parseInt(e.target.value) || 0
+  })}
+  className="w-full px-4 py-2 border rounded-lg"
+  min="0"
+  max="59"
+/>
                     </div>
                   </div>
                 )}

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { X, ShoppingCart, Star, ChevronLeft, ChevronRight, ThumbsUp, MessageCircle } from 'lucide-react';
+import { X, ShoppingCart, Star, ChevronLeft, ChevronRight, ThumbsUp, MessageCircle, Send } from 'lucide-react';
 import { Product, Review } from '../types';
 import { formatCurrency, getImageUrl } from '../utils/helpers';
 import { useCart } from '../context/CartContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { apiFetch } from '../config';
+import toast from 'react-hot-toast';
 
 interface ProductDetailsModalProps {
   product: Product;
@@ -15,9 +16,19 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({ product, onCl
   const { addItem } = useCart();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState<'details' | 'reviews'>('details');
+  const [showReviewForm, setShowReviewForm] = useState(false);
+
+  // Review form state
+  const [reviewForm, setReviewForm] = useState({
+    user_name: '',
+    user_email: '',
+    rating: 5,
+    comment: ''
+  });
 
   // Get additional images if available
   const productImages = product.additional_images && product.additional_images.length > 0
@@ -47,9 +58,47 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({ product, onCl
       setReviews(data || []);
     } catch (error) {
       console.error('Error fetching reviews:', error);
-      // Don't show error to user, just show empty reviews
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSubmitReview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!reviewForm.user_name.trim() || !reviewForm.comment.trim()) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await apiFetch('/api/reviews', {
+        method: 'POST',
+        body: JSON.stringify({
+          product_id: product.id,
+          user_name: reviewForm.user_name,
+          user_email: reviewForm.user_email || undefined,
+          rating: reviewForm.rating,
+          comment: reviewForm.comment
+        }),
+      });
+
+      toast.success('Review submitted successfully! It will be visible after admin approval.');
+      setShowReviewForm(false);
+      setReviewForm({
+        user_name: '',
+        user_email: '',
+        rating: 5,
+        comment: ''
+      });
+      
+      // Refresh reviews to show the new one (though it will be pending)
+      await fetchReviews();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to submit review');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -79,6 +128,12 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({ product, onCl
   const prevImage = () => {
     setSelectedImage((prev) => (prev - 1 + productImages.length) % productImages.length);
   };
+
+  const ratingDistribution = [5, 4, 3, 2, 1].map(rating => {
+    const count = reviews.filter(r => r.rating === rating).length;
+    const percentage = reviews.length > 0 ? (count / reviews.length) * 100 : 0;
+    return { rating, count, percentage };
+  });
 
   return (
     <AnimatePresence>
@@ -256,7 +311,7 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({ product, onCl
               </div>
 
               {/* Tab Content */}
-              <div className="min-h-[200px]">
+              <div className="min-h-[300px]">
                 {activeTab === 'details' ? (
                   <div className="prose max-w-none">
                     <p className="text-gray-700 leading-relaxed">
@@ -276,12 +331,121 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({ product, onCl
                     </div>
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-6">
+                    {/* Write Review Button */}
+                    {!showReviewForm && (
+                      <button
+                        onClick={() => setShowReviewForm(true)}
+                        className="w-full py-3 bg-premium-gold/10 text-premium-gold rounded-lg hover:bg-premium-gold hover:text-white transition-colors font-medium flex items-center justify-center gap-2"
+                      >
+                        <MessageCircle className="h-5 w-5" />
+                        Write a Review
+                      </button>
+                    )}
+
+                    {/* Review Form */}
+                    {showReviewForm && (
+                      <motion.form
+                        initial={{ opacity: 0, y: -20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        onSubmit={handleSubmitReview}
+                        className="bg-gray-50 rounded-xl p-6 space-y-4"
+                      >
+                        <h3 className="font-semibold text-lg">Share Your Experience</h3>
+                        
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium mb-1">Your Name *</label>
+                            <input
+                              type="text"
+                              value={reviewForm.user_name}
+                              onChange={(e) => setReviewForm({...reviewForm, user_name: e.target.value})}
+                              className="w-full px-4 py-2 border rounded-lg focus:border-premium-gold focus:outline-none"
+                              placeholder="John Doe"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium mb-1">Email (Optional)</label>
+                            <input
+                              type="email"
+                              value={reviewForm.user_email}
+                              onChange={(e) => setReviewForm({...reviewForm, user_email: e.target.value})}
+                              className="w-full px-4 py-2 border rounded-lg focus:border-premium-gold focus:outline-none"
+                              placeholder="john@example.com"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Rating *</label>
+                          <div className="flex gap-2">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <button
+                                key={star}
+                                type="button"
+                                onClick={() => setReviewForm({...reviewForm, rating: star})}
+                                className="focus:outline-none"
+                              >
+                                <Star
+                                  className={`h-8 w-8 ${
+                                    star <= reviewForm.rating
+                                      ? 'text-yellow-400 fill-current'
+                                      : 'text-gray-300 hover:text-yellow-200'
+                                  }`}
+                                />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Your Review *</label>
+                          <textarea
+                            value={reviewForm.comment}
+                            onChange={(e) => setReviewForm({...reviewForm, comment: e.target.value})}
+                            rows={3}
+                            className="w-full px-4 py-2 border rounded-lg focus:border-premium-gold focus:outline-none"
+                            placeholder="Tell us about your experience with this product..."
+                            required
+                          />
+                        </div>
+
+                        <div className="flex gap-3">
+                          <button
+                            type="submit"
+                            disabled={submitting}
+                            className="flex-1 py-2 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                          >
+                            {submitting ? (
+                              <>
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                Submitting...
+                              </>
+                            ) : (
+                              <>
+                                <Send className="h-4 w-4" />
+                                Submit Review
+                              </>
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setShowReviewForm(false)}
+                            className="px-4 py-2 border rounded-lg hover:bg-gray-100 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </motion.form>
+                    )}
+
+                    {/* Reviews List */}
                     {loading ? (
                       <div className="text-center py-8">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-premium-gold mx-auto"></div>
                       </div>
-                    ) : reviews.length === 0 ? (
+                    ) : reviews.length === 0 && !showReviewForm ? (
                       <div className="text-center py-8">
                         <MessageCircle className="h-12 w-12 text-gray-300 mx-auto mb-3" />
                         <p className="text-gray-500">No reviews yet</p>
@@ -290,32 +454,30 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({ product, onCl
                     ) : (
                       <>
                         {/* Review Summary */}
-                        <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
-                          <div className="text-center">
-                            <p className="text-4xl font-bold text-premium-gold">
-                              {averageRating.toFixed(1)}
-                            </p>
-                            <div className="flex mt-1">
-                              {[1, 2, 3, 4, 5].map((star) => (
-                                <Star
-                                  key={star}
-                                  className={`h-4 w-4 ${
-                                    star <= Math.round(averageRating)
-                                      ? 'text-yellow-400 fill-current'
-                                      : 'text-gray-300'
-                                  }`}
-                                />
-                              ))}
+                        {reviews.length > 0 && (
+                          <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
+                            <div className="text-center">
+                              <p className="text-4xl font-bold text-premium-gold">
+                                {averageRating.toFixed(1)}
+                              </p>
+                              <div className="flex mt-1">
+                                {[1, 2, 3, 4, 5].map((star) => (
+                                  <Star
+                                    key={star}
+                                    className={`h-4 w-4 ${
+                                      star <= Math.round(averageRating)
+                                        ? 'text-yellow-400 fill-current'
+                                        : 'text-gray-300'
+                                    }`}
+                                  />
+                                ))}
+                              </div>
+                              <p className="text-xs text-gray-500 mt-1">
+                                Based on {reviews.length} {reviews.length === 1 ? 'review' : 'reviews'}
+                              </p>
                             </div>
-                            <p className="text-xs text-gray-500 mt-1">
-                              Based on {reviews.length} {reviews.length === 1 ? 'review' : 'reviews'}
-                            </p>
-                          </div>
-                          <div className="flex-1 space-y-2">
-                            {[5, 4, 3, 2, 1].map((rating) => {
-                              const count = reviews.filter(r => r.rating === rating).length;
-                              const percentage = reviews.length > 0 ? (count / reviews.length) * 100 : 0;
-                              return (
+                            <div className="flex-1 space-y-2">
+                              {ratingDistribution.map(({ rating, count, percentage }) => (
                                 <div key={rating} className="flex items-center gap-2">
                                   <span className="text-sm w-8">{rating} ★</span>
                                   <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
@@ -326,10 +488,10 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({ product, onCl
                                   </div>
                                   <span className="text-sm text-gray-600 w-8">{count}</span>
                                 </div>
-                              );
-                            })}
+                              ))}
+                            </div>
                           </div>
-                        </div>
+                        )}
 
                         {/* Reviews List */}
                         <div className="space-y-4 max-h-96 overflow-y-auto">
