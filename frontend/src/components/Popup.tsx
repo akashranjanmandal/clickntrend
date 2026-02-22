@@ -61,12 +61,12 @@ const Popup: React.FC<PopupProps> = ({ onClose }) => {
 
   const fetchPopup = async () => {
     try {
-      const data = await apiFetch('/api/popup/active');
+      const data = await apiFetch('/api/popups/active');
       setPopup(data);
       
       // Track view
       if (data) {
-        await apiFetch('/api/popup/track-view', {
+        await apiFetch('/api/popups/track-view', {
           method: 'POST',
           body: JSON.stringify({ 
             popup_id: data.id,
@@ -83,7 +83,7 @@ const Popup: React.FC<PopupProps> = ({ onClose }) => {
 
   const handleCTAClick = async () => {
     if (popup) {
-      await apiFetch('/api/popup/track-click', {
+      await apiFetch('/api/popups/track-click', {
         method: 'POST',
         body: JSON.stringify({ 
           popup_id: popup.id,

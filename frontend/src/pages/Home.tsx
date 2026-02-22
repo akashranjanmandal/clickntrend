@@ -36,7 +36,7 @@ const [showPopup, setShowPopup] = useState(false);
 useEffect(() => {
   const checkPopup = async () => {
     try {
-      const popup = await apiFetch('/api/popup/active').catch(() => null);
+      const popup = await apiFetch('/api/popups/active').catch(() => null);
       if (popup) {
         // Check if already shown in this session
         const hasSeen = sessionStorage.getItem('popup_seen');
@@ -117,10 +117,11 @@ const fetchAllData = async () => {
       </div>
     );
   }
-{showPopup && <Popup onClose={() => setShowPopup(false)} />}
 
   return (
     <div className="overflow-hidden">
+          {showPopup && <Popup onClose={() => setShowPopup(false)} />}
+
       {/* Hero Section */}
       {heroes.length > 0 ? (
         <HeroSection heroes={heroes} />
