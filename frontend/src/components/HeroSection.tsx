@@ -75,6 +75,35 @@ const HeroSection: React.FC<HeroSectionProps> = ({
     }
   };
 
+  // Get alignment classes based on content_alignment
+  const getAlignmentClasses = () => {
+    const alignment = currentHero.content_alignment || 'center';
+    
+    switch(alignment) {
+      case 'left':
+        return {
+          container: 'justify-start',
+          text: 'text-left',
+          content: 'max-w-3xl'
+        };
+      case 'right':
+        return {
+          container: 'justify-end',
+          text: 'text-right',
+          content: 'max-w-3xl'
+        };
+      case 'center':
+      default:
+        return {
+          container: 'justify-center',
+          text: 'text-center',
+          content: 'max-w-3xl mx-auto'
+        };
+    }
+  };
+
+  const alignment = getAlignmentClasses();
+
   if (heroes.length === 0) {
     return null;
   }
@@ -118,13 +147,21 @@ const HeroSection: React.FC<HeroSectionProps> = ({
             />
           )}
           
-          {/* Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent" />
+          {/* Dynamic Overlay - changes based on content alignment */}
+          <div 
+            className={`absolute inset-0 ${
+              alignment.text === 'text-left' 
+                ? 'bg-gradient-to-r from-black/80 via-black/60 to-transparent' 
+                : alignment.text === 'text-right'
+                ? 'bg-gradient-to-l from-black/80 via-black/60 to-transparent'
+                : 'bg-black/50'
+            }`} 
+          />
         </motion.div>
       </AnimatePresence>
 
-      {/* Content */}
-      <div className="relative h-full flex items-center z-10">
+      {/* Content - Dynamically positioned based on alignment */}
+      <div className={`relative h-full flex items-center z-10 ${alignment.container}`}>
         <div className="container mx-auto px-4">
           <motion.div
             key={currentIndex}
@@ -132,7 +169,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -50 }}
             transition={{ duration: 0.8, delay: 0.2 }}
-            className="max-w-3xl text-white"
+            className={`${alignment.content} ${alignment.text} text-white`}
           >
             <h1 className="text-5xl md:text-7xl font-serif font-bold mb-6 leading-tight">
               {currentHero.title}
@@ -143,7 +180,9 @@ const HeroSection: React.FC<HeroSectionProps> = ({
             {currentHero.cta_text && currentHero.cta_link && (
               <a
                 href={currentHero.cta_link}
-                className="inline-flex items-center px-8 py-4 bg-premium-gold text-white rounded-xl hover:bg-white hover:text-premium-charcoal transition-all duration-300 text-lg font-medium group"
+                className={`inline-flex items-center px-8 py-4 bg-premium-gold text-white rounded-xl hover:bg-white hover:text-premium-charcoal transition-all duration-300 text-lg font-medium group ${
+                  alignment.text === 'text-center' ? 'mx-auto' : ''
+                }`}
               >
                 {currentHero.cta_text}
                 <ChevronRight className="ml-2 h-5 w-5 group-hover:translate-x-2 transition-transform" />
@@ -171,7 +210,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({
         </div>
       )}
 
-      {/* Navigation Arrows */}
+      {/* Navigation Arrows - Only show if more than one hero */}
       {heroes.length > 1 && (
         <>
           <button

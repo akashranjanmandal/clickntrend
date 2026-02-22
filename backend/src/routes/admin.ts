@@ -305,8 +305,7 @@ router.put('/orders/:id', requireAuth, async (req: Request, res: Response) => {
     res.status(500).json({ error: error.message });
   }
 });
-
-// ========== COMBOS ========== //
+// ========== COMBOS ==========
 
 // Get all combos for admin
 router.get('/combos', requireAuth, async (req: Request, res: Response) => {
@@ -329,15 +328,15 @@ router.get('/combos', requireAuth, async (req: Request, res: Response) => {
   }
 });
 
-// Create new combo
+// Create new combo (without products)
 router.post('/combos', requireAuth, async (req: Request, res: Response) => {
   try {
     const { 
       name, description, discount_percentage, discount_price,
-      image_url, products 
+      image_url, is_active 
     } = req.body;
 
-    console.log('Creating combo:', { name, products: products?.length });
+    console.log('Creating combo:', { name });
 
     // Create combo
     const { data: combo, error: comboError } = await supabase
@@ -345,29 +344,19 @@ router.post('/combos', requireAuth, async (req: Request, res: Response) => {
       .insert({
         name,
         description,
-        discount_percentage: discount_percentage ? parseInt(discount_percentage) : null,
-        discount_price: discount_price ? parseFloat(discount_price) : null,
+        discount_percentage: discount_percentage || null,
+        discount_price: discount_price || null,
         image_url,
-        is_active: true
+        is_active: is_active !== undefined ? is_active : true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       })
       .select()
       .single();
 
-    if (comboError) throw comboError;
-
-    // Add products to combo
-    if (products && products.length > 0) {
-      const comboProducts = products.map((product: any) => ({
-        combo_id: combo.id,
-        product_id: product.id,
-        quantity: product.quantity || 1
-      }));
-
-      const { error: productsError } = await supabase
-        .from('combo_products')
-        .insert(comboProducts);
-
-      if (productsError) throw productsError;
+    if (comboError) {
+      console.error('Error creating combo:', comboError);
+      throw comboError;
     }
 
     console.log('Combo created:', combo.id);
@@ -378,25 +367,42 @@ router.post('/combos', requireAuth, async (req: Request, res: Response) => {
   }
 });
 
-// Update combo
+// Update combo (without products)
 router.put('/combos/:id', requireAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const updates = req.body;
-    
-    const { data, error } = await supabase
+    const { 
+      name, description, discount_percentage, discount_price,
+      image_url, is_active 
+    } = req.body;
+
+    console.log('Updating combo:', { id, name });
+
+    // Update the combo
+    const { data: combo, error: comboError } = await supabase
       .from('combos')
       .update({
-        ...updates,
+        name,
+        description,
+        discount_percentage: discount_percentage || null,
+        discount_price: discount_price || null,
+        image_url,
+        is_active: is_active !== undefined ? is_active : true,
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
       .select()
       .single();
 
-    if (error) throw error;
-    res.json({ success: true, combo: data });
+    if (comboError) {
+      console.error('Error updating combo:', comboError);
+      throw comboError;
+    }
+
+    console.log('Combo updated:', id);
+    res.json({ success: true, combo });
   } catch (error: any) {
+    console.error('Update combo error:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -406,6 +412,15 @@ router.delete('/combos/:id', requireAuth, async (req: Request, res: Response) =>
   try {
     const { id } = req.params;
     
+    // First delete combo products (due to foreign key constraint)
+    const { error: productsError } = await supabase
+      .from('combo_products')
+      .delete()
+      .eq('combo_id', id);
+
+    if (productsError) throw productsError;
+    
+    // Then delete the combo
     const { error } = await supabase
       .from('combos')
       .delete()
@@ -414,10 +429,120 @@ router.delete('/combos/:id', requireAuth, async (req: Request, res: Response) =>
     if (error) throw error;
     res.json({ success: true, message: 'Combo deleted successfully' });
   } catch (error: any) {
+    console.error('Delete combo error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+// ========== COMBO PRODUCTS ROUTES ==========
+
+// Get products for a specific combo
+router.get('/combos/:comboId/products', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { comboId } = req.params;
+    
+    const { data, error } = await supabase
+      .from('combo_products')
+      .select(`
+        product_id,
+        quantity,
+        product:products (*)
+      `)
+      .eq('combo_id', comboId);
+
+    if (error) throw error;
+    res.json(data || []);
+  } catch (error: any) {
+    console.error('Error fetching combo products:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
+// Add products to a combo
+router.post('/combos/:comboId/products', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { comboId } = req.params;
+    const { products } = req.body;
+
+    if (!products || !Array.isArray(products) || products.length === 0) {
+      return res.status(400).json({ error: 'No products provided' });
+    }
+
+    const comboProducts = products.map((p: any) => ({
+      combo_id: comboId,
+      product_id: p.product_id,
+      quantity: p.quantity || 1
+    }));
+
+    const { data, error } = await supabase
+      .from('combo_products')
+      .insert(comboProducts)
+      .select();
+
+    if (error) throw error;
+    res.json({ success: true, data });
+  } catch (error: any) {
+    console.error('Error adding combo products:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update combo products (replace all)
+router.put('/combos/:comboId/products', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { comboId } = req.params;
+    const { products } = req.body;
+
+    // Start a transaction - delete all existing products first
+    const { error: deleteError } = await supabase
+      .from('combo_products')
+      .delete()
+      .eq('combo_id', comboId);
+
+    if (deleteError) throw deleteError;
+
+    // If no new products, just return success
+    if (!products || !Array.isArray(products) || products.length === 0) {
+      return res.json({ success: true, message: 'All products removed from combo' });
+    }
+
+    // Add new products
+    const comboProducts = products.map((p: any) => ({
+      combo_id: comboId,
+      product_id: p.product_id,
+      quantity: p.quantity || 1
+    }));
+
+    const { data, error: insertError } = await supabase
+      .from('combo_products')
+      .insert(comboProducts)
+      .select();
+
+    if (insertError) throw insertError;
+
+    res.json({ success: true, data });
+  } catch (error: any) {
+    console.error('Error updating combo products:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete all products from a combo
+router.delete('/combos/:comboId/products', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { comboId } = req.params;
+
+    const { error } = await supabase
+      .from('combo_products')
+      .delete()
+      .eq('combo_id', comboId);
+
+    if (error) throw error;
+    res.json({ success: true, message: 'All products removed from combo' });
+  } catch (error: any) {
+    console.error('Error deleting combo products:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
 // ========== TEST ENDPOINT ========== //
 router.get('/test', (req: Request, res: Response) => {
   res.json({ message: 'Admin API is working!' });

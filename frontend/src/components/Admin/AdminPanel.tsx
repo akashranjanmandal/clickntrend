@@ -34,7 +34,11 @@ const AdminPanel: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
-  
+  const [editingCombo, setEditingCombo] = useState<Combo | null>(null);
+const handleEditCombo = (combo: Combo) => {
+  setEditingCombo(combo);
+  setShowComboManager(true);
+};
   const [stats, setStats] = useState({
     totalOrders: 0,
     totalRevenue: 0,
@@ -928,6 +932,13 @@ const AdminPanel: React.FC = () => {
                           <td className="p-4">
                             <div className="flex space-x-2">
                               <button 
+  onClick={() => handleEditCombo(combo)}
+  className="p-2 hover:bg-gray-100 rounded transition-colors"
+  title="Edit"
+>
+  <Edit className="h-4 w-4 text-blue-600" />
+</button>
+                              <button 
                                 onClick={() => deleteCombo(combo.id)}
                                 className="p-2 hover:bg-gray-100 rounded transition-colors"
                                 title="Delete"
@@ -1138,15 +1149,20 @@ const AdminPanel: React.FC = () => {
         />
       )}
 
-      {showComboManager && (
-        <ComboManager 
-          onClose={() => setShowComboManager(false)} 
-          onSuccess={() => {
-            setShowComboManager(false);
-            fetchDashboardData();
-          }}
-        />
-      )}
+{showComboManager && (
+  <ComboManager 
+    combo={editingCombo}
+    onClose={() => {
+      setShowComboManager(false);
+      setEditingCombo(null);
+    }} 
+    onSuccess={() => {
+      setShowComboManager(false);
+      setEditingCombo(null);
+      fetchDashboardData();
+    }}
+  />
+)}
     </div>
   );
 };

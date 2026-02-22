@@ -4,6 +4,7 @@ import { Product, Review } from '../types';
 import { formatCurrency, getImageUrl } from '../utils/helpers';
 import { useCart } from '../context/CartContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import { apiFetch } from '../config';
 
 interface ProductDetailsModalProps {
   product: Product;
@@ -18,12 +19,10 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({ product, onCl
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState<'details' | 'reviews'>('details');
 
-  // Mock additional images (in real app, you'd have multiple images per product)
-  const productImages = [
-    product.image_url,
-    product.image_url.replace('.jpg', '-2.jpg'),
-    product.image_url.replace('.jpg', '-3.jpg'),
-  ].filter(url => url !== product.image_url);
+  // Get additional images if available
+  const productImages = product.additional_images && product.additional_images.length > 0
+    ? [product.image_url, ...product.additional_images]
+    : [product.image_url];
 
   useEffect(() => {
     fetchReviews();
@@ -44,11 +43,11 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({ product, onCl
   const fetchReviews = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/products/${product.id}/reviews`);
-      const data = await response.json();
-      setReviews(data.filter((r: Review) => r.is_approved));
+      const data = await apiFetch(`/api/reviews/product/${product.id}`);
+      setReviews(data || []);
     } catch (error) {
       console.error('Error fetching reviews:', error);
+      // Don't show error to user, just show empty reviews
     } finally {
       setLoading(false);
     }
@@ -74,11 +73,11 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({ product, onCl
     : 0;
 
   const nextImage = () => {
-    setSelectedImage((prev) => (prev + 1) % (productImages.length + 1));
+    setSelectedImage((prev) => (prev + 1) % productImages.length);
   };
 
   const prevImage = () => {
-    setSelectedImage((prev) => (prev - 1 + (productImages.length + 1)) % (productImages.length + 1));
+    setSelectedImage((prev) => (prev - 1 + productImages.length) % productImages.length);
   };
 
   return (
@@ -113,12 +112,12 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({ product, onCl
             <div className="space-y-4">
               <div className="relative aspect-square rounded-2xl overflow-hidden bg-gray-100">
                 <img
-                  src={selectedImage === 0 ? product.image_url : productImages[selectedImage - 1]}
+                  src={getImageUrl(productImages[selectedImage])}
                   alt={product.name}
                   className="w-full h-full object-cover"
                 />
                 
-                {productImages.length > 0 && (
+                {productImages.length > 1 && (
                   <>
                     <button
                       onClick={prevImage}
@@ -143,27 +142,21 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({ product, onCl
               </div>
 
               {/* Thumbnails */}
-              <div className="flex gap-2 overflow-x-auto pb-2">
-                <div
-                  onClick={() => setSelectedImage(0)}
-                  className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden cursor-pointer border-2 transition-all ${
-                    selectedImage === 0 ? 'border-premium-gold scale-105' : 'border-transparent hover:scale-105'
-                  }`}
-                >
-                  <img src={product.image_url} alt="" className="w-full h-full object-cover" />
+              {productImages.length > 1 && (
+                <div className="flex gap-2 overflow-x-auto pb-2">
+                  {productImages.map((url, idx) => (
+                    <div
+                      key={idx}
+                      onClick={() => setSelectedImage(idx)}
+                      className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden cursor-pointer border-2 transition-all ${
+                        selectedImage === idx ? 'border-premium-gold scale-105' : 'border-transparent hover:scale-105'
+                      }`}
+                    >
+                      <img src={getImageUrl(url)} alt={`${product.name} ${idx + 1}`} className="w-full h-full object-cover" />
+                    </div>
+                  ))}
                 </div>
-                {productImages.map((url, idx) => (
-                  <div
-                    key={idx}
-                    onClick={() => setSelectedImage(idx + 1)}
-                    className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden cursor-pointer border-2 transition-all ${
-                      selectedImage === idx + 1 ? 'border-premium-gold scale-105' : 'border-transparent hover:scale-105'
-                    }`}
-                  >
-                    <img src={url} alt="" className="w-full h-full object-cover" />
-                  </div>
-                ))}
-              </div>
+              )}
             </div>
 
             {/* Right Column - Details */}
@@ -186,7 +179,7 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({ product, onCl
                       />
                     ))}
                     <span className="ml-2 text-sm text-gray-600">
-                      ({reviews.length} reviews)
+                      ({reviews.length} {reviews.length === 1 ? 'review' : 'reviews'})
                     </span>
                   </div>
                   <span className="text-sm text-gray-500">
@@ -315,13 +308,13 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({ product, onCl
                               ))}
                             </div>
                             <p className="text-xs text-gray-500 mt-1">
-                              Based on {reviews.length} reviews
+                              Based on {reviews.length} {reviews.length === 1 ? 'review' : 'reviews'}
                             </p>
                           </div>
                           <div className="flex-1 space-y-2">
                             {[5, 4, 3, 2, 1].map((rating) => {
                               const count = reviews.filter(r => r.rating === rating).length;
-                              const percentage = (count / reviews.length) * 100;
+                              const percentage = reviews.length > 0 ? (count / reviews.length) * 100 : 0;
                               return (
                                 <div key={rating} className="flex items-center gap-2">
                                   <span className="text-sm w-8">{rating} ★</span>
@@ -388,8 +381,9 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({ product, onCl
                     </button>
                     <span className="px-4 py-2 border-x">{quantity}</span>
                     <button
-                      onClick={() => setQuantity(quantity + 1)}
+                      onClick={() => setQuantity(Math.min(product.stock_quantity, quantity + 1))}
                       className="px-3 py-2 hover:bg-gray-100 transition-colors"
+                      disabled={quantity >= product.stock_quantity}
                     >
                       +
                     </button>

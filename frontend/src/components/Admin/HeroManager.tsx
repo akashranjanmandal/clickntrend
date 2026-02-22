@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import {
   X, Plus, Save, Trash2, Edit, Search, RefreshCw,
   MoveUp, MoveDown, Eye, EyeOff, Video, Image,
-  Upload, FileUp, Play, Pause, Volume2, VolumeX
+  Upload, Play, Pause, Volume2, VolumeX, ChevronUp, ChevronDown,
+  AlignCenter, AlignLeft, AlignRight
 } from 'lucide-react';
 import { useApi } from '../../hooks/useApi';
 
@@ -18,8 +19,10 @@ interface HeroContent {
   muted: boolean;
   cta_text?: string;
   cta_link?: string;
+  content_alignment?: 'left' | 'center' | 'right';
   is_active: boolean;
   display_order: number;
+  created_at: string;
 }
 
 const HeroManager: React.FC = () => {
@@ -30,6 +33,8 @@ const HeroManager: React.FC = () => {
   const [editingHero, setEditingHero] = useState<HeroContent | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
 
   const [formData, setFormData] = useState({
     title: '',
@@ -44,6 +49,7 @@ const HeroManager: React.FC = () => {
     muted: true,
     cta_text: '',
     cta_link: '',
+    content_alignment: 'center' as 'left' | 'center' | 'right',
     is_active: true,
     display_order: 0,
   });
@@ -57,8 +63,9 @@ const HeroManager: React.FC = () => {
   const fetchHeroes = async () => {
     try {
       setLoading(true);
-      const data = await fetchWithAuth('/api/hero/admin');
-      setHeroes(data.sort((a: HeroContent, b: HeroContent) => a.display_order - b.display_order));
+      const data = await fetchWithAuth('/api/admin/hero');
+      const sorted = (data || []).sort((a: HeroContent, b: HeroContent) => a.display_order - b.display_order);
+      setHeroes(sorted);
     } catch (error) {
       console.error('Error fetching heroes:', error);
     } finally {
@@ -74,7 +81,6 @@ const HeroManager: React.FC = () => {
     formData.append('media', file);
 
     try {
-      // Simulate progress
       const interval = setInterval(() => {
         setUploadProgress(prev => Math.min(prev + 10, 90));
       }, 200);
@@ -122,6 +128,9 @@ const HeroManager: React.FC = () => {
         setFormData({ ...formData, media_file: file });
         const url = URL.createObjectURL(file);
         setPreviewUrl(url);
+        // Detect media type from file
+        const isVideo = file.type.startsWith('video/');
+        setFormData(prev => ({ ...prev, media_type: isVideo ? 'video' : 'image' }));
       } else {
         setFormData({ ...formData, poster_file: file });
       }
@@ -158,17 +167,18 @@ const HeroManager: React.FC = () => {
         muted: formData.muted,
         cta_text: formData.cta_text,
         cta_link: formData.cta_link,
+        content_alignment: formData.content_alignment,
         is_active: formData.is_active,
         display_order: formData.display_order,
       };
 
       if (editingHero) {
-        await fetchWithAuth(`/api/hero/admin/${editingHero.id}`, {
+        await fetchWithAuth(`/api/admin/hero/${editingHero.id}`, {
           method: 'PUT',
           body: JSON.stringify(heroData),
         });
       } else {
-        await fetchWithAuth('/api/hero/admin', {
+        await fetchWithAuth('/api/admin/hero', {
           method: 'POST',
           body: JSON.stringify(heroData),
         });
@@ -180,7 +190,84 @@ const HeroManager: React.FC = () => {
       resetForm();
     } catch (error) {
       console.error('Error saving hero:', error);
+      alert('Failed to save hero section');
     }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this hero section?')) return;
+    
+    try {
+      await fetchWithAuth(`/api/admin/hero/${id}`, { method: 'DELETE' });
+      await fetchHeroes();
+    } catch (error) {
+      console.error('Error deleting hero:', error);
+      alert('Failed to delete hero section');
+    }
+  };
+
+  const handleToggleStatus = async (hero: HeroContent) => {
+    try {
+      await fetchWithAuth(`/api/admin/hero/${hero.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ is_active: !hero.is_active }),
+      });
+      await fetchHeroes();
+    } catch (error) {
+      console.error('Error toggling status:', error);
+      alert('Failed to update status');
+    }
+  };
+
+  const handleMoveOrder = async (hero: HeroContent, direction: 'up' | 'down') => {
+    const index = heroes.findIndex(h => h.id === hero.id);
+    if (
+      (direction === 'up' && index === 0) || 
+      (direction === 'down' && index === heroes.length - 1)
+    ) return;
+
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    const otherHero = heroes[newIndex];
+
+    try {
+      await Promise.all([
+        fetchWithAuth(`/api/admin/hero/${hero.id}`, {
+          method: 'PUT',
+          body: JSON.stringify({ display_order: otherHero.display_order }),
+        }),
+        fetchWithAuth(`/api/admin/hero/${otherHero.id}`, {
+          method: 'PUT',
+          body: JSON.stringify({ display_order: hero.display_order }),
+        }),
+      ]);
+      await fetchHeroes();
+    } catch (error) {
+      console.error('Error reordering:', error);
+      alert('Failed to reorder');
+    }
+  };
+
+  const handleEdit = (hero: HeroContent) => {
+    setEditingHero(hero);
+    setFormData({
+      title: hero.title,
+      subtitle: hero.subtitle || '',
+      media_type: hero.media_type,
+      media_url: hero.media_url,
+      video_poster_url: hero.video_poster_url || '',
+      media_file: null,
+      poster_file: null,
+      autoplay: hero.autoplay,
+      loop: hero.loop,
+      muted: hero.muted,
+      cta_text: hero.cta_text || '',
+      cta_link: hero.cta_link || '',
+      content_alignment: hero.content_alignment || 'center',
+      is_active: hero.is_active,
+      display_order: hero.display_order,
+    });
+    setPreviewUrl(hero.media_url);
+    setShowAddModal(true);
   };
 
   const resetForm = () => {
@@ -197,10 +284,33 @@ const HeroManager: React.FC = () => {
       muted: true,
       cta_text: '',
       cta_link: '',
+      content_alignment: 'center',
       is_active: true,
       display_order: heroes.length,
     });
     setPreviewUrl(null);
+    setEditingHero(null);
+  };
+
+  const filteredHeroes = heroes.filter(hero => {
+    const matchesSearch = hero.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         hero.subtitle?.toLowerCase().includes(searchTerm.toLowerCase());
+    if (!matchesSearch) return false;
+    if (filterStatus === 'active') return hero.is_active;
+    if (filterStatus === 'inactive') return !hero.is_active;
+    return true;
+  });
+
+  const getMediaIcon = (type: string) => {
+    return type === 'video' ? <Video className="h-4 w-4" /> : <Image className="h-4 w-4" />;
+  };
+
+  const getAlignmentIcon = (alignment: string) => {
+    switch(alignment) {
+      case 'left': return <AlignLeft className="h-4 w-4" />;
+      case 'right': return <AlignRight className="h-4 w-4" />;
+      default: return <AlignCenter className="h-4 w-4" />;
+    }
   };
 
   if (loading) {
@@ -213,43 +323,220 @@ const HeroManager: React.FC = () => {
 
   return (
     <div className="bg-white rounded-xl shadow overflow-hidden">
+      {/* Header with Search and Filters */}
       <div className="px-6 py-4 border-b">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <h2 className="text-2xl font-serif font-semibold">Hero Sections</h2>
-          <button
-            onClick={() => { resetForm(); setShowAddModal(true); }}
-            className="flex items-center gap-2 px-4 py-2 bg-premium-gold text-white rounded-lg"
-          >
-            <Plus className="h-4 w-4" />
-            Add Hero
-          </button>
+          
+          <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search heroes..."
+                className="pl-10 pr-4 py-2 border rounded-lg w-full sm:w-64"
+              />
+            </div>
+            
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value as any)}
+              className="px-4 py-2 border rounded-lg"
+            >
+              <option value="all">All</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+
+            <button
+              onClick={() => { resetForm(); setShowAddModal(true); }}
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy"
+            >
+              <Plus className="h-4 w-4" />
+              Add Hero
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Modal */}
+      {/* Heroes Table */}
+      {filteredHeroes.length === 0 ? (
+        <div className="p-12 text-center">
+          <Video className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+          <p className="text-gray-500 text-lg mb-2">No hero sections found</p>
+          <p className="text-sm text-gray-400 mb-6">
+            {searchTerm || filterStatus !== 'all' 
+              ? 'Try adjusting your search or filters' 
+              : 'Add your first hero section to get started'}
+          </p>
+          {!searchTerm && filterStatus === 'all' && (
+            <button
+              onClick={() => { resetForm(); setShowAddModal(true); }}
+              className="px-6 py-3 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy"
+            >
+              + Add Your First Hero
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="text-left p-4 w-16">Order</th>
+                <th className="text-left p-4">Preview</th>
+                <th className="text-left p-4">Title</th>
+                <th className="text-left p-4">Type</th>
+                <th className="text-left p-4">Alignment</th>
+                <th className="text-left p-4">CTA</th>
+                <th className="text-left p-4">Status</th>
+                <th className="text-left p-4">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredHeroes.map((hero, index) => (
+                <tr key={hero.id} className="border-b hover:bg-gray-50">
+                  <td className="p-4">
+                    <div className="flex items-center gap-1">
+                      <span className="text-sm text-gray-500">{hero.display_order}</span>
+                      <div className="flex flex-col">
+                        <button
+                          onClick={() => handleMoveOrder(hero, 'up')}
+                          disabled={index === 0}
+                          className="p-0.5 hover:bg-gray-200 rounded disabled:opacity-30"
+                        >
+                          <ChevronUp className="h-3 w-3" />
+                        </button>
+                        <button
+                          onClick={() => handleMoveOrder(hero, 'down')}
+                          disabled={index === heroes.length - 1}
+                          className="p-0.5 hover:bg-gray-200 rounded disabled:opacity-30"
+                        >
+                          <ChevronDown className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="p-4">
+                    <div className="w-20 h-12 bg-gray-100 rounded overflow-hidden">
+                      {hero.media_type === 'video' ? (
+                        <video 
+                          src={hero.media_url} 
+                          className="w-full h-full object-cover"
+                          muted
+                          loop
+                        />
+                      ) : (
+                        <img 
+                          src={hero.media_url} 
+                          alt={hero.title}
+                          className="w-full h-full object-cover"
+                        />
+                      )}
+                    </div>
+                  </td>
+                  <td className="p-4">
+                    <div>
+                      <p className="font-medium">{hero.title}</p>
+                      <p className="text-sm text-gray-600 line-clamp-1">{hero.subtitle}</p>
+                    </div>
+                  </td>
+                  <td className="p-4">
+                    <div className="flex items-center gap-2">
+                      {getMediaIcon(hero.media_type)}
+                      <span className="text-sm capitalize">{hero.media_type}</span>
+                    </div>
+                  </td>
+                  <td className="p-4">
+                    <div className="flex items-center gap-2">
+                      {getAlignmentIcon(hero.content_alignment || 'center')}
+                      <span className="text-sm capitalize">{hero.content_alignment || 'center'}</span>
+                    </div>
+                  </td>
+                  <td className="p-4">
+                    {hero.cta_text ? (
+                      <div>
+                        <p className="text-sm font-medium">{hero.cta_text}</p>
+                        <p className="text-xs text-gray-500">{hero.cta_link}</p>
+                      </div>
+                    ) : (
+                      <span className="text-sm text-gray-400">None</span>
+                    )}
+                  </td>
+                  <td className="p-4">
+                    <button
+                      onClick={() => handleToggleStatus(hero)}
+                      className={`px-3 py-1 rounded-full text-xs font-medium ${
+                        hero.is_active
+                          ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                          : 'bg-red-100 text-red-800 hover:bg-red-200'
+                      }`}
+                    >
+                      {hero.is_active ? 'Active' : 'Inactive'}
+                    </button>
+                  </td>
+                  <td className="p-4">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleEdit(hero)}
+                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                        title="Edit"
+                      >
+                        <Edit className="h-4 w-4 text-blue-600" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(hero.id)}
+                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                        title="Delete"
+                      >
+                        <Trash2 className="h-4 w-4 text-red-600" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Add/Edit Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-serif font-semibold">
-                  {editingHero ? 'Edit Hero' : 'Add Hero'}
+                  {editingHero ? 'Edit Hero Section' : 'Add New Hero Section'}
                 </h2>
-                <button onClick={() => setShowAddModal(false)}>
+                <button onClick={() => { setShowAddModal(false); setEditingHero(null); }}>
                   <X className="h-5 w-5" />
                 </button>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Title</label>
-                  <input
-                    type="text"
-                    value={formData.title}
-                    onChange={(e) => setFormData({...formData, title: e.target.value})}
-                    className="w-full px-4 py-2 border rounded-lg"
-                    required
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Title *</label>
+                    <input
+                      type="text"
+                      value={formData.title}
+                      onChange={(e) => setFormData({...formData, title: e.target.value})}
+                      className="w-full px-4 py-2 border rounded-lg"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Display Order</label>
+                    <input
+                      type="number"
+                      value={formData.display_order}
+                      onChange={(e) => setFormData({...formData, display_order: parseInt(e.target.value) || 0})}
+                      className="w-full px-4 py-2 border rounded-lg"
+                    />
+                  </div>
                 </div>
 
                 <div>
@@ -262,14 +549,63 @@ const HeroManager: React.FC = () => {
                   />
                 </div>
 
+                {/* Content Alignment */}
+                <div>
+                  <label className="block text-sm font-medium mb-2">Content Alignment</label>
+                  <div className="flex gap-4">
+                    <button
+                      type="button"
+                      onClick={() => setFormData({...formData, content_alignment: 'left'})}
+                      className={`flex-1 flex items-center justify-center gap-2 p-3 border rounded-lg transition-colors ${
+                        formData.content_alignment === 'left'
+                          ? 'border-premium-gold bg-premium-gold/5 ring-2 ring-premium-gold/20'
+                          : 'border-gray-200 hover:border-premium-gold'
+                      }`}
+                    >
+                      <AlignLeft className="h-5 w-5" />
+                      <span>Left</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({...formData, content_alignment: 'center'})}
+                      className={`flex-1 flex items-center justify-center gap-2 p-3 border rounded-lg transition-colors ${
+                        formData.content_alignment === 'center'
+                          ? 'border-premium-gold bg-premium-gold/5 ring-2 ring-premium-gold/20'
+                          : 'border-gray-200 hover:border-premium-gold'
+                      }`}
+                    >
+                      <AlignCenter className="h-5 w-5" />
+                      <span>Center</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({...formData, content_alignment: 'right'})}
+                      className={`flex-1 flex items-center justify-center gap-2 p-3 border rounded-lg transition-colors ${
+                        formData.content_alignment === 'right'
+                          ? 'border-premium-gold bg-premium-gold/5 ring-2 ring-premium-gold/20'
+                          : 'border-gray-200 hover:border-premium-gold'
+                      }`}
+                    >
+                      <AlignRight className="h-5 w-5" />
+                      <span>Right</span>
+                    </button>
+                  </div>
+                </div>
+
                 {/* Media Upload */}
                 <div>
-                  <label className="block text-sm font-medium mb-2">Media (Image/Video)</label>
+                  <label className="block text-sm font-medium mb-2">Media (Image/Video) *</label>
                   <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
                     {previewUrl ? (
                       <div className="relative">
                         {formData.media_type === 'video' ? (
-                          <video src={previewUrl} className="max-h-48 mx-auto" controls />
+                          <video 
+                            src={previewUrl} 
+                            className="max-h-48 mx-auto" 
+                            controls 
+                            loop 
+                            muted
+                          />
                         ) : (
                           <img src={previewUrl} alt="Preview" className="max-h-48 mx-auto" />
                         )}
@@ -277,15 +613,20 @@ const HeroManager: React.FC = () => {
                           type="button"
                           onClick={() => {
                             setPreviewUrl(null);
-                            setFormData({...formData, media_file: null, media_url: ''});
+                            setFormData({
+                              ...formData, 
+                              media_file: null, 
+                              media_url: '',
+                              media_type: 'image'
+                            });
                           }}
-                          className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full"
+                          className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
                         >
                           <X className="h-4 w-4" />
                         </button>
                       </div>
                     ) : (
-                      <label className="cursor-pointer">
+                      <label className="cursor-pointer block">
                         <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
                         <p className="text-sm text-gray-600">Click to upload image or video</p>
                         <p className="text-xs text-gray-500">MP4, WebM, JPEG, PNG up to 50MB</p>
@@ -294,6 +635,7 @@ const HeroManager: React.FC = () => {
                           accept="image/*,video/*"
                           onChange={(e) => handleFileChange(e, 'media')}
                           className="hidden"
+                          required={!editingHero}
                         />
                       </label>
                     )}
@@ -306,7 +648,7 @@ const HeroManager: React.FC = () => {
                           style={{ width: `${uploadProgress}%` }}
                         />
                       </div>
-                      <p className="text-sm text-gray-600 mt-1">Uploading... {uploadProgress}%</p>
+                      <p className="text-sm text-gray-600 mt-1 text-center">Uploading... {uploadProgress}%</p>
                     </div>
                   )}
                 </div>
@@ -316,16 +658,33 @@ const HeroManager: React.FC = () => {
                   <>
                     <div>
                       <label className="block text-sm font-medium mb-2">Video Poster (Optional)</label>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => handleFileChange(e, 'poster')}
-                        className="w-full"
-                      />
+                      {formData.video_poster_url ? (
+                        <div className="relative inline-block">
+                          <img 
+                            src={formData.video_poster_url} 
+                            alt="Poster" 
+                            className="h-20 rounded"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setFormData({...formData, video_poster_url: '', poster_file: null})}
+                            className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => handleFileChange(e, 'poster')}
+                          className="w-full"
+                        />
+                      )}
                     </div>
 
                     <div className="grid grid-cols-3 gap-4">
-                      <label className="flex items-center gap-2">
+                      <label className="flex items-center justify-center gap-2 p-2 border rounded-lg hover:bg-gray-50">
                         <input
                           type="checkbox"
                           checked={formData.autoplay}
@@ -333,7 +692,7 @@ const HeroManager: React.FC = () => {
                         />
                         Autoplay
                       </label>
-                      <label className="flex items-center gap-2">
+                      <label className="flex items-center justify-center gap-2 p-2 border rounded-lg hover:bg-gray-50">
                         <input
                           type="checkbox"
                           checked={formData.loop}
@@ -341,7 +700,7 @@ const HeroManager: React.FC = () => {
                         />
                         Loop
                       </label>
-                      <label className="flex items-center gap-2">
+                      <label className="flex items-center justify-center gap-2 p-2 border rounded-lg hover:bg-gray-50">
                         <input
                           type="checkbox"
                           checked={formData.muted}
@@ -384,16 +743,33 @@ const HeroManager: React.FC = () => {
                     onChange={(e) => setFormData({...formData, is_active: e.target.checked})}
                     id="is_active"
                   />
-                  <label htmlFor="is_active">Active</label>
+                  <label htmlFor="is_active">Active (visible on homepage)</label>
                 </div>
 
-                <div className="flex justify-end gap-3 pt-4">
-                  <button type="button" onClick={() => setShowAddModal(false)} className="px-6 py-2 border rounded-lg">
+                <div className="flex justify-end gap-3 pt-4 border-t">
+                  <button 
+                    type="button" 
+                    onClick={() => { setShowAddModal(false); setEditingHero(null); }} 
+                    className="px-6 py-2 border rounded-lg hover:bg-gray-50"
+                  >
                     Cancel
                   </button>
-                  <button type="submit" className="px-6 py-2 bg-premium-gold text-white rounded-lg">
-                    <Save className="h-4 w-4 inline mr-2" />
-                    Save
+                  <button 
+                    type="submit" 
+                    className="px-6 py-2 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy flex items-center justify-center gap-2"
+                    disabled={uploading}
+                  >
+                    {uploading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4" />
+                        {editingHero ? 'Update Hero' : 'Create Hero'}
+                      </>
+                    )}
                   </button>
                 </div>
               </form>

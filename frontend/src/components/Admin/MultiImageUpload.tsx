@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Upload, X, Camera, Star, Trash2 } from 'lucide-react';
+import { apiFetch } from '../../config';
 
 interface ImageFile {
-  file: File;
+  file?: File;
   preview: string;
   url?: string;
   is_primary: boolean;
@@ -17,20 +18,29 @@ interface UploadedImage {
 interface MultiImageUploadProps {
   onImagesUploaded: (images: { url: string; is_primary: boolean }[]) => void;
   maxImages?: number;
+  initialImages?: { url: string; is_primary: boolean }[];
 }
 
 const MultiImageUpload: React.FC<MultiImageUploadProps> = ({ 
   onImagesUploaded, 
-  maxImages = 5 
+  maxImages = 5,
+  initialImages = []
 }) => {
-  const [images, setImages] = useState<ImageFile[]>([]);
+  const [images, setImages] = useState<ImageFile[]>(
+    initialImages.map(img => ({
+      preview: img.url,
+      url: img.url,
+      is_primary: img.is_primary
+    }))
+  );
   const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     
     if (images.length + files.length > maxImages) {
-      alert(`You can only upload up to ${maxImages} images`);
+      setError(`You can only upload up to ${maxImages} images`);
       return;
     }
 
@@ -41,6 +51,7 @@ const MultiImageUpload: React.FC<MultiImageUploadProps> = ({
     }));
 
     setImages([...images, ...newImages]);
+    setError(null);
   };
 
   const removeImage = (index: number) => {
@@ -63,15 +74,38 @@ const MultiImageUpload: React.FC<MultiImageUploadProps> = ({
   const uploadImages = async () => {
     if (images.length === 0) return;
 
+    // If all images already have URLs, just notify parent
+    if (images.every(img => img.url)) {
+      onImagesUploaded(images.map(img => ({
+        url: img.url!,
+        is_primary: img.is_primary
+      })));
+      return;
+    }
+
     setUploading(true);
+    setError(null);
+    
     const formData = new FormData();
-    images.forEach((img: ImageFile) => {
-      formData.append('images', img.file);
+    let hasNewImages = false;
+    
+    images.forEach((img) => {
+      if (img.file) { // Only upload new images
+        formData.append('images', img.file);
+        hasNewImages = true;
+      }
     });
+
+    if (!hasNewImages) {
+      setUploading(false);
+      return;
+    }
 
     try {
       const token = localStorage.getItem('admin_token');
-      const response = await fetch('/api/upload/product-images', {
+      const baseUrl = import.meta.env.VITE_API_URL || '';
+      
+      const response = await fetch(`${baseUrl}/api/upload/product-images`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -79,28 +113,39 @@ const MultiImageUpload: React.FC<MultiImageUploadProps> = ({
         body: formData,
       });
 
-      if (!response.ok) throw new Error('Upload failed');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Upload failed' }));
+        throw new Error(errorData.error || `Upload failed with status ${response.status}`);
+      }
       
       const data = await response.json();
       
-      // Update local images with URLs from server
-      const updatedImages: ImageFile[] = data.images.map((img: UploadedImage, index: number) => ({
-        ...images[index],
-        url: img.url,
-        is_primary: images[index]?.is_primary || false
-      }));
+      // Merge uploaded images with existing ones
+      let uploadedIndex = 0;
+      const updatedImages: ImageFile[] = images.map((img) => {
+        if (!img.url && uploadedIndex < data.images.length) {
+          const uploaded = data.images[uploadedIndex];
+          uploadedIndex++;
+          return {
+            ...img,
+            url: uploaded.url,
+            is_primary: img.is_primary
+          };
+        }
+        return img;
+      });
 
       setImages(updatedImages);
       
       // Notify parent
-      onImagesUploaded(updatedImages.map((img: ImageFile) => ({
+      onImagesUploaded(updatedImages.map(img => ({
         url: img.url!,
         is_primary: img.is_primary
       })));
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Upload error:', error);
-      alert('Failed to upload images');
+      setError(error.message || 'Failed to upload images');
     } finally {
       setUploading(false);
     }
@@ -108,9 +153,16 @@ const MultiImageUpload: React.FC<MultiImageUploadProps> = ({
 
   return (
     <div className="space-y-4">
+      {/* Error Message */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+          {error}
+        </div>
+      )}
+
       {/* Image Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        {images.map((image: ImageFile, index: number) => (
+        {images.map((image, index) => (
           <div key={index} className="relative group aspect-square">
             <img
               src={image.preview}
@@ -129,6 +181,7 @@ const MultiImageUpload: React.FC<MultiImageUploadProps> = ({
             <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
               {!image.is_primary && (
                 <button
+                  type="button"
                   onClick={() => setAsPrimary(index)}
                   className="p-2 bg-blue-500 text-white rounded-full hover:bg-blue-600"
                   title="Set as primary"
@@ -137,6 +190,7 @@ const MultiImageUpload: React.FC<MultiImageUploadProps> = ({
                 </button>
               )}
               <button
+                type="button"
                 onClick={() => removeImage(index)}
                 className="p-2 bg-red-500 text-white rounded-full hover:bg-red-600"
                 title="Remove"
@@ -164,8 +218,9 @@ const MultiImageUpload: React.FC<MultiImageUploadProps> = ({
       </div>
 
       {/* Upload Button */}
-      {images.length > 0 && !uploading && (
+      {images.length > 0 && !uploading && !images.every(img => img.url) && (
         <button
+          type="button"
           onClick={uploadImages}
           className="w-full py-3 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy flex items-center justify-center gap-2"
         >

@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Minus, Search, Package, Trash2, Save, Upload, Camera } from 'lucide-react';
-import { Product } from '../../types';
+import { Product, Combo } from '../../types';
 import { formatCurrency, getImageUrl } from '../../utils/helpers';
+import { apiFetch } from '../../config';
 
 interface ComboManagerProps {
+  combo?: Combo | null;
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -12,7 +14,7 @@ interface ComboProduct extends Product {
   quantity: number;
 }
 
-const ComboManager: React.FC<ComboManagerProps> = ({ onClose, onSuccess }) => {
+const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
@@ -27,22 +29,51 @@ const ComboManager: React.FC<ComboManagerProps> = ({ onClose, onSuccess }) => {
     discount_percentage: '',
     discount_price: '',
     image_url: '',
+    is_active: true,
   });
 
   useEffect(() => {
     fetchProducts();
-  }, []);
+    if (combo) {
+      loadComboForEdit();
+    }
+  }, [combo]);
 
   const fetchProducts = async () => {
     try {
       const token = localStorage.getItem('admin_token');
-      const response = await fetch('/api/admin/products', {
+      const data = await apiFetch('/api/admin/products', {
         headers: { 'Authorization': `Bearer ${token}` },
       });
-      const data = await response.json();
       setProducts(data || []);
     } catch (error) {
       console.error('Error fetching products:', error);
+    }
+  };
+
+  const loadComboForEdit = () => {
+    if (!combo) return;
+    
+    setComboData({
+      name: combo.name || '',
+      description: combo.description || '',
+      discount_percentage: combo.discount_percentage?.toString() || '',
+      discount_price: combo.discount_price?.toString() || '',
+      image_url: combo.image_url || '',
+      is_active: combo.is_active !== undefined ? combo.is_active : true,
+    });
+
+    if (combo.image_url) {
+      setImagePreview(combo.image_url);
+    }
+
+    // Load selected products
+    if (combo.combo_products && combo.combo_products.length > 0) {
+      const productsWithQuantity = combo.combo_products.map((cp: any) => ({
+        ...cp.product,
+        quantity: cp.quantity || 1
+      }));
+      setSelectedProducts(productsWithQuantity);
     }
   };
 
@@ -138,59 +169,117 @@ const ComboManager: React.FC<ComboManagerProps> = ({ onClose, onSuccess }) => {
     product.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
     product.category.toLowerCase().includes(searchTerm.toLowerCase())
   );
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (selectedProducts.length === 0) {
+    alert('Please add at least one product to the combo');
+    return;
+  }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (selectedProducts.length === 0) {
-      alert('Please add at least one product to the combo');
-      return;
+  setLoading(true);
+  try {
+    const token = localStorage.getItem('admin_token');
+    
+    // Upload image if selected
+    const imageUrl = await uploadImage();
+
+    // Create combo payload WITHOUT products array
+    const comboPayload = {
+      name: comboData.name,
+      description: comboData.description,
+      discount_percentage: comboData.discount_percentage ? parseInt(comboData.discount_percentage) : null,
+      discount_price: comboData.discount_price ? parseFloat(comboData.discount_price) : null,
+      image_url: imageUrl || comboData.image_url,
+      is_active: comboData.is_active
+    };
+
+    console.log('Sending combo data:', comboPayload);
+
+    const baseUrl = import.meta.env.VITE_API_URL || '';
+    const url = combo 
+      ? `${baseUrl}/api/admin/combos/${combo.id}`
+      : `${baseUrl}/api/admin/combos`;
+
+    // First, save/update the combo
+    const response = await fetch(url, {
+      method: combo ? 'PUT' : 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(comboPayload),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Failed to save combo' }));
+      console.error('Server response:', errorData);
+      throw new Error(errorData.message || errorData.error || 'Failed to save combo');
     }
 
-    setLoading(true);
-    try {
-      const token = localStorage.getItem('admin_token');
+    const responseData = await response.json();
+    const comboId = combo ? combo.id : responseData.combo.id;
+    
+    // Now, handle the combo products separately
+    // For update, we need to delete existing products first
+    if (combo) {
+      // Delete existing combo products
+      const deleteResponse = await fetch(`${baseUrl}/api/admin/combos/${comboId}/products`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
       
-      // Upload image if selected
-      const imageUrl = await uploadImage();
-
-      const comboPayload = {
-        ...comboData,
-        discount_percentage: comboData.discount_percentage ? parseInt(comboData.discount_percentage) : null,
-        discount_price: comboData.discount_price ? parseFloat(comboData.discount_price) : null,
-        image_url: imageUrl || comboData.image_url,
+      if (!deleteResponse.ok) {
+        console.error('Failed to delete existing products');
+      }
+    }
+    
+    // Add new products
+    if (selectedProducts.length > 0) {
+      const productsPayload = {
         products: selectedProducts.map(p => ({
-          id: p.id,
+          product_id: p.id,
           quantity: p.quantity
         }))
       };
-
-      const response = await fetch('/api/admin/combos', {
+      
+      const productsResponse = await fetch(`${baseUrl}/api/admin/combos/${comboId}/products`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify(comboPayload),
+        body: JSON.stringify(productsPayload),
       });
-
-      if (!response.ok) throw new Error('Failed to create combo');
-
-      alert('Combo created successfully!');
-      onSuccess();
-      onClose();
-    } catch (error: any) {
-      alert(`Error: ${error.message}`);
-    } finally {
-      setLoading(false);
+      
+      if (!productsResponse.ok) {
+        const errorData = await productsResponse.json();
+        console.error('Error adding products:', errorData);
+        throw new Error('Failed to add products to combo');
+      }
     }
-  };
 
+    console.log('Save successful:', responseData);
+
+    alert(combo ? 'Combo updated successfully!' : 'Combo created successfully!');
+    onSuccess();
+    onClose();
+  } catch (error: any) {
+    console.error('Save combo error:', error);
+    alert(`Error: ${error.message}`);
+  } finally {
+    setLoading(false);
+  }
+};
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-serif font-semibold">Create New Combo</h2>
+            <h2 className="text-2xl font-serif font-semibold">
+              {combo ? 'Edit Combo' : 'Create New Combo'}
+            </h2>
             <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
               <X className="h-5 w-5" />
             </button>
@@ -201,10 +290,10 @@ const ComboManager: React.FC<ComboManagerProps> = ({ onClose, onSuccess }) => {
             <div>
               <label className="block text-sm font-medium mb-3">Combo Image</label>
               <div className="border-2 border-dashed border-gray-300 rounded-2xl p-6 text-center hover:border-premium-gold transition-colors">
-                {imagePreview || comboData.image_url ? (
+                {imagePreview ? (
                   <div className="relative">
                     <img 
-                      src={imagePreview || getImageUrl(comboData.image_url)} 
+                      src={imagePreview} 
                       alt="Preview" 
                       className="mx-auto max-h-48 rounded-lg"
                     />
@@ -296,6 +385,19 @@ const ComboManager: React.FC<ComboManagerProps> = ({ onClose, onSuccess }) => {
                       placeholder="4999"
                     />
                   </div>
+                </div>
+
+                <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
+                  <input
+                    type="checkbox"
+                    id="is_active"
+                    checked={comboData.is_active}
+                    onChange={(e) => setComboData({...comboData, is_active: e.target.checked})}
+                    className="h-4 w-4 text-premium-gold rounded"
+                  />
+                  <label htmlFor="is_active" className="text-sm font-medium">
+                    Combo is active (visible to customers)
+                  </label>
                 </div>
               </div>
 
@@ -454,12 +556,12 @@ const ComboManager: React.FC<ComboManagerProps> = ({ onClose, onSuccess }) => {
                 {loading ? (
                   <>
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                    Creating...
+                    {combo ? 'Updating...' : 'Creating...'}
                   </>
                 ) : (
                   <>
                     <Save className="h-5 w-5 mr-2" />
-                    Create Combo
+                    {combo ? 'Update Combo' : 'Create Combo'}
                   </>
                 )}
               </button>

@@ -16,6 +16,7 @@ export interface Product {
   customization_price?: number;
   customization_types?: string[];
   max_customization_characters?: number;
+  
 }
 
 export interface CustomizationData {
