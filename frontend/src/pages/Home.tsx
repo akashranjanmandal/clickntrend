@@ -12,6 +12,8 @@ import { apiFetch } from '../config';
 import { motion, AnimatePresence } from 'framer-motion';
 import ComboCard from '../components/ComboCard';
 import { Combo } from '../types';
+import Popup from '../components/Popup';
+
 const Home: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -24,12 +26,32 @@ const Home: React.FC = () => {
   const [searchLoading, setSearchLoading] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 const [combos, setCombos] = useState<Combo[]>([]);
+const [showPopup, setShowPopup] = useState(false);
   const defaultStats = [
     { label: 'Happy Customers', value: '10K+', icon: '😊' },
     { label: 'Premium Gifts', value: '500+', icon: '🎁' },
     { label: 'Cities Served', value: '50+', icon: '📍' },
     { label: '5 Star Ratings', value: '4.9/5', icon: '⭐' }
   ];
+useEffect(() => {
+  const checkPopup = async () => {
+    try {
+      const popup = await apiFetch('/api/popup/active').catch(() => null);
+      if (popup) {
+        // Check if already shown in this session
+        const hasSeen = sessionStorage.getItem('popup_seen');
+        if (!hasSeen) {
+          setShowPopup(true);
+          sessionStorage.setItem('popup_seen', 'true');
+        }
+      }
+    } catch (error) {
+      console.error('Error checking popup:', error);
+    }
+  };
+
+  checkPopup();
+}, []);
 
   useEffect(() => {
     fetchAllData();
@@ -95,6 +117,7 @@ const fetchAllData = async () => {
       </div>
     );
   }
+{showPopup && <Popup onClose={() => setShowPopup(false)} />}
 
   return (
     <div className="overflow-hidden">

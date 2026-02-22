@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
-import { ShoppingCart, Star, Eye, PenTool } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ShoppingCart, Star, Eye, PenTool, Users } from 'lucide-react';
 import { Product } from '../types';
 import { formatCurrency, getImageUrl } from '../utils/helpers';
 import { useCart } from '../context/CartContext';
 import ProductDetailsModal from './ProductDetailsModal';
 import ProductCustomizationModal from './ProductCustomizationModal';
+import { apiFetch } from '../config';
 
 interface ProductCardProps {
   product: Product;
@@ -15,9 +16,56 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const [showDetails, setShowDetails] = useState(false);
   const [showCustomization, setShowCustomization] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [purchaseCount, setPurchaseCount] = useState(product.social_proof_count || 9);
+  const [socialProofText, setSocialProofText] = useState(
+    product.social_proof_text || '🔺{count} People are Purchasing Right Now'
+  );
+
+  useEffect(() => {
+    // Fetch real-time social proof count
+    const fetchSocialProof = async () => {
+      try {
+        const data = await apiFetch(`/api/social-proof/${product.id}`).catch(() => null);
+        if (data) {
+          setPurchaseCount(data.count || product.social_proof_count || 9);
+          // Increment view count
+          await apiFetch('/api/social-proof/track-view', {
+            method: 'POST',
+            body: JSON.stringify({ product_id: product.id })
+          }).catch(() => {});
+        }
+      } catch (error) {
+        console.error('Error fetching social proof:', error);
+      }
+    };
+
+    if (product.social_proof_enabled !== false) {
+      fetchSocialProof();
+      
+      // Randomize count slightly every few seconds to simulate real activity
+      const interval = setInterval(() => {
+        setPurchaseCount(prev => {
+          const variation = Math.floor(Math.random() * 3) - 1; // -1, 0, or 1
+          const newCount = Math.max(5, prev + variation);
+          return newCount;
+        });
+      }, 10000);
+
+      return () => clearInterval(interval);
+    }
+  }, [product.id]);
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.stopPropagation();
+    
+    // Track purchase for social proof
+    if (product.social_proof_enabled !== false) {
+      apiFetch('/api/social-proof/track-purchase', {
+        method: 'POST',
+        body: JSON.stringify({ product_id: product.id })
+      }).catch(() => {});
+    }
+
     if (product.is_customizable) {
       setShowCustomization(true);
     } else {
@@ -32,6 +80,8 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       });
     }
   };
+
+  const formattedSocialText = socialProofText.replace('{count}', purchaseCount.toString());
 
   return (
     <>
@@ -80,6 +130,19 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             </div>
           </div>
         </div>
+        
+        {/* Social Proof Banner */}
+        {product.social_proof_enabled !== false && (
+          <div className="bg-gradient-to-r from-orange-50 to-red-50 px-4 py-2 border-b border-premium-gold/10">
+            <p className="text-sm text-premium-burgundy font-medium flex items-center gap-2">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+              </span>
+              {formattedSocialText}
+            </p>
+          </div>
+        )}
         
         <div className="p-4">
           <div className="flex items-start justify-between mb-2">

@@ -7,16 +7,17 @@ export interface Product {
   original_price?: number;
   discount_percentage?: number;
   image_url: string;
-  additional_images?: string[];  
   stock_quantity: number;
   is_active: boolean;
   created_at: string;
-  // New customization fields
   is_customizable?: boolean;
   customization_price?: number;
-  customization_types?: string[];
   max_customization_characters?: number;
-  
+  additional_images?: string[];
+  // Social proof fields
+  social_proof_text?: string;
+  social_proof_enabled?: boolean;
+  social_proof_count?: number;
 }
 
 export interface CustomizationData {
@@ -168,4 +169,32 @@ export interface CouponUsage {
   customer_email: string;
   discount_amount: number;
   used_at: string;
+}
+export interface PopupConfig {
+  id: string;
+  title: string;
+  description: string;
+  image_url?: string;
+  discount_text: string;
+  discount_value: string;
+  timer_enabled: boolean;
+  timer_hours: number;
+  timer_minutes: number;
+  timer_seconds: number;
+  offer_text: string;
+  cta_text: string;
+  cta_link?: string;
+  cash_on_delivery_text: string;
+  prepaid_discount_text: string;
+  is_active: boolean;
+  display_frequency: 'once_per_session' | 'always' | 'once_per_day';
+  start_date?: string;
+  end_date?: string;
+}
+export interface SocialProofSettings {
+  id: string;
+  product_id: string;
+  text_template: string;
+  count: number;
+  is_enabled: boolean;
 }

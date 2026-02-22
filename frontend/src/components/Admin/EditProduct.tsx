@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Camera, RefreshCw } from 'lucide-react';
+import { X, Save, Camera, RefreshCw, Users } from 'lucide-react';
 import { Product } from '../../types';
 import { apiFetch } from '../../config';
 import MultiImageUpload from './MultiImageUpload';
@@ -39,6 +39,10 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
     is_customizable: product.is_customizable || false,
     customization_price: product.customization_price?.toString() || '0',
     max_customization_characters: product.max_customization_characters?.toString() || '50',
+    // Social Proof Fields
+    social_proof_enabled: product.social_proof_enabled !== false,
+    social_proof_text: product.social_proof_text || '🔺{count} People are Purchasing Right Now',
+    social_proof_count: product.social_proof_count?.toString() || '9',
     is_active: product.is_active,
   });
 
@@ -72,7 +76,7 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
       // Get primary image URL
       const primaryImage = productImages.find(img => img.is_primary) || productImages[0];
       
-      // Prepare data for update - ONLY include fields that exist in the database
+      // Prepare data for update
       const productData: any = {
         name: formData.name,
         description: formData.description,
@@ -80,6 +84,10 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
         price: parseFloat(formData.price),
         stock_quantity: parseInt(formData.stock_quantity),
         image_url: primaryImage.url,
+        // Social Proof Fields
+        social_proof_enabled: formData.social_proof_enabled,
+        social_proof_text: formData.social_proof_text,
+        social_proof_count: parseInt(formData.social_proof_count),
         updated_at: new Date().toISOString()
       };
 
@@ -234,6 +242,61 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
                   className="w-full px-4 py-3 border rounded-lg focus:border-premium-gold focus:outline-none"
                 />
               </div>
+            </div>
+
+            {/* Social Proof Section */}
+            <div className="border-t pt-4 mt-4">
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <Users className="h-5 w-5 text-premium-gold" />
+                Marketing & Social Proof
+              </h3>
+              
+              <div className="flex items-center gap-3 mb-4">
+                <input
+                  type="checkbox"
+                  id="social_proof_enabled"
+                  checked={formData.social_proof_enabled}
+                  onChange={(e) => setFormData({...formData, social_proof_enabled: e.target.checked})}
+                  className="rounded text-premium-gold"
+                />
+                <label htmlFor="social_proof_enabled" className="font-medium">
+                  Enable Social Proof ("X people are buying")
+                </label>
+              </div>
+
+              {formData.social_proof_enabled && (
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      Social Proof Text
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.social_proof_text}
+                      onChange={(e) => setFormData({...formData, social_proof_text: e.target.value})}
+                      className="w-full px-4 py-3 border rounded-lg"
+                      placeholder="🔺{count} People are Purchasing Right Now"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Use {'{count}'} as placeholder for the number
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      Current Count
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.social_proof_count}
+                      onChange={(e) => setFormData({...formData, social_proof_count: e.target.value})}
+                      min="1"
+                      className="w-full px-4 py-3 border rounded-lg"
+                      placeholder="9"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Customization Options */}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Camera, Upload } from 'lucide-react';
+import { X, Plus, Camera, Upload, Users } from 'lucide-react';
 import { apiFetch } from '../../config';
 import MultiImageUpload from './MultiImageUpload';
 
@@ -24,6 +24,10 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
     is_customizable: false,
     customization_price: '0',
     max_customization_characters: '50',
+    // Social Proof Fields
+    social_proof_enabled: true,
+    social_proof_text: '🔺{count} People are Purchasing Right Now',
+    social_proof_count: '9',
   });
   
   useEffect(() => {
@@ -70,7 +74,11 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
         price: parseFloat(formData.price),
         stock_quantity: parseInt(formData.stock_quantity),
         image_url: primaryImage.url,
-        is_active: true
+        is_active: true,
+        // Social Proof Fields
+        social_proof_enabled: formData.social_proof_enabled,
+        social_proof_text: formData.social_proof_text,
+        social_proof_count: parseInt(formData.social_proof_count),
       };
 
       // Only add optional fields if they have values
@@ -226,6 +234,61 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
                   placeholder="10"
                 />
               </div>
+            </div>
+
+            {/* Social Proof Section */}
+            <div className="border-t pt-4 mt-4">
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <Users className="h-5 w-5 text-premium-gold" />
+                Marketing & Social Proof
+              </h3>
+              
+              <div className="flex items-center gap-3 mb-4">
+                <input
+                  type="checkbox"
+                  id="social_proof_enabled"
+                  checked={formData.social_proof_enabled}
+                  onChange={(e) => setFormData({...formData, social_proof_enabled: e.target.checked})}
+                  className="rounded text-premium-gold"
+                />
+                <label htmlFor="social_proof_enabled" className="font-medium">
+                  Enable Social Proof ("X people are buying")
+                </label>
+              </div>
+
+              {formData.social_proof_enabled && (
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      Social Proof Text
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.social_proof_text}
+                      onChange={(e) => setFormData({...formData, social_proof_text: e.target.value})}
+                      className="w-full px-4 py-3 border rounded-lg"
+                      placeholder="🔺{count} People are Purchasing Right Now"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Use {'{count}'} as placeholder for the number
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      Initial Count
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.social_proof_count}
+                      onChange={(e) => setFormData({...formData, social_proof_count: e.target.value})}
+                      min="1"
+                      className="w-full px-4 py-3 border rounded-lg"
+                      placeholder="9"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Customization Options */}
