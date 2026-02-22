@@ -28,6 +28,13 @@ const Home: React.FC = () => {
     { text: 'Custom Combo', icon: '✨' }
   ];
 
+  const defaultStats = [
+    { label: 'Happy Customers', value: '10K+', icon: '😊' },
+    { label: 'Premium Gifts', value: '500+', icon: '🎁' },
+    { label: 'Cities Served', value: '50+', icon: '📍' },
+    { label: '5 Star Ratings', value: '4.9/5', icon: '⭐' }
+  ];
+
   useEffect(() => {
     fetchAllData();
   }, []);
@@ -36,25 +43,20 @@ const Home: React.FC = () => {
     try {
       setLoading(true);
       
-      // Use apiFetch which handles the base URL correctly
       const [productsData, categoriesData, heroesData, statsData] = await Promise.all([
-        apiFetch('/api/products'),
-        apiFetch('/api/categories'),
-        apiFetch('/api/hero'),
-        apiFetch('/api/settings/public?key=stats')
+        apiFetch('/api/products').catch(() => []),
+        apiFetch('/api/categories/public').catch(() => []),
+        apiFetch('/api/hero/public').catch(() => []),
+        apiFetch('/api/settings/public?key=stats').catch(() => ({ value: defaultStats }))
       ]);
 
       setProducts(productsData || []);
       setCategories(categoriesData || []);
       setHeroes(heroesData || []);
-      setStats(statsData?.value || [
-        { label: 'Happy Customers', value: '10K+', icon: '😊' },
-        { label: 'Premium Gifts', value: '500+', icon: '🎁' },
-        { label: 'Cities Served', value: '50+', icon: '📍' },
-        { label: '5 Star Ratings', value: '4.9/5', icon: '⭐' }
-      ]);
+      setStats(statsData?.value || defaultStats);
     } catch (error) {
       console.error('Error fetching data:', error);
+      setStats(defaultStats);
     } finally {
       setLoading(false);
     }
@@ -96,7 +98,16 @@ const Home: React.FC = () => {
   return (
     <div className="overflow-hidden">
       {/* Hero Section */}
-      <HeroSection heroes={heroes} />
+      {heroes.length > 0 ? (
+        <HeroSection heroes={heroes} />
+      ) : (
+        <div className="h-96 bg-gradient-to-r from-premium-charcoal to-premium-burgundy flex items-center justify-center text-white">
+          <div className="text-center">
+            <h1 className="text-5xl font-serif font-bold mb-4">GFTD</h1>
+            <p className="text-xl">The Art Of Gifting</p>
+          </div>
+        </div>
+      )}
 
       {/* Search Section */}
       <section className="relative -mt-20 z-20 pb-20">

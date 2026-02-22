@@ -19,7 +19,30 @@ router.get('/', async (req, res) => {
       .eq('key', key)
       .single();
 
-    if (error) throw error;
+    if (error && error.code !== 'PGRST116') throw error;
+    res.json(data || { value: null });
+  } catch (error: any) {
+    console.error('Error fetching setting:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Alias for backward compatibility
+router.get('/', async (req, res) => {
+  try {
+    const { key } = req.query;
+    
+    if (!key) {
+      return res.status(400).json({ error: 'Key is required' });
+    }
+
+    const { data, error } = await supabase
+      .from('site_settings')
+      .select('value')
+      .eq('key', key)
+      .single();
+
+    if (error && error.code !== 'PGRST116') throw error;
     res.json(data || { value: null });
   } catch (error: any) {
     console.error('Error fetching setting:', error);
@@ -53,7 +76,7 @@ router.put('/admin/:key', requireAuth, async (req, res) => {
       .upsert({
         key,
         value,
-        updated_at: new Date().toISOString()
+        updated_at: new Date()
       })
       .select()
       .single();

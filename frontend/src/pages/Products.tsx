@@ -27,16 +27,18 @@ const Products: React.FC = () => {
   const fetchData = async () => {
     try {
       const [productsData, categoriesData] = await Promise.all([
-        apiFetch('/api/products'),
-        apiFetch('/api/categories')
+        apiFetch('/api/products').catch(() => []),
+        apiFetch('/api/categories/public').catch(() => [])
       ]);
       
-      setProducts(productsData);
-      setFilteredProducts(productsData);
-      setCategories(categoriesData);
+      setProducts(productsData || []);
+      setFilteredProducts(productsData || []);
+      setCategories(categoriesData || []);
       
       // Set max price from products
-      const maxPrice = Math.max(...productsData.map((p: Product) => p.price), 50000);
+      const maxPrice = productsData.length > 0 
+        ? Math.max(...productsData.map((p: Product) => p.price), 50000)
+        : 50000;
       setPriceRange([0, maxPrice]);
     } catch (error) {
       console.error('Error fetching products:', error);

@@ -14,31 +14,9 @@ import reviewRoutes from './routes/reviews';
 
 const app = express();
 
-// CORS configuration
-const allowedOrigins: string[] = [
-  "http://localhost:5173",
-  "http://127.0.0.1:5173",
-  "https://clickntrend.vercel.app",
-  "https://api.gftd.in",
-  "https://www.gftd.in",
-];
-
-// Add FRONTEND_URL if it exists
-if (process.env.FRONTEND_URL) {
-  allowedOrigins.push(process.env.FRONTEND_URL);
-}
-
+// CORS configuration - Allow all origins for now (you can restrict later)
 app.use(cors({
-  origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps, curl, etc)
-    if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+  origin: true, // Allow all origins in development
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
