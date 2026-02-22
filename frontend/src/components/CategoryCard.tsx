@@ -15,13 +15,16 @@ interface CategoryCardProps {
 const CategoryCard: React.FC<CategoryCardProps> = ({
   name,
   icon,
-  icon_type = 'emoji',
+  icon_type = 'lucide',
   color,
   hover_effect = 'scale',
   count,
   onClick
 }) => {
-  const IconComponent = icon_type === 'lucide' ? (Icons as any)[icon] || Icons.Gift : null;
+  // Dynamically import lucide icon
+  const IconComponent = icon_type === 'lucide' 
+    ? (Icons as any)[icon] || Icons.Gift 
+    : null;
 
   const getHoverAnimation = () => {
     switch (hover_effect) {
@@ -64,7 +67,7 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
         className="relative z-10"
       >
         {IconComponent ? (
-          <IconComponent className="w-12 h-12 mx-auto mb-4 text-premium-charcoal" />
+          <IconComponent className="w-12 h-12 mx-auto mb-4 text-premium-charcoal" strokeWidth={1.5} />
         ) : (
           <span className="text-5xl mb-4 block">{icon}</span>
         )}

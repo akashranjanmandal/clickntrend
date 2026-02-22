@@ -6,6 +6,7 @@ import {
 import ProductCard from '../components/ProductCard';
 import CategoryCard from '../components/CategoryCard';
 import HeroSection from '../components/HeroSection';
+import ProductDetailsModal from '../components/ProductDetailsModal';
 import { Product, Category, HeroContent, Stat } from '../types';
 import { apiFetch } from '../config';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -20,6 +21,7 @@ const Home: React.FC = () => {
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [loading, setLoading] = useState(true);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   const defaultStats = [
     { label: 'Happy Customers', value: '10K+', icon: '😊' },
@@ -68,7 +70,6 @@ const Home: React.FC = () => {
     setShowSearchResults(true);
     
     try {
-      // Search by product name and category
       const data = await apiFetch(`/api/products/search?q=${encodeURIComponent(query)}`);
       setSearchResults(data || []);
     } catch (error) {
@@ -79,15 +80,9 @@ const Home: React.FC = () => {
     }
   };
 
-  const handleCategoryClick = (category: string) => {
-    window.location.href = `/products?category=${category.toLowerCase()}`;
-  };
-
-
-  const clearSearch = () => {
-    setSearchTerm('');
+  const handleProductClick = (product: Product) => {
+    setSelectedProduct(product);
     setShowSearchResults(false);
-    setSearchResults([]);
   };
 
   if (loading) {
@@ -133,7 +128,10 @@ const Home: React.FC = () => {
                     className="w-full px-4 py-4 focus:outline-none"
                   />
                   {searchTerm && (
-                    <button onClick={clearSearch} className="p-1 hover:bg-gray-100 rounded-full">
+                    <button onClick={() => {
+                      setSearchTerm('');
+                      setShowSearchResults(false);
+                    }} className="p-1 hover:bg-gray-100 rounded-full">
                       <X className="h-4 w-4" />
                     </button>
                   )}
@@ -172,8 +170,8 @@ const Home: React.FC = () => {
                         {searchResults.map((product) => (
                           <div
                             key={product.id}
-                            onClick={() => window.location.href = `/product/${product.id}`}
-                            className="p-4 hover:bg-gray-50 cursor-pointer flex items-center gap-4"
+                            onClick={() => handleProductClick(product)}
+                            className="p-4 hover:bg-gray-50 cursor-pointer flex items-center gap-4 transition-colors"
                           >
                             <img
                               src={product.image_url}
@@ -203,7 +201,7 @@ const Home: React.FC = () => {
         </div>
       </section>
 
-      {/* Stats Section */}
+      {/* Rest of your sections... */}
       <section className="py-16 bg-white">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
@@ -241,23 +239,16 @@ const Home: React.FC = () => {
 
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
               {categories.map((category, index) => (
-                <motion.div
+                <CategoryCard
                   key={category.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  whileHover={{ scale: 1.05 }}
-                  onClick={() => handleCategoryClick(category.name)}
-                  className={`bg-gradient-to-br ${category.color} p-6 rounded-2xl text-center cursor-pointer hover:shadow-2xl transition-all duration-300`}
-                >
-                  <div className="text-4xl mb-4">{category.icon}</div>
-                  <h3 className="font-serif text-lg font-semibold text-premium-charcoal">
-                    {category.name}
-                  </h3>
-                  <p className="text-sm text-gray-600 mt-2">
-                    {products.filter(p => p.category === category.name).length} gifts
-                  </p>
-                </motion.div>
+                  name={category.name}
+                  icon={category.icon}
+                  icon_type={category.icon_type || 'lucide'}
+                  color={category.color}
+                  hover_effect={category.hover_effect}
+                  count={products.filter(p => p.category === category.name).length}
+                  onClick={() => window.location.href = `/products?category=${category.name.toLowerCase()}`}
+                />
               ))}
             </div>
           </div>
@@ -324,6 +315,14 @@ const Home: React.FC = () => {
           </motion.div>
         </div>
       </section>
+
+      {/* Product Details Modal */}
+      {selectedProduct && (
+        <ProductDetailsModal
+          product={selectedProduct}
+          onClose={() => setSelectedProduct(null)}
+        />
+      )}
     </div>
   );
 };
