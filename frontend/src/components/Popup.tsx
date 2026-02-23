@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Clock, Gift, Sparkles } from 'lucide-react';
+import { X, Clock, Gift } from 'lucide-react';
 import { apiFetch } from '../config';
 import { PopupConfig } from '../types';
 
@@ -14,17 +14,28 @@ const Popup: React.FC<PopupProps> = ({ onClose }) => {
   const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0, seconds: 0 });
   const [sessionId] = useState(() => Math.random().toString(36).substring(7));
 
+  // Get initial timer from localStorage or API
+  const getInitialTimer = (popupData: PopupConfig) => {
+    const savedTimer = localStorage.getItem(`popup_timer_${popupData.id}`);
+    if (savedTimer) {
+      return JSON.parse(savedTimer);
+    }
+    return {
+      hours: popupData.timer_hours,
+      minutes: popupData.timer_minutes,
+      seconds: popupData.timer_seconds
+    };
+  };
+
   useEffect(() => {
     fetchPopup();
   }, []);
 
   useEffect(() => {
     if (popup?.timer_enabled) {
-      setTimeLeft({
-        hours: popup.timer_hours,
-        minutes: popup.timer_minutes,
-        seconds: popup.timer_seconds
-      });
+      // Load saved timer state
+      const savedTimer = getInitialTimer(popup);
+      setTimeLeft(savedTimer);
 
       const timer = setInterval(() => {
         setTimeLeft(prev => {
@@ -47,11 +58,16 @@ const Popup: React.FC<PopupProps> = ({ onClose }) => {
             newHours -= 1;
           }
 
-          return {
+          const newTime = {
             hours: newHours,
             minutes: newMinutes,
             seconds: newSeconds
           };
+
+          // Save to localStorage
+          localStorage.setItem(`popup_timer_${popup.id}`, JSON.stringify(newTime));
+          
+          return newTime;
         });
       }, 1000);
 
@@ -64,7 +80,6 @@ const Popup: React.FC<PopupProps> = ({ onClose }) => {
       const data = await apiFetch('/api/popups/active');
       setPopup(data);
       
-      // Track view
       if (data) {
         await apiFetch('/api/popups/track-view', {
           method: 'POST',
@@ -102,129 +117,96 @@ const Popup: React.FC<PopupProps> = ({ onClose }) => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
         onClick={onClose}
       >
         <motion.div
-          initial={{ scale: 0.9, y: 20 }}
-          animate={{ scale: 1, y: 0 }}
-          exit={{ scale: 0.9, y: 20 }}
-          className="relative bg-white rounded-3xl max-w-2xl w-full overflow-hidden shadow-2xl"
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.9, opacity: 0 }}
+          className="relative bg-white rounded-2xl max-w-sm w-full shadow-2xl overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Close Button */}
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 z-10 p-2 bg-white/90 backdrop-blur-sm rounded-full shadow-lg hover:bg-premium-gold hover:text-white transition-colors"
+            className="absolute top-3 right-3 z-10 p-1.5 bg-white/90 rounded-full shadow-md hover:bg-gray-100 transition-colors"
           >
-            <X className="h-5 w-5" />
+            <X className="h-4 w-4" />
           </button>
 
-          {/* Content */}
-          <div className="grid md:grid-cols-2">
-            {/* Left side - Image */}
-            <div className="relative h-64 md:h-full bg-gradient-to-br from-orange-100 to-pink-100">
-              {popup.image_url ? (
-                <img
-                  src={popup.image_url}
-                  alt={popup.title}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="flex items-center justify-center h-full">
-                  <Gift className="w-24 h-24 text-premium-gold opacity-30" />
-                </div>
-              )}
-              
-              {/* Discount Badge */}
-              <div className="absolute top-4 left-4 bg-gradient-to-r from-red-500 to-pink-500 text-white px-4 py-2 rounded-full shadow-lg">
-                <span className="font-bold">{popup.discount_text.replace('{value}', popup.discount_value)}</span>
+          {/* Image Section */}
+          <div className="relative h-32 bg-gradient-to-r from-orange-400 to-pink-400">
+            {popup.image_url ? (
+              <img
+                src={popup.image_url}
+                alt={popup.title}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <Gift className="w-12 h-12 text-white/30" />
               </div>
+            )}
+            
+            {/* Discount Badge */}
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3">
+              <span className="text-white font-bold text-lg">
+                {popup.discount_text.replace('{value}', popup.discount_value)}
+              </span>
             </div>
+          </div>
 
-            {/* Right side - Content */}
-            <div className="p-8">
-              <h2 className="text-3xl font-serif font-bold text-premium-charcoal mb-2">
-                {popup.title}
-              </h2>
-              
-              <p className="text-gray-600 mb-4">
-                {popup.description}
-              </p>
+          {/* Content Section */}
+          <div className="p-4">
+            <h3 className="font-bold text-gray-800 mb-1">{popup.title}</h3>
+            <p className="text-sm text-gray-600 mb-3">{popup.description}</p>
 
-              {/* Timer */}
-              {popup.timer_enabled && (
-                <div className="mb-6">
-                  <p className="text-sm text-gray-500 mb-2 flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
-                    {popup.offer_text}
-                  </p>
-                  <div className="flex gap-3">
-                    <div className="text-center">
-                      <div className="bg-premium-cream rounded-lg px-4 py-2">
-                        <span className="text-2xl font-bold text-premium-gold">
-                          {String(timeLeft.hours).padStart(2, '0')}
-                        </span>
-                      </div>
-                      <span className="text-xs text-gray-500 mt-1">Hours</span>
-                    </div>
-                    <div className="text-center">
-                      <div className="bg-premium-cream rounded-lg px-4 py-2">
-                        <span className="text-2xl font-bold text-premium-gold">
-                          {String(timeLeft.minutes).padStart(2, '0')}
-                        </span>
-                      </div>
-                      <span className="text-xs text-gray-500 mt-1">Min</span>
-                    </div>
-                    <div className="text-center">
-                      <div className="bg-premium-cream rounded-lg px-4 py-2">
-                        <span className="text-2xl font-bold text-premium-gold">
-                          {String(timeLeft.seconds).padStart(2, '0')}
-                        </span>
-                      </div>
-                      <span className="text-xs text-gray-500 mt-1">Sec</span>
-                    </div>
+            {/* Timer */}
+            {popup.timer_enabled && (
+              <div className="mb-3">
+                <p className="text-xs text-gray-500 mb-1 flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  {popup.offer_text}
+                </p>
+                <div className="flex gap-1.5">
+                  <div className="flex-1 bg-gray-100 rounded-lg py-1.5 text-center">
+                    <span className="text-lg font-bold text-orange-500">
+                      {String(timeLeft.hours).padStart(2, '0')}
+                    </span>
+                    <span className="text-xs text-gray-500 block">hrs</span>
+                  </div>
+                  <div className="flex-1 bg-gray-100 rounded-lg py-1.5 text-center">
+                    <span className="text-lg font-bold text-orange-500">
+                      {String(timeLeft.minutes).padStart(2, '0')}
+                    </span>
+                    <span className="text-xs text-gray-500 block">min</span>
+                  </div>
+                  <div className="flex-1 bg-gray-100 rounded-lg py-1.5 text-center">
+                    <span className="text-lg font-bold text-orange-500">
+                      {String(timeLeft.seconds).padStart(2, '0')}
+                    </span>
+                    <span className="text-xs text-gray-500 block">sec</span>
                   </div>
                 </div>
-              )}
-
-              {/* CTA Buttons */}
-              <div className="space-y-3">
-                <button
-                  onClick={handleCTAClick}
-                  className="w-full bg-premium-gold text-white py-3 rounded-xl font-semibold hover:bg-premium-burgundy transition-colors flex items-center justify-center gap-2"
-                >
-                  <Gift className="h-5 w-5" />
-                  {popup.cta_text} - {popup.cash_on_delivery_text}
-                </button>
-                
-                {popup.prepaid_discount_text && (
-                  <p className="text-sm text-center text-green-600 font-medium">
-                    <Sparkles className="h-4 w-4 inline mr-1" />
-                    {popup.prepaid_discount_text}
-                  </p>
-                )}
               </div>
+            )}
 
-              {/* Why Choose Us */}
-              <div className="mt-6 pt-6 border-t">
-                <h3 className="font-medium text-premium-charcoal mb-3">Why Choose Us?</h3>
-                <ul className="space-y-2 text-sm text-gray-600">
-                  <li className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 bg-premium-gold rounded-full" />
-                    Premium Quality Products
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 bg-premium-gold rounded-full" />
-                    Free Shipping on Orders ₹499+
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 bg-premium-gold rounded-full" />
-                    24/7 Customer Support
-                  </li>
-                </ul>
-              </div>
-            </div>
+            {/* CTA Button */}
+            <button
+              onClick={handleCTAClick}
+              className="w-full bg-orange-500 text-white py-2.5 rounded-lg font-medium text-sm hover:bg-orange-600 transition-colors flex items-center justify-center gap-1.5"
+            >
+              <Gift className="h-4 w-4" />
+              {popup.cta_text} • {popup.cash_on_delivery_text}
+            </button>
+
+            {/* Prepaid Discount */}
+            {popup.prepaid_discount_text && (
+              <p className="text-xs text-center text-green-600 mt-2">
+                💳 {popup.prepaid_discount_text}
+              </p>
+            )}
           </div>
         </motion.div>
       </motion.div>
