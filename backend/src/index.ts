@@ -80,14 +80,6 @@ console.log('✅ /api/social-proof');
 app.use('/api/admin', adminRoutes);
 console.log('✅ /api/admin');
 
-app.use('/api/admin/hero', adminHeroRoutes);
-console.log('✅ /api/admin/hero');
-
-app.use('/api/admin/popups', adminPopupRoutes);
-console.log('✅ /api/admin/popups');
-
-app.use('/api/admin/categories', adminCategoryRoutes);
-console.log('✅ /api/admin/categories');
 
 /* ===================== HEALTH ===================== */
 app.get('/health', (_req, res) => {
