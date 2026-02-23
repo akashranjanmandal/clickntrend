@@ -87,22 +87,36 @@ const CategoryManager: React.FC = () => {
     fetchCategories();
   }, []);
 
-  const fetchCategories = async () => {
-    try {
-      setLoading(true);
-      const token = localStorage.getItem('admin_token');
-      const response = await fetch('/api/admin/categories', {
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
-      const data = await response.json();
-      const sortedData = (data || []).sort((a: Category, b: Category) => a.display_order - b.display_order);
-      setCategories(sortedData);
-    } catch (error) {
-      console.error('Error fetching categories:', error);
-    } finally {
-      setLoading(false);
+const fetchCategories = async () => {
+  try {
+    setLoading(true);
+    const token = localStorage.getItem('admin_token');
+    const baseUrl = import.meta.env.VITE_API_URL || '';
+    
+    const response = await fetch(`${baseUrl}/api/admin/categories`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
-  };
+    
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      const text = await response.text();
+      console.error('Non-JSON response:', text.substring(0, 200));
+      throw new Error('Invalid server response');
+    }
+    
+    const data = await response.json();
+    const sortedData = (data || []).sort((a: Category, b: Category) => a.display_order - b.display_order);
+    setCategories(sortedData);
+  } catch (error) {
+    console.error('Error fetching categories:', error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const validateForm = () => {
     const errors: Record<string, string> = {};

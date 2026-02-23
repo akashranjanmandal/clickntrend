@@ -1,86 +1,69 @@
 import express from 'express';
-import { supabase } from '../utils/supabase';
-import { requireAuth } from '../middleware/auth';
+import { supabase, supabasePublic } from '../utils/supabase';
 
 const router = express.Router();
 
-console.log('✅ admin popups routes loaded');
+console.log('✅ public popups routes loaded');
 
-// GET all popups (admin)
-router.get('/', requireAuth, async (_req, res) => {
+// Get active popup (public)
+router.get('/active', async (_req, res) => {
   try {
-    const { data, error } = await supabase
+    const now = new Date().toISOString();
+    const { data, error } = await supabasePublic
       .from('popup_config')
       .select('*')
-      .order('created_at', { ascending: false });
+      .eq('is_active', true)
+      .or(`start_date.is.null,start_date.lte.${now}`)
+      .or(`end_date.is.null,end_date.gte.${now}`)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
     if (error) throw error;
-    res.json(data ?? []);
+    res.json(data || null);
   } catch (err: any) {
+    console.error('Error fetching active popup:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// CREATE popup
-router.post('/', requireAuth, async (req, res) => {
+// Track popup view (public)
+router.post('/track-view', async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('popup_config')
-      .insert({
-        ...req.body,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
-
-    if (error) throw error;
-    res.json(data);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// UPDATE popup
-router.put('/:id', requireAuth, async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const { data, error } = await supabase
-      .from('popup_config')
-      .update({
-        ...req.body,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) throw error;
-    res.json(data);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// DELETE popup
-router.delete('/:id', requireAuth, async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    await supabase
-      .from('popup_display_stats')
-      .delete()
-      .eq('popup_id', id);
-
+    const { popup_id, session_id } = req.body;
+    
     const { error } = await supabase
-      .from('popup_config')
-      .delete()
-      .eq('id', id);
+      .from('popup_display_stats')
+      .insert({
+        popup_id,
+        session_id,
+        viewed_at: new Date().toISOString()
+      });
 
     if (error) throw error;
     res.json({ success: true });
   } catch (err: any) {
+    console.error('Error tracking popup view:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Track popup click (public)
+router.post('/track-click', async (req, res) => {
+  try {
+    const { popup_id, session_id } = req.body;
+    
+    const { error } = await supabase
+      .from('popup_display_stats')
+      .update({ clicked_at: new Date().toISOString() })
+      .eq('popup_id', popup_id)
+      .eq('session_id', session_id)
+      .is('clicked_at', null);
+
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (err: any) {
+    console.error('Error tracking popup click:', err);
     res.status(500).json({ error: err.message });
   }
 });

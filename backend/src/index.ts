@@ -14,13 +14,13 @@ import paymentRoutes from './routes/payment';
 import couponRoutes from './routes/coupons';
 import reviewRoutes from './routes/reviews';
 import uploadRoutes from './routes/upload';
-import popupRoutes from './routes/popups';
+import popupRoutes from './routes/popups';              // Public popup routes
 import socialProofRoutes from './routes/social-proof';
 
-// ===== ADMIN ROUTES (IMPORTANT) =====
+// ===== ADMIN ROUTES =====
 import adminRoutes from './routes/admin';
 import adminHeroRoutes from './routes/adminHero';
-import adminPopupRoutes from './routes/popups';
+import adminPopupRoutes from './routes/adminPopups';     // ✅ Import admin popups (different file)
 import adminCategoryRoutes from './routes/categories';
 
 const app = express();
@@ -70,7 +70,7 @@ console.log('✅ /api/reviews');
 app.use('/api/upload', uploadRoutes);
 console.log('✅ /api/upload');
 
-app.use('/api/popups', popupRoutes);
+app.use('/api/popups', popupRoutes);                    // Public popup routes
 console.log('✅ /api/popups');
 
 app.use('/api/social-proof', socialProofRoutes);
@@ -83,7 +83,7 @@ console.log('✅ /api/admin');
 app.use('/api/admin/hero', adminHeroRoutes);
 console.log('✅ /api/admin/hero');
 
-app.use('/api/admin/popups', adminPopupRoutes);
+app.use('/api/admin/popups', adminPopupRoutes);          // Admin popup routes
 console.log('✅ /api/admin/popups');
 
 app.use('/api/admin/categories', adminCategoryRoutes);
