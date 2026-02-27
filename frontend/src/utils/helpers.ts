@@ -12,7 +12,7 @@ export const getImageUrl = (path: string | undefined | null): string => {
   if (!path) return 'https://images.unsplash.com/photo-1544716278-e513176f20b5?w=400&h=400&fit=crop';
   if (path.startsWith('http')) return path;
   if (path.startsWith('data:')) return path;
-  return `${CONFIG.SUPABASE_URL}/storage/v1/object/public/GiftShop/${path}`;
+  return `${CONFIG.SUPABASE_URL}/storage/v1/object/public/giftshop/${path}`;
 };
 
 export const debounce = <T extends (...args: any[]) => any>(
