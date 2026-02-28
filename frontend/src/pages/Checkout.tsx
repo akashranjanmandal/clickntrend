@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useCart } from '../context/CartContext';
 import { formatCurrency } from '../utils/helpers';
 import { CONFIG } from '../config';
-import { Wallet, Truck, Tag, CheckCircle, XCircle, ArrowLeft } from 'lucide-react';
+import { Wallet, Truck, Tag, CheckCircle, XCircle, ArrowLeft, ShoppingBag, Gift } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../utils/apiFetch';
 
@@ -38,12 +38,17 @@ const Checkout: React.FC = () => {
 
   /* ---------------- CALCULATIONS ---------------- */
   const subtotal = total;
-  const shippingCharge = subtotal > 499 ? 0 : 79;
+  const FREE_SHIPPING_THRESHOLD = 499;
+  const shippingCharge = subtotal > FREE_SHIPPING_THRESHOLD ? 0 : 79;
   const codCharge = paymentMethod === 'cod' ? 49 : 0;
   const grandTotal = Math.max(
     subtotal + shippingCharge + codCharge - couponDiscount,
     0
   );
+
+  // Calculate how much more to get free shipping
+  const amountToFreeShipping = Math.max(FREE_SHIPPING_THRESHOLD - subtotal, 0);
+  const shippingProgress = Math.min((subtotal / FREE_SHIPPING_THRESHOLD) * 100, 100);
 
   /* ---------------- HELPERS ---------------- */
   const handleInputChange = (
@@ -251,19 +256,25 @@ const Checkout: React.FC = () => {
   if (!items.length) {
     return (
       <div className="container mx-auto px-4 py-12 md:py-20 text-center">
-        <h1 className="text-3xl font-serif font-bold mb-4">Your cart is empty</h1>
-        <button
-          onClick={() => navigate('/products')}
-          className="px-6 py-3 bg-premium-gold text-white rounded-lg"
-        >
-          Browse Products
-        </button>
+        <div className="max-w-md mx-auto">
+          <div className="inline-flex items-center justify-center w-24 h-24 bg-premium-cream rounded-full mb-6">
+            <ShoppingBag className="h-12 w-12 text-premium-gold" />
+          </div>
+          <h1 className="text-3xl font-serif font-bold mb-4">Your cart is empty</h1>
+          <p className="text-gray-600 mb-8">Add some beautiful gifts to make someone's day special</p>
+          <button
+            onClick={() => navigate('/products')}
+            className="px-6 py-3 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy transition-colors"
+          >
+            Browse Products
+          </button>
+        </div>
       </div>
     );
   }
 
-  /* ---------------- UI (UNCHANGED) ---------------- */
- return (
+  /* ---------------- UI (UPDATED WITH SHOP MORE) ---------------- */
+  return (
     <div className="container mx-auto px-4 py-6 md:py-12">
       <div className="max-w-6xl mx-auto">
         {/* Back Button - Mobile Only */}
@@ -284,6 +295,50 @@ const Checkout: React.FC = () => {
           <div className="order-2 lg:order-1">
             <div className="bg-white rounded-xl md:rounded-2xl shadow-lg p-4 md:p-6 sticky top-20">
               <h2 className="text-xl md:text-2xl font-serif font-semibold mb-4 md:mb-6">Order Summary</h2>
+              
+              {/* Free Shipping Progress Bar - NEW */}
+              <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-green-50 rounded-xl border border-blue-100">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Truck className="h-5 w-5 text-blue-600" />
+                    <span className="font-medium text-gray-700">Free Shipping</span>
+                  </div>
+                  {shippingCharge === 0 ? (
+                    <span className="text-green-600 font-semibold flex items-center gap-1">
+                      <CheckCircle className="h-4 w-4" />
+                      Eligible
+                    </span>
+                  ) : (
+                    <span className="text-blue-600 font-medium">
+                      Add ₹{amountToFreeShipping.toLocaleString()} more
+                    </span>
+                  )}
+                </div>
+                
+                {/* Progress Bar */}
+                <div className="h-2 bg-gray-200 rounded-full overflow-hidden mb-2">
+                  <div 
+                    className="h-full bg-green-500 transition-all duration-500"
+                    style={{ width: `${shippingProgress}%` }}
+                  />
+                </div>
+                
+                {/* Shop More Button - NEW */}
+                {shippingCharge > 0 && (
+                  <div className="mt-3">
+                    <button
+                      onClick={() => navigate('/products')}
+                      className="w-full py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 text-sm font-medium"
+                    >
+                      <ShoppingBag className="h-4 w-4" />
+                      Shop ₹{amountToFreeShipping.toLocaleString()} more for FREE Shipping
+                    </button>
+                    <p className="text-xs text-gray-500 text-center mt-2">
+                      Add more items to your cart and save ₹79 on shipping!
+                    </p>
+                  </div>
+                )}
+              </div>
               
               {/* Items List - Mobile Optimized */}
               <div className="space-y-3 md:space-y-4 mb-4 md:mb-6 max-h-[300px] md:max-h-96 overflow-y-auto">
@@ -331,6 +386,19 @@ const Checkout: React.FC = () => {
                   <span className="text-premium-gold">{formatCurrency(grandTotal)}</span>
                 </div>
               </div>
+
+              {/* Shop More Link - Alternative */}
+              {shippingCharge > 0 && (
+                <div className="mt-4 pt-4 border-t text-center">
+                  <button
+                    onClick={() => navigate('/products')}
+                    className="text-premium-gold hover:text-premium-burgundy font-medium inline-flex items-center gap-2"
+                  >
+                    <ShoppingBag className="h-4 w-4" />
+                    Continue Shopping
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 

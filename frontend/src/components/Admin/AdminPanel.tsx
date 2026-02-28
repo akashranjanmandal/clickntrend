@@ -3,7 +3,8 @@ import {
   LogOut, Package, DollarSign, TrendingUp, Eye, 
   RefreshCw, Plus, Edit, Trash2, Download, Search,
   ShoppingBag, MapPin, Phone, Mail, Calendar,
-  BarChart3, Shield, Printer, XCircle, Tag
+  BarChart3, Shield, Printer, XCircle, Tag, Copy,
+  Image as ImageIcon, Star, Video, Gift
 } from 'lucide-react';
 import { Order, Product, Combo, ComboProduct } from '../../types';
 import CategoryManager from './CategoryManager';
@@ -16,16 +17,16 @@ import CouponManager from './CouponManager';
 import { useApi } from '../../hooks/useApi';
 import ReviewManager from './ReviewManager';
 import HeroManager from './HeroManager';
-import { Star, Video } from 'lucide-react';
 import PopupManager from './PopupManager';
-import { Gift } from 'lucide-react';  
+import LogoManager from './LogoManager';
+
 const AdminPanel: React.FC = () => {
   const { fetchWithAuth } = useApi();
   const [orders, setOrders] = useState<Order[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [combos, setCombos] = useState<Combo[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'products' | 'combos' | 'coupons' | 'categories' | 'hero' |'reviews' |'popups'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'products' | 'combos' | 'coupons' | 'categories' | 'hero' |'reviews' |'popups' | 'logo'>('dashboard');
   const [showProductUpload, setShowProductUpload] = useState(false);
   const [showComboManager, setShowComboManager] = useState(false);
   const [showEditProduct, setShowEditProduct] = useState(false);
@@ -36,10 +37,13 @@ const AdminPanel: React.FC = () => {
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [editingCombo, setEditingCombo] = useState<Combo | null>(null);
-const handleEditCombo = (combo: Combo) => {
-  setEditingCombo(combo);
-  setShowComboManager(true);
-};
+  const [copySuccess, setCopySuccess] = useState<string>('');
+
+  const handleEditCombo = (combo: Combo) => {
+    setEditingCombo(combo);
+    setShowComboManager(true);
+  };
+
   const [stats, setStats] = useState({
     totalOrders: 0,
     totalRevenue: 0,
@@ -229,6 +233,12 @@ const handleEditCombo = (combo: Combo) => {
     }
   };
 
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopySuccess(text);
+    setTimeout(() => setCopySuccess(''), 2000);
+  };
+
   const exportOrdersCSV = () => {
     const csvData = orders.map(order => ({
       'Order ID': order.id,
@@ -245,6 +255,9 @@ const handleEditCombo = (combo: Combo) => {
       'Tracking Number': order.tracking_number || '',
       'Payment ID': order.razorpay_payment_id || '',
       'Items Count': Array.isArray(order.items) ? order.items.length : 0,
+      'Has Customization': Array.isArray(order.items) 
+        ? order.items.some((item: any) => item.customization).toString()
+        : 'false',
     }));
 
     const headers = Object.keys(csvData[0]).join(',');
@@ -314,6 +327,7 @@ const handleEditCombo = (combo: Combo) => {
                   { id: 'reviews', label: 'Reviews', icon: Star },
                   { id: 'hero', label: 'Hero', icon: Video },
                   { id: 'popups', label: 'Popups', icon: Gift },
+                  { id: 'logo', label: 'Logo', icon: ImageIcon },
                 ].map((tab) => (
                   <button
                     key={tab.id}
@@ -351,7 +365,7 @@ const handleEditCombo = (combo: Combo) => {
 
           <div className="md:hidden mt-4 overflow-x-auto">
             <div className="flex space-x-2">
-              {['dashboard', 'orders', 'products', 'combos', 'coupons', 'categories', 'reviews', 'hero','popups'].map((tab) => (
+              {['dashboard', 'orders', 'products', 'combos', 'coupons', 'categories', 'reviews', 'hero', 'popups', 'logo'].map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab as any)}
@@ -494,43 +508,59 @@ const handleEditCombo = (combo: Combo) => {
                       <th className="text-left p-4">Customer</th>
                       <th className="text-left p-4">Amount</th>
                       <th className="text-left p-4">Status</th>
+                      <th className="text-left p-4">Customization</th>
                       <th className="text-left p-4">Date</th>
                       <th className="text-left p-4">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {orders.slice(0, 5).map((order) => (
-                      <tr key={order.id} className="border-b hover:bg-gray-50">
-                        <td className="p-4">
-                          <div className="font-mono text-sm font-medium">{order.id.slice(0, 8)}...</div>
-                        </td>
-                        <td className="p-4">
-                          <div>
-                            <p className="font-medium">{order.customer_name}</p>
-                            <p className="text-sm text-gray-600">{order.customer_email}</p>
-                          </div>
-                        </td>
-                        <td className="p-4 font-semibold">
-                          {formatCurrency(order.total_amount)}
-                        </td>
-                        <td className="p-4">
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(order.status)}`}>
-                            {order.status.toUpperCase()}
-                          </span>
-                        </td>
-                        <td className="p-4 text-sm text-gray-600">
-                          {new Date(order.created_at).toLocaleDateString()}
-                        </td>
-                        <td className="p-4">
-                          <button
-                            onClick={() => setSelectedOrder(order)}
-                            className="text-blue-600 hover:text-blue-800 font-medium"
-                          >
-                            View
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                    {orders.slice(0, 5).map((order) => {
+                      const hasCustomization = Array.isArray(order.items) 
+                        ? order.items.some((item: any) => item.customization)
+                        : false;
+                      
+                      return (
+                        <tr key={order.id} className="border-b hover:bg-gray-50">
+                          <td className="p-4">
+                            <div className="font-mono text-sm font-medium">{order.id.slice(0, 8)}...</div>
+                          </td>
+                          <td className="p-4">
+                            <div>
+                              <p className="font-medium">{order.customer_name}</p>
+                              <p className="text-sm text-gray-600">{order.customer_email}</p>
+                            </div>
+                          </td>
+                          <td className="p-4 font-semibold">
+                            {formatCurrency(order.total_amount)}
+                          </td>
+                          <td className="p-4">
+                            <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(order.status)}`}>
+                              {order.status.toUpperCase()}
+                            </span>
+                          </td>
+                          <td className="p-4">
+                            {hasCustomization ? (
+                              <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
+                                Yes
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 text-xs">No</span>
+                            )}
+                          </td>
+                          <td className="p-4 text-sm text-gray-600">
+                            {new Date(order.created_at).toLocaleDateString()}
+                          </td>
+                          <td className="p-4">
+                            <button
+                              onClick={() => setSelectedOrder(order)}
+                              className="text-blue-600 hover:text-blue-800 font-medium"
+                            >
+                              View
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -586,78 +616,94 @@ const handleEditCombo = (combo: Combo) => {
                       <th className="text-left p-4">Contact</th>
                       <th className="text-left p-4">Amount</th>
                       <th className="text-left p-4">Status</th>
+                      <th className="text-left p-4">Customization</th>
                       <th className="text-left p-4">Date</th>
                       <th className="text-left p-4">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredOrders.map((order) => (
-                      <tr key={order.id} className="border-b hover:bg-gray-50">
-                        <td className="p-4">
-                          <div className="font-mono text-sm">{order.id.slice(0, 8)}...</div>
-                        </td>
-                        <td className="p-4">
-                          <div>
-                            <p className="font-medium">{order.customer_name}</p>
-                            <p className="text-sm text-gray-600 flex items-center">
-                              <MapPin className="h-3 w-3 mr-1" />
-                              {order.shipping_city || 'N/A'}
-                            </p>
-                          </div>
-                        </td>
-                        <td className="p-4">
-                          <div className="space-y-1">
-                            <p className="text-sm flex items-center">
-                              <Mail className="h-3 w-3 mr-1" />
-                              {order.customer_email}
-                            </p>
-                            <p className="text-sm flex items-center">
-                              <Phone className="h-3 w-3 mr-1" />
-                              {order.customer_phone || 'N/A'}
-                            </p>
-                          </div>
-                        </td>
-                        <td className="p-4 font-semibold">
-                          {formatCurrency(order.total_amount)}
-                        </td>
-                        <td className="p-4">
-                          <select
-                            value={order.status}
-                            onChange={(e) => updateOrderStatus(order.id, e.target.value)}
-                            className={`px-3 py-1 rounded text-xs font-medium border ${getStatusColor(order.status)} focus:outline-none`}
-                          >
-                            <option value="pending">PENDING</option>
-                            <option value="processing">PROCESSING</option>
-                            <option value="paid">PAID</option>
-                            <option value="shipped">SHIPPED</option>
-                            <option value="delivered">DELIVERED</option>
-                            <option value="cancelled">CANCELLED</option>
-                          </select>
-                        </td>
-                        <td className="p-4 text-sm text-gray-600">
-                          <div className="flex items-center">
-                            <Calendar className="h-3 w-3 mr-1" />
-                            {new Date(order.created_at).toLocaleDateString()}
-                          </div>
-                        </td>
-                        <td className="p-4">
-                          <div className="flex space-x-2">
-                            <button
-                              onClick={() => setSelectedOrder(order)}
-                              className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm hover:bg-blue-200 transition-colors"
+                    {filteredOrders.map((order) => {
+                      const hasCustomization = Array.isArray(order.items) 
+                        ? order.items.some((item: any) => item.customization)
+                        : false;
+                      
+                      return (
+                        <tr key={order.id} className="border-b hover:bg-gray-50">
+                          <td className="p-4">
+                            <div className="font-mono text-sm">{order.id.slice(0, 8)}...</div>
+                          </td>
+                          <td className="p-4">
+                            <div>
+                              <p className="font-medium">{order.customer_name}</p>
+                              <p className="text-sm text-gray-600 flex items-center">
+                                <MapPin className="h-3 w-3 mr-1" />
+                                {order.shipping_city || 'N/A'}
+                              </p>
+                            </div>
+                          </td>
+                          <td className="p-4">
+                            <div className="space-y-1">
+                              <p className="text-sm flex items-center">
+                                <Mail className="h-3 w-3 mr-1" />
+                                {order.customer_email}
+                              </p>
+                              <p className="text-sm flex items-center">
+                                <Phone className="h-3 w-3 mr-1" />
+                                {order.customer_phone || 'N/A'}
+                              </p>
+                            </div>
+                          </td>
+                          <td className="p-4 font-semibold">
+                            {formatCurrency(order.total_amount)}
+                          </td>
+                          <td className="p-4">
+                            <select
+                              value={order.status}
+                              onChange={(e) => updateOrderStatus(order.id, e.target.value)}
+                              className={`px-3 py-1 rounded text-xs font-medium border ${getStatusColor(order.status)} focus:outline-none`}
                             >
-                              View
-                            </button>
-                            <button
-                              onClick={() => updateOrderStatus(order.id, 'shipped', `TRK${Date.now()}`)}
-                              className="px-3 py-1 bg-green-100 text-green-700 rounded text-sm hover:bg-green-200 transition-colors"
-                            >
-                              Ship
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                              <option value="pending">PENDING</option>
+                              <option value="processing">PROCESSING</option>
+                              <option value="paid">PAID</option>
+                              <option value="shipped">SHIPPED</option>
+                              <option value="delivered">DELIVERED</option>
+                              <option value="cancelled">CANCELLED</option>
+                            </select>
+                          </td>
+                          <td className="p-4">
+                            {hasCustomization ? (
+                              <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
+                                Yes
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 text-xs">No</span>
+                            )}
+                          </td>
+                          <td className="p-4 text-sm text-gray-600">
+                            <div className="flex items-center">
+                              <Calendar className="h-3 w-3 mr-1" />
+                              {new Date(order.created_at).toLocaleDateString()}
+                            </div>
+                          </td>
+                          <td className="p-4">
+                            <div className="flex space-x-2">
+                              <button
+                                onClick={() => setSelectedOrder(order)}
+                                className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm hover:bg-blue-200 transition-colors"
+                              >
+                                View
+                              </button>
+                              <button
+                                onClick={() => updateOrderStatus(order.id, 'shipped', `TRK${Date.now()}`)}
+                                className="px-3 py-1 bg-green-100 text-green-700 rounded text-sm hover:bg-green-200 transition-colors"
+                              >
+                                Ship
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -711,8 +757,10 @@ const handleEditCombo = (combo: Combo) => {
                       <th className="text-left p-4">Image</th>
                       <th className="text-left p-4">Name</th>
                       <th className="text-left p-4">Category</th>
+                      <th className="text-left p-4">Gender</th>
                       <th className="text-left p-4">Price</th>
                       <th className="text-left p-4">Stock</th>
+                      <th className="text-left p-4">Customizable</th>
                       <th className="text-left p-4">Status</th>
                       <th className="text-left p-4">Actions</th>
                     </tr>
@@ -739,6 +787,11 @@ const handleEditCombo = (combo: Combo) => {
                           </span>
                         </td>
                         <td className="p-4">
+                          <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs capitalize">
+                            {product.gender || 'unisex'}
+                          </span>
+                        </td>
+                        <td className="p-4">
                           <div>
                             <p className="font-semibold">{formatCurrency(product.price)}</p>
                             {product.discount_percentage && (
@@ -758,6 +811,15 @@ const handleEditCombo = (combo: Combo) => {
                           }`}>
                             {product.stock_quantity} in stock
                           </span>
+                        </td>
+                        <td className="p-4">
+                          {product.is_customizable ? (
+                            <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
+                              Yes
+                            </span>
+                          ) : (
+                            <span className="text-gray-400 text-xs">No</span>
+                          )}
                         </td>
                         <td className="p-4">
                           <button
@@ -860,6 +922,13 @@ const handleEditCombo = (combo: Combo) => {
                         ? totalValue * (1 - combo.discount_percentage / 100)
                         : combo.discount_price || totalValue;
 
+                      // Get unique genders from combo products
+                      const genders = [...new Set(
+                        comboProducts
+                          .map(cp => cp.product?.gender)
+                          .filter(Boolean)
+                      )];
+
                       return (
                         <tr key={combo.id} className="border-b hover:bg-gray-50">
                           <td className="p-4">
@@ -880,6 +949,15 @@ const handleEditCombo = (combo: Combo) => {
                                 <span className="inline-block mt-1 px-2 py-1 bg-red-100 text-red-800 text-xs rounded">
                                   {combo.discount_percentage}% OFF
                                 </span>
+                              )}
+                              {genders.length > 0 && (
+                                <div className="flex gap-1 mt-2">
+                                  {genders.map(gender => (
+                                    <span key={gender} className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs capitalize">
+                                      {gender}
+                                    </span>
+                                  ))}
+                                </div>
                               )}
                             </div>
                           </td>
@@ -934,12 +1012,12 @@ const handleEditCombo = (combo: Combo) => {
                           <td className="p-4">
                             <div className="flex space-x-2">
                               <button 
-  onClick={() => handleEditCombo(combo)}
-  className="p-2 hover:bg-gray-100 rounded transition-colors"
-  title="Edit"
->
-  <Edit className="h-4 w-4 text-blue-600" />
-</button>
+                                onClick={() => handleEditCombo(combo)}
+                                className="p-2 hover:bg-gray-100 rounded transition-colors"
+                                title="Edit"
+                              >
+                                <Edit className="h-4 w-4 text-blue-600" />
+                              </button>
                               <button 
                                 onClick={() => deleteCombo(combo.id)}
                                 className="p-2 hover:bg-gray-100 rounded transition-colors"
@@ -964,9 +1042,10 @@ const handleEditCombo = (combo: Combo) => {
         {activeTab === 'reviews' && <ReviewManager />}
         {activeTab === 'hero' && <HeroManager />}
         {activeTab === 'popups' && <PopupManager />}
+        {activeTab === 'logo' && <LogoManager />}
       </div>
 
-      {/* Modals */}
+      {/* Order Details Modal with Customization Display */}
       {selectedOrder && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -1050,17 +1129,85 @@ const handleEditCombo = (combo: Combo) => {
                   </div>
 
                   <h3 className="text-lg font-semibold mt-8 mb-4">Order Items</h3>
-                  <div className="space-y-3">
+                  <div className="space-y-3 max-h-96 overflow-y-auto">
                     {Array.isArray(selectedOrder.items) ? (
                       selectedOrder.items.map((item: any, idx: number) => (
-                        <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                          <div>
-                            <p className="font-medium">{item.name}</p>
-                            <p className="text-sm text-gray-600">Qty: {item.quantity}</p>
+                        <div key={idx} className="p-3 bg-gray-50 rounded-lg">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <img
+                                src={getImageUrl(item.image_url)}
+                                alt={item.name}
+                                className="w-12 h-12 object-cover rounded"
+                              />
+                              <div>
+                                <p className="font-medium">{item.name}</p>
+                                <p className="text-sm text-gray-600">
+                                  Qty: {item.quantity} × {formatCurrency(item.price)}
+                                </p>
+                                {item.gender && (
+                                  <p className="text-xs text-gray-500 capitalize">
+                                    For: {item.gender}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            <p className="font-semibold">
+                              {formatCurrency(item.price * item.quantity)}
+                            </p>
                           </div>
-                          <p className="font-semibold">
-                            {formatCurrency(item.price * item.quantity)}
-                          </p>
+                          
+                          {/* Show customization data if exists */}
+                          {item.customization && (
+                            <div className="mt-3 pt-3 border-t border-gray-200">
+                              <p className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
+                                <ImageIcon className="h-4 w-4" />
+                                Customization:
+                              </p>
+                              {item.customization.text && (
+                                <div className="flex items-center gap-2 mb-2 bg-white p-2 rounded-lg border">
+                                  <span className="text-xs text-gray-500">Text:</span>
+                                  <code className="bg-gray-100 px-3 py-1.5 rounded text-sm font-mono flex-1">
+                                    {item.customization.text}
+                                  </code>
+                                  <button
+                                    onClick={() => copyToClipboard(item.customization.text)}
+                                    className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+                                    title="Copy text"
+                                  >
+                                    <Copy className="h-4 w-4" />
+                                  </button>
+                                  {copySuccess === item.customization.text && (
+                                    <span className="text-xs text-green-600">Copied!</span>
+                                  )}
+                                </div>
+                              )}
+                              {item.customization.image_url && (
+                                <div className="flex items-center gap-2 bg-white p-2 rounded-lg border">
+                                  <span className="text-xs text-gray-500">Image:</span>
+                                  <a
+                                    href={item.customization.image_url}
+                                    download
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors"
+                                  >
+                                    <Download className="h-4 w-4" />
+                                    <span className="text-sm">Download</span>
+                                  </a>
+                                  <a
+                                    href={item.customization.image_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="p-1.5 hover:bg-gray-100 rounded"
+                                    title="View"
+                                  >
+                                    <Eye className="h-4 w-4" />
+                                  </a>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       ))
                     ) : (
@@ -1152,20 +1299,20 @@ const handleEditCombo = (combo: Combo) => {
         />
       )}
 
-{showComboManager && (
-  <ComboManager 
-    combo={editingCombo}
-    onClose={() => {
-      setShowComboManager(false);
-      setEditingCombo(null);
-    }} 
-    onSuccess={() => {
-      setShowComboManager(false);
-      setEditingCombo(null);
-      fetchDashboardData();
-    }}
-  />
-)}
+      {showComboManager && (
+        <ComboManager 
+          combo={editingCombo}
+          onClose={() => {
+            setShowComboManager(false);
+            setEditingCombo(null);
+          }} 
+          onSuccess={() => {
+            setShowComboManager(false);
+            setEditingCombo(null);
+            fetchDashboardData();
+          }}
+        />
+      )}
     </div>
   );
 };

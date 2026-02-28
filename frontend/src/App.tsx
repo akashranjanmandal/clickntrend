@@ -10,6 +10,7 @@ import Checkout from './pages/Checkout';
 import AdminLogin from './pages/AdminLogin';
 import NotFound from './pages/NotFound';
 import './styles/globals.css';
+import OrderTracking from './pages/OrderTracking';
 
 function App() {
   return (
@@ -20,9 +21,10 @@ function App() {
           <Route path="/" element={<Layout />}>
             <Route index element={<Home />} />
             <Route path="/products" element={<Products />} />
-            <Route path="/combos" element={<Combos />} /> {/* Add this route */}
+            <Route path="/combos" element={<Combos />} />
             <Route path="/custom-combo" element={<CustomCombo />} />
             <Route path="/checkout" element={<Checkout />} />
+            <Route path="/track-order" element={<OrderTracking />} />
           </Route>
           
           {/* Admin route without Layout */}

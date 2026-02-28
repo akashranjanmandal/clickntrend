@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Camera, RefreshCw, Users } from 'lucide-react';
+import { X, Save, Camera, RefreshCw, Users, Download } from 'lucide-react';
 import { Product } from '../../types';
 import { apiFetch } from '../../config';
 import MultiImageUpload from './MultiImageUpload';
@@ -28,10 +28,14 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
     }
   }, [product]);
 
+  // Define the gender type
+  type GenderType = 'men' | 'women' | 'unisex' | 'kids';
+
   const [formData, setFormData] = useState({
     name: product.name,
     description: product.description,
     category: product.category,
+    gender: (product.gender || 'unisex') as GenderType,
     price: product.price.toString(),
     original_price: product.original_price?.toString() || '',
     discount_percentage: product.discount_percentage?.toString() || '',
@@ -39,7 +43,6 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
     is_customizable: product.is_customizable || false,
     customization_price: product.customization_price?.toString() || '0',
     max_customization_characters: product.max_customization_characters?.toString() || '50',
-    // Social Proof Fields
     social_proof_enabled: product.social_proof_enabled !== false,
     social_proof_text: product.social_proof_text || '🔺{count} People are Purchasing Right Now',
     social_proof_count: product.social_proof_count?.toString() || '9',
@@ -81,10 +84,10 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
         name: formData.name,
         description: formData.description,
         category: formData.category,
+        gender: formData.gender,
         price: parseFloat(formData.price),
         stock_quantity: parseInt(formData.stock_quantity),
         image_url: primaryImage.url,
-        // Social Proof Fields
         social_proof_enabled: formData.social_proof_enabled,
         social_proof_text: formData.social_proof_text,
         social_proof_count: parseInt(formData.social_proof_count),
@@ -191,6 +194,20 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
                   {categories.map(cat => (
                     <option key={cat} value={cat}>{cat}</option>
                   ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Target Audience</label>
+                <select
+                  value={formData.gender}
+                  onChange={(e) => setFormData({...formData, gender: e.target.value as 'men' | 'women' | 'unisex' | 'kids'})}
+                  className="w-full px-4 py-3 border rounded-lg focus:border-premium-gold focus:outline-none"
+                >
+                  <option value="unisex">Unisex</option>
+                  <option value="men">Men</option>
+                  <option value="women">Women</option>
+                  <option value="kids">Kids</option>
                 </select>
               </div>
 

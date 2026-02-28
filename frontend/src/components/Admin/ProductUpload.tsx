@@ -17,6 +17,7 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
     name: '',
     description: '',
     category: '',
+    gender: 'unisex',
     price: '',
     original_price: '',
     discount_percentage: '',
@@ -24,7 +25,6 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
     is_customizable: false,
     customization_price: '0',
     max_customization_characters: '50',
-    // Social Proof Fields
     social_proof_enabled: true,
     social_proof_text: '🔺{count} People are Purchasing Right Now',
     social_proof_count: '9',
@@ -71,11 +71,11 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
         name: formData.name,
         description: formData.description,
         category: formData.category,
+        gender: formData.gender,
         price: parseFloat(formData.price),
         stock_quantity: parseInt(formData.stock_quantity),
         image_url: primaryImage.url,
         is_active: true,
-        // Social Proof Fields
         social_proof_enabled: formData.social_proof_enabled,
         social_proof_text: formData.social_proof_text,
         social_proof_count: parseInt(formData.social_proof_count),
@@ -179,6 +179,20 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
                   {categories.map(cat => (
                     <option key={cat} value={cat}>{cat}</option>
                   ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Target Audience</label>
+                <select
+                  value={formData.gender}
+                  onChange={(e) => setFormData({...formData, gender: e.target.value})}
+                  className="w-full px-4 py-3 border rounded-lg focus:border-premium-gold focus:outline-none"
+                >
+                  <option value="unisex">Unisex</option>
+                  <option value="men">Men</option>
+                  <option value="women">Women</option>
+                  <option value="kids">Kids</option>
                 </select>
               </div>
 

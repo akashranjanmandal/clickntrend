@@ -82,6 +82,7 @@ const CategoryManager: React.FC = () => {
     { name: 'Zap', component: Zap },
     { name: 'Sun', component: Sun },
   ];
+gender: 'unisex' as 'men' | 'women' | 'unisex' | 'kids',
 
   useEffect(() => {
     fetchCategories();

@@ -3,6 +3,7 @@ export interface Product {
   name: string;
   description: string;
   category: string;
+  gender?: 'men' | 'women' | 'unisex' | 'kids';
   price: number;
   original_price?: number;
   discount_percentage?: number;
@@ -14,7 +15,6 @@ export interface Product {
   customization_price?: number;
   max_customization_characters?: number;
   additional_images?: string[];
-  // Social proof fields
   social_proof_text?: string;
   social_proof_enabled?: boolean;
   social_proof_count?: number;
@@ -78,6 +78,7 @@ export interface Category {
   hover_effect?: string;
   display_order: number;
   is_active: boolean;
+  gender?: 'men' | 'women' | 'unisex' | 'kids';
 }
 
 export interface HeroContent {
