@@ -470,19 +470,6 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
                       placeholder="15"
                     />
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Discounted Price (₹)</label>
-                    <input
-                      type="number"
-                      value={comboData.discount_price}
-                      onChange={(e) => setComboData({...comboData, discount_price: e.target.value})}
-                      min="0"
-                      step="0.01"
-                      className="w-full px-4 py-3 border rounded-lg focus:border-premium-gold focus:outline-none"
-                      placeholder="4999"
-                    />
-                  </div>
                 </div>
 
                 <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">

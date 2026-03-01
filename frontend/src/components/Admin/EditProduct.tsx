@@ -52,29 +52,38 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
     is_active: product.is_active,
   });
 
-  // Auto-calculate discount percentage when price or original price changes
-  useEffect(() => {
-    const price = parseFloat(formData.price) || 0;
-    const originalPrice = parseFloat(formData.original_price) || 0;
-    
-    if (originalPrice > 0 && price > 0 && originalPrice > price) {
-      const discount = Math.round(((originalPrice - price) / originalPrice) * 100);
-      setFormData(prev => ({ ...prev, discount_percentage: discount.toString() }));
-    } else if (originalPrice === 0 || price === 0 || originalPrice <= price) {
-      setFormData(prev => ({ ...prev, discount_percentage: '' }));
-    }
-  }, [formData.price, formData.original_price]);
+// Replace both discount calculation useEffects with this single, controlled approach
+useEffect(() => {
+  const price = parseFloat(formData.price) || 0;
+  const originalPrice = parseFloat(formData.original_price) || 0;
+  const discountPercent = parseFloat(formData.discount_percentage) || 0;
 
-  // Auto-calculate price when discount percentage or original price changes
-  useEffect(() => {
-    const originalPrice = parseFloat(formData.original_price) || 0;
-    const discountPercent = parseFloat(formData.discount_percentage) || 0;
-    
-    if (originalPrice > 0 && discountPercent > 0 && discountPercent <= 100) {
-      const calculatedPrice = originalPrice - (originalPrice * discountPercent / 100);
+  // Mode 1: User changed price or original price -> calculate discount
+  if (originalPrice > 0 && price > 0 && originalPrice > price) {
+    const calculatedDiscount = Math.round(((originalPrice - price) / originalPrice) * 100);
+    // Only update if it's different to avoid loops
+    if (calculatedDiscount !== discountPercent) {
+      setFormData(prev => ({ ...prev, discount_percentage: calculatedDiscount.toString() }));
+    }
+  } 
+  // Mode 2: User changed discount percentage -> calculate price
+  else if (originalPrice > 0 && discountPercent > 0 && discountPercent <= 100) {
+    const calculatedPrice = originalPrice - (originalPrice * discountPercent / 100);
+    // Only update if it's different to avoid loops
+    if (Math.abs(calculatedPrice - price) > 0.01) {
       setFormData(prev => ({ ...prev, price: calculatedPrice.toFixed(2) }));
     }
-  }, [formData.original_price, formData.discount_percentage]);
+  }
+  // Mode 3: No valid calculation
+  else if (originalPrice === 0 || price === 0) {
+    // Don't auto-clear discount when user might be typing
+    if (discountPercent > 0 && originalPrice === 0) {
+      // Keep discount as is
+    } else {
+      setFormData(prev => ({ ...prev, discount_percentage: '' }));
+    }
+  }
+}, [formData.price, formData.original_price, formData.discount_percentage]);
 
   useEffect(() => {
     fetchCategories();
