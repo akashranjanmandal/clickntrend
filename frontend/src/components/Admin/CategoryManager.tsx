@@ -28,6 +28,7 @@ const CategoryManager: React.FC = () => {
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
+  const [error, setError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -82,42 +83,55 @@ const CategoryManager: React.FC = () => {
     { name: 'Zap', component: Zap },
     { name: 'Sun', component: Sun },
   ];
-gender: 'unisex' as 'men' | 'women' | 'unisex',
 
   useEffect(() => {
     fetchCategories();
   }, []);
 
-const fetchCategories = async () => {
-  try {
-    setLoading(true);
-    const token = localStorage.getItem('admin_token');
-    const baseUrl = import.meta.env.VITE_API_URL || '';
-    
-    const response = await fetch(`${baseUrl}/api/admin/categories`, {
-      headers: { 'Authorization': `Bearer ${token}` },
-    });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+  const fetchCategories = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const token = localStorage.getItem('admin_token');
+      const baseUrl = import.meta.env.VITE_API_URL || '';
+      
+      console.log('Fetching categories from:', `${baseUrl}/api/admin/categories`);
+      
+      const response = await fetch(`${baseUrl}/api/admin/categories`, {
+        method: 'GET',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+      });
+      
+      console.log('Response status:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        console.error('Non-JSON response:', text.substring(0, 200));
+        throw new Error('Invalid server response');
+      }
+      
+      const data = await response.json();
+      console.log('Categories fetched:', data);
+      const sortedData = (data || []).sort((a: Category, b: Category) => a.display_order - b.display_order);
+      setCategories(sortedData);
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+      setError(error instanceof Error ? error.message : 'Failed to fetch categories');
+    } finally {
+      setLoading(false);
     }
-    
-    const contentType = response.headers.get('content-type');
-    if (!contentType || !contentType.includes('application/json')) {
-      const text = await response.text();
-      console.error('Non-JSON response:', text.substring(0, 200));
-      throw new Error('Invalid server response');
-    }
-    
-    const data = await response.json();
-    const sortedData = (data || []).sort((a: Category, b: Category) => a.display_order - b.display_order);
-    setCategories(sortedData);
-  } catch (error) {
-    console.error('Error fetching categories:', error);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const validateForm = () => {
     const errors: Record<string, string> = {};
@@ -133,59 +147,162 @@ const fetchCategories = async () => {
     if (!validateForm()) return;
 
     try {
+      setError(null);
       const token = localStorage.getItem('admin_token');
+      const baseUrl = import.meta.env.VITE_API_URL || '';
+      
+      // Prepare the data - ensure all required fields are present
+      const submitData = {
+        ...formData,
+        display_order: formData.display_order || categories.length,
+      };
+      
+      console.log('Submitting data:', submitData);
+      
       const url = editingCategory 
-        ? `/api/admin/categories/${editingCategory.id}`
-        : '/api/admin/categories';
+        ? `${baseUrl}/api/admin/categories/${editingCategory.id}`
+        : `${baseUrl}/api/admin/categories`;
+      
+      console.log('URL:', url);
+      console.log('Method:', editingCategory ? 'PUT' : 'POST');
       
       const response = await fetch(url, {
         method: editingCategory ? 'PUT' : 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(submitData),
       });
+
+      console.log('Submit response status:', response.status);
 
       if (response.ok) {
         await fetchCategories();
         setShowAddModal(false);
         setEditingCategory(null);
         resetForm();
+      } else {
+        const errorText = await response.text();
+        console.error('Submit error response:', errorText);
+        setError(`Failed to save category: ${response.status} ${response.statusText}`);
+        alert(`Failed to save category. Status: ${response.status}. Check console for details.`);
       }
     } catch (error) {
       console.error('Error saving category:', error);
+      setError(error instanceof Error ? error.message : 'Failed to save category');
+      alert('Error saving category. Check console for details.');
     }
   };
 
   const deleteCategory = async (id: string) => {
-    if (!confirm('Delete this category?')) return;
+    if (!confirm('Are you sure you want to delete this category?')) return;
+    
     try {
+      setError(null);
       const token = localStorage.getItem('admin_token');
-      await fetch(`/api/admin/categories/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` },
+      const baseUrl = import.meta.env.VITE_API_URL || '';
+      
+      console.log('Deleting category:', id);
+      
+      const response = await fetch(`${baseUrl}/api/admin/categories/${id}`, {
+        method: 'DELETE', // Try DELETE first
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
       });
-      await fetchCategories();
+
+      console.log('Delete response status:', response.status);
+
+      // If DELETE fails with 405, try POST with _method=DELETE
+      if (response.status === 405) {
+        console.log('DELETE not allowed, trying POST with _method=DELETE');
+        const postResponse = await fetch(`${baseUrl}/api/admin/categories/${id}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify({ _method: 'DELETE' }),
+        });
+        
+        if (postResponse.ok) {
+          await fetchCategories();
+          return;
+        }
+      }
+
+      if (response.ok) {
+        await fetchCategories();
+      } else {
+        const errorText = await response.text();
+        console.error('Delete error response:', errorText);
+        setError(`Failed to delete category: ${response.status}`);
+        alert(`Failed to delete category. Status: ${response.status}`);
+      }
     } catch (error) {
       console.error('Error deleting category:', error);
+      setError(error instanceof Error ? error.message : 'Failed to delete category');
+      alert('Error deleting category. Check console for details.');
     }
   };
 
   const toggleStatus = async (category: Category) => {
     try {
+      setError(null);
       const token = localStorage.getItem('admin_token');
-      await fetch(`/api/admin/categories/${category.id}`, {
+      const baseUrl = import.meta.env.VITE_API_URL || '';
+      
+      console.log('Toggling status for category:', category.id);
+      
+      const response = await fetch(`${baseUrl}/api/admin/categories/${category.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
         },
         body: JSON.stringify({ is_active: !category.is_active }),
       });
-      await fetchCategories();
+
+      console.log('Toggle status response:', response.status);
+
+      // If PUT fails with 405, try POST with _method=PUT
+      if (response.status === 405) {
+        console.log('PUT not allowed, trying POST with _method=PUT');
+        const postResponse = await fetch(`${baseUrl}/api/admin/categories/${category.id}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify({ 
+            _method: 'PUT',
+            is_active: !category.is_active 
+          }),
+        });
+        
+        if (postResponse.ok) {
+          await fetchCategories();
+          return;
+        }
+      }
+
+      if (response.ok) {
+        await fetchCategories();
+      } else {
+        const errorText = await response.text();
+        console.error('Toggle status error:', errorText);
+        setError(`Failed to update status: ${response.status}`);
+      }
     } catch (error) {
       console.error('Error toggling status:', error);
+      setError(error instanceof Error ? error.message : 'Failed to update status');
     }
   };
 
@@ -196,29 +313,37 @@ const fetchCategories = async () => {
     const newIndex = direction === 'up' ? index - 1 : index + 1;
     const otherCategory = categories[newIndex];
     const token = localStorage.getItem('admin_token');
+    const baseUrl = import.meta.env.VITE_API_URL || '';
 
     try {
+      setError(null);
+      
+      // Update both categories' display_order
       await Promise.all([
-        fetch(`/api/admin/categories/${category.id}`, {
+        fetch(`${baseUrl}/api/admin/categories/${category.id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json',
           },
           body: JSON.stringify({ display_order: otherCategory.display_order }),
         }),
-        fetch(`/api/admin/categories/${otherCategory.id}`, {
+        fetch(`${baseUrl}/api/admin/categories/${otherCategory.id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json',
           },
           body: JSON.stringify({ display_order: category.display_order }),
         }),
       ]);
+      
       await fetchCategories();
     } catch (error) {
       console.error('Error reordering:', error);
+      setError(error instanceof Error ? error.message : 'Failed to reorder categories');
     }
   };
 
@@ -242,7 +367,7 @@ const fetchCategories = async () => {
       name: category.name,
       description: category.description || '',
       icon: category.icon,
-      icon_type: category.icon_type || 'emoji',
+      icon_type: category.icon_type || 'lucide',
       color: category.color,
       hover_effect: category.hover_effect || 'scale',
       display_order: category.display_order,
@@ -312,6 +437,11 @@ const fetchCategories = async () => {
             </button>
           </div>
         </div>
+        {error && (
+          <div className="mt-4 p-3 bg-red-50 text-red-700 rounded-lg">
+            Error: {error}
+          </div>
+        )}
       </div>
 
       {filteredCategories.length === 0 ? (
@@ -382,6 +512,7 @@ const fetchCategories = async () => {
                         onClick={() => moveOrder(category, 'up')}
                         disabled={index === 0}
                         className="p-1 hover:bg-gray-100 rounded disabled:opacity-50"
+                        title="Move Up"
                       >
                         <MoveUp className="h-4 w-4" />
                       </button>
@@ -389,18 +520,21 @@ const fetchCategories = async () => {
                         onClick={() => moveOrder(category, 'down')}
                         disabled={index === categories.length - 1}
                         className="p-1 hover:bg-gray-100 rounded disabled:opacity-50"
+                        title="Move Down"
                       >
                         <MoveDown className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => editCategory(category)}
                         className="p-1 hover:bg-gray-100 rounded"
+                        title="Edit"
                       >
                         <Edit className="h-4 w-4 text-blue-600" />
                       </button>
                       <button
                         onClick={() => deleteCategory(category.id)}
                         className="p-1 hover:bg-gray-100 rounded"
+                        title="Delete"
                       >
                         <Trash2 className="h-4 w-4 text-red-600" />
                       </button>
@@ -578,10 +712,17 @@ const fetchCategories = async () => {
                 </div>
 
                 <div className="flex justify-end gap-3 pt-4 border-t">
-                  <button type="button" onClick={() => setShowAddModal(false)} className="px-6 py-3 border rounded-lg">
+                  <button 
+                    type="button" 
+                    onClick={() => setShowAddModal(false)} 
+                    className="px-6 py-3 border rounded-lg hover:bg-gray-50"
+                  >
                     Cancel
                   </button>
-                  <button type="submit" className="px-6 py-3 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy">
+                  <button 
+                    type="submit" 
+                    className="px-6 py-3 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy"
+                  >
                     <Save className="h-5 w-5 inline mr-2" />
                     {editingCategory ? 'Update' : 'Create'}
                   </button>

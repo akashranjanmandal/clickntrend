@@ -1411,7 +1411,7 @@ const AdminPanel: React.FC = () => {
                   icon={<Users className="h-4 w-4 text-gray-400" />}
                   options={[
                     { value: 'men', label: 'Men' },
-                    { value: 'female', label: 'Female' },
+                    { value: 'women', label: 'Women' },
                     { value: 'unisex', label: 'Unisex' },
                   ]}
                 />
