@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Camera, Upload, Users } from 'lucide-react';
+import { X, Plus, Camera, Upload, Users, RefreshCw } from 'lucide-react';
 import { apiFetch } from '../../config';
 import MultiImageUpload from './MultiImageUpload';
 
@@ -12,6 +12,7 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<string[]>([]);
   const [productImages, setProductImages] = useState<{ url: string; is_primary: boolean }[]>([]);
+  const [previewCount, setPreviewCount] = useState(5);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -22,16 +23,58 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
     price: '',
     original_price: '',
     discount_percentage: '',
+    sku: `SKU-${Date.now().toString().slice(-8)}`,
     stock_quantity: '10',
     is_customizable: false,
     customization_price: '0',
     max_customization_characters: '50',
     social_proof_enabled: true,
-    social_proof_text: '🔺{count} People are Purchasing Right Now',
+    social_proof_text: '🔺{count} People are viewing this right now',
     social_proof_initial_count: '5',
     social_proof_end_count: '15',
   });
-  
+
+  // Auto-calculate discount percentage when price or original price changes
+  useEffect(() => {
+    const price = parseFloat(formData.price) || 0;
+    const originalPrice = parseFloat(formData.original_price) || 0;
+    
+    if (originalPrice > 0 && price > 0 && originalPrice > price) {
+      const discount = Math.round(((originalPrice - price) / originalPrice) * 100);
+      setFormData(prev => ({ ...prev, discount_percentage: discount.toString() }));
+    } else if (originalPrice === 0 || price === 0 || originalPrice <= price) {
+      setFormData(prev => ({ ...prev, discount_percentage: '' }));
+    }
+  }, [formData.price, formData.original_price]);
+
+  // Auto-calculate price when discount percentage or original price changes
+  useEffect(() => {
+    const originalPrice = parseFloat(formData.original_price) || 0;
+    const discountPercent = parseFloat(formData.discount_percentage) || 0;
+    
+    if (originalPrice > 0 && discountPercent > 0 && discountPercent <= 100) {
+      const calculatedPrice = originalPrice - (originalPrice * discountPercent / 100);
+      setFormData(prev => ({ ...prev, price: calculatedPrice.toFixed(2) }));
+    }
+  }, [formData.original_price, formData.discount_percentage]);
+
+  // Update preview count when initial/end counts change
+  useEffect(() => {
+    const initial = parseInt(formData.social_proof_initial_count) || 5;
+    const end = parseInt(formData.social_proof_end_count) || 15;
+    setPreviewCount(Math.floor(Math.random() * (end - initial + 1)) + initial);
+  }, [formData.social_proof_initial_count, formData.social_proof_end_count]);
+
+  const getRandomPreviewCount = () => {
+    const initial = parseInt(formData.social_proof_initial_count) || 5;
+    const end = parseInt(formData.social_proof_end_count) || 15;
+    return Math.floor(Math.random() * (end - initial + 1)) + initial;
+  };
+
+  const refreshPreview = () => {
+    setPreviewCount(getRandomPreviewCount());
+  };
+
   useEffect(() => {
     fetchCategories();
   }, []);
@@ -51,6 +94,11 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
   const handleImagesUploaded = (images: { url: string; is_primary: boolean }[]) => {
     setProductImages(images);
   };
+
+  // Calculate savings
+  const savings = parseFloat(formData.original_price) && parseFloat(formData.price) 
+    ? (parseFloat(formData.original_price) - parseFloat(formData.price)).toFixed(2)
+    : '0';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,6 +125,7 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
         gender: formData.gender,
         price: parseFloat(formData.price),
         stock_quantity: parseInt(formData.stock_quantity),
+        sku: formData.sku,
         image_url: primaryImage.url,
         is_active: true,
         social_proof_enabled: formData.social_proof_enabled,
@@ -212,6 +261,19 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
                 </select>
               </div>
 
+              {/* SKU Field - New */}
+              <div>
+                <label className="block text-sm font-medium mb-2">SKU (Stock Keeping Unit) *</label>
+                <input
+                  type="text"
+                  value={formData.sku}
+                  onChange={(e) => setFormData({...formData, sku: e.target.value})}
+                  required
+                  className="w-full px-4 py-3 border rounded-lg focus:border-premium-gold focus:outline-none"
+                  placeholder="SKU-12345678"
+                />
+              </div>
+
               <div>
                 <label className="block text-sm font-medium mb-2">Price (₹) *</label>
                 <input
@@ -239,6 +301,7 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
                 />
               </div>
 
+              {/* Discount % - Auto-calculated */}
               <div>
                 <label className="block text-sm font-medium mb-2">Discount %</label>
                 <input
@@ -247,9 +310,13 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
                   onChange={(e) => setFormData({...formData, discount_percentage: e.target.value})}
                   min="0"
                   max="100"
-                  className="w-full px-4 py-3 border rounded-lg focus:border-premium-gold focus:outline-none"
-                  placeholder="25"
+                  className="w-full px-4 py-3 border rounded-lg focus:border-premium-gold focus:outline-none bg-gray-50"
+                  placeholder="Auto-calculated"
+                  readOnly
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  Auto-calculated from price difference
+                </p>
               </div>
 
               <div>
@@ -265,6 +332,29 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
                 />
               </div>
             </div>
+
+            {/* Price Summary Card */}
+            {(parseFloat(formData.original_price) > 0 && parseFloat(formData.price) > 0) && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <h4 className="font-medium text-green-800 mb-2">Price Summary</h4>
+                <div className="grid grid-cols-3 gap-4 text-sm">
+                  <div>
+                    <span className="text-green-600">Original:</span>
+                    <span className="ml-2 font-semibold">₹{parseFloat(formData.original_price).toLocaleString()}</span>
+                  </div>
+                  <div>
+                    <span className="text-green-600">Selling:</span>
+                    <span className="ml-2 font-semibold">₹{parseFloat(formData.price).toLocaleString()}</span>
+                  </div>
+                  <div>
+                    <span className="text-green-600">You Save:</span>
+                    <span className="ml-2 font-semibold text-premium-burgundy">
+                      ₹{parseFloat(savings).toLocaleString()} ({formData.discount_percentage || 0}%)
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Social Proof Section */}
             <div className="border-t pt-4 mt-4">
@@ -282,7 +372,7 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
                   className="rounded text-premium-gold"
                 />
                 <label htmlFor="social_proof_enabled" className="font-medium">
-                  Enable Social Proof ("X people are buying")
+                  Enable Social Proof ("X people are viewing/buying")
                 </label>
               </div>
 
@@ -297,10 +387,10 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
                       value={formData.social_proof_text}
                       onChange={(e) => setFormData({...formData, social_proof_text: e.target.value})}
                       className="w-full px-4 py-3 border rounded-lg"
-                      placeholder="🔺{count} People are Purchasing Right Now"
+                      placeholder="🔺{count} People are viewing this right now"
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      Use {'{count}'} as placeholder for the number
+                      Use {'{count}'} as placeholder for the dynamic number
                     </p>
                   </div>
 
@@ -336,17 +426,22 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
 
                   <div>
                     <label className="block text-sm font-medium mb-2">
-                      Preview
+                      Live Preview
                     </label>
-                    <div className="px-4 py-3 bg-gray-50 border rounded-lg text-sm">
-                      {formData.social_proof_text.replace(
-                        '{count}', 
-                        `${formData.social_proof_initial_count}`
-                      )}
+                    <div className="px-4 py-3 bg-gray-50 border rounded-lg text-sm font-medium text-premium-gold">
+                      {formData.social_proof_text.replace('{count}', previewCount.toString())}
                     </div>
                     <p className="text-xs text-gray-500 mt-1">
-                      Count will vary between {formData.social_proof_initial_count} and {formData.social_proof_end_count}
+                      Count varies between {formData.social_proof_initial_count} and {formData.social_proof_end_count}
                     </p>
+                    <button
+                      type="button"
+                      onClick={refreshPreview}
+                      className="mt-2 text-xs text-premium-gold hover:underline flex items-center gap-1"
+                    >
+                      <RefreshCw className="h-3 w-3" />
+                      Refresh preview
+                    </button>
                   </div>
                 </div>
               )}

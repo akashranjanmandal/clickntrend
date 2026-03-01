@@ -40,19 +40,41 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
     price: product.price.toString(),
     original_price: product.original_price?.toString() || '',
     discount_percentage: product.discount_percentage?.toString() || '',
+    sku: product.sku || `SKU-${Date.now().toString().slice(-8)}`,
     stock_quantity: product.stock_quantity.toString(),
     is_customizable: product.is_customizable || false,
     customization_price: product.customization_price?.toString() || '0',
     max_customization_characters: product.max_customization_characters?.toString() || '50',
     social_proof_enabled: product.social_proof_enabled !== false,
     social_proof_text: product.social_proof_text || '🔺{count} People are Purchasing Right Now',
-    // Handle both old and new fields for backward compatibility
-    social_proof_initial_count: product.social_proof_initial_count?.toString() || 
-                                (product as any).social_proof_count?.toString() || '5',
-    social_proof_end_count: product.social_proof_end_count?.toString() || 
-                            (product as any).social_proof_count?.toString() || '15',
+    social_proof_initial_count: product.social_proof_initial_count?.toString() || '5',
+    social_proof_end_count: product.social_proof_end_count?.toString() || '15',
     is_active: product.is_active,
   });
+
+  // Auto-calculate discount percentage when price or original price changes
+  useEffect(() => {
+    const price = parseFloat(formData.price) || 0;
+    const originalPrice = parseFloat(formData.original_price) || 0;
+    
+    if (originalPrice > 0 && price > 0 && originalPrice > price) {
+      const discount = Math.round(((originalPrice - price) / originalPrice) * 100);
+      setFormData(prev => ({ ...prev, discount_percentage: discount.toString() }));
+    } else if (originalPrice === 0 || price === 0 || originalPrice <= price) {
+      setFormData(prev => ({ ...prev, discount_percentage: '' }));
+    }
+  }, [formData.price, formData.original_price]);
+
+  // Auto-calculate price when discount percentage or original price changes
+  useEffect(() => {
+    const originalPrice = parseFloat(formData.original_price) || 0;
+    const discountPercent = parseFloat(formData.discount_percentage) || 0;
+    
+    if (originalPrice > 0 && discountPercent > 0 && discountPercent <= 100) {
+      const calculatedPrice = originalPrice - (originalPrice * discountPercent / 100);
+      setFormData(prev => ({ ...prev, price: calculatedPrice.toFixed(2) }));
+    }
+  }, [formData.original_price, formData.discount_percentage]);
 
   useEffect(() => {
     fetchCategories();
@@ -102,6 +124,7 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
         gender: formData.gender,
         price: parseFloat(formData.price),
         stock_quantity: parseInt(formData.stock_quantity),
+        sku: formData.sku,
         image_url: primaryImage.url,
         social_proof_enabled: formData.social_proof_enabled,
         social_proof_text: formData.social_proof_text,
@@ -178,6 +201,11 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
     setPreviewCount(getRandomPreviewCount());
   }, [formData.social_proof_initial_count, formData.social_proof_end_count]);
 
+  // Calculate savings
+  const savings = parseFloat(formData.original_price) && parseFloat(formData.price) 
+    ? (parseFloat(formData.original_price) - parseFloat(formData.price)).toFixed(2)
+    : '0';
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -242,6 +270,19 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
                 </select>
               </div>
 
+              {/* SKU Field - New */}
+              <div>
+                <label className="block text-sm font-medium mb-2">SKU (Stock Keeping Unit) *</label>
+                <input
+                  type="text"
+                  value={formData.sku}
+                  onChange={(e) => setFormData({...formData, sku: e.target.value})}
+                  required
+                  className="w-full px-4 py-3 border rounded-lg focus:border-premium-gold focus:outline-none"
+                  placeholder="SKU-12345678"
+                />
+              </div>
+
               <div>
                 <label className="block text-sm font-medium mb-2">Price (₹) *</label>
                 <input
@@ -267,6 +308,7 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
                 />
               </div>
 
+              {/* Discount % - Auto-calculated or can be entered manually */}
               <div>
                 <label className="block text-sm font-medium mb-2">Discount %</label>
                 <input
@@ -275,8 +317,12 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
                   onChange={(e) => setFormData({...formData, discount_percentage: e.target.value})}
                   min="0"
                   max="100"
-                  className="w-full px-4 py-3 border rounded-lg focus:border-premium-gold focus:outline-none"
+                  className="w-full px-4 py-3 border rounded-lg focus:border-premium-gold focus:outline-none bg-gray-50"
+                  placeholder="Auto-calculated"
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  Auto-calculated from price difference
+                </p>
               </div>
 
               <div>
@@ -291,6 +337,29 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
                 />
               </div>
             </div>
+
+            {/* Price Summary Card */}
+            {(parseFloat(formData.original_price) > 0 && parseFloat(formData.price) > 0) && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <h4 className="font-medium text-green-800 mb-2">Price Summary</h4>
+                <div className="grid grid-cols-3 gap-4 text-sm">
+                  <div>
+                    <span className="text-green-600">Original:</span>
+                    <span className="ml-2 font-semibold">₹{parseFloat(formData.original_price).toLocaleString()}</span>
+                  </div>
+                  <div>
+                    <span className="text-green-600">Selling:</span>
+                    <span className="ml-2 font-semibold">₹{parseFloat(formData.price).toLocaleString()}</span>
+                  </div>
+                  <div>
+                    <span className="text-green-600">You Save:</span>
+                    <span className="ml-2 font-semibold text-premium-burgundy">
+                      ₹{parseFloat(savings).toLocaleString()} ({formData.discount_percentage || 0}%)
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Social Proof Section */}
             <div className="border-t pt-4 mt-4">
@@ -308,7 +377,7 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
                   className="rounded text-premium-gold"
                 />
                 <label htmlFor="social_proof_enabled" className="font-medium">
-                  Enable Social Proof ("X people are buying")
+                  Enable Social Proof ("X people are viewing/buying")
                 </label>
               </div>
 
@@ -323,10 +392,10 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
                       value={formData.social_proof_text}
                       onChange={(e) => setFormData({...formData, social_proof_text: e.target.value})}
                       className="w-full px-4 py-3 border rounded-lg"
-                      placeholder="🔺{count} People are Purchasing Right Now"
+                      placeholder="🔺{count} People are viewing this right now"
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      Use {'{count}'} as placeholder for the number
+                      Use {'{count}'} as placeholder for the dynamic number
                     </p>
                   </div>
 
@@ -373,9 +442,10 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
                     <button
                       type="button"
                       onClick={() => setPreviewCount(getRandomPreviewCount())}
-                      className="mt-2 text-xs text-premium-gold hover:underline"
+                      className="mt-2 text-xs text-premium-gold hover:underline flex items-center gap-1"
                     >
-                      🔄 Refresh preview
+                      <RefreshCw className="h-3 w-3" />
+                      Refresh preview
                     </button>
                   </div>
                 </div>

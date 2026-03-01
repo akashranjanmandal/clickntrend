@@ -20,6 +20,7 @@ export interface Product {
   social_proof_text: string;
   social_proof_initial_count: number;  // New field for starting count
   social_proof_end_count: number;
+  sku: string;
 }
 
 export interface Combo {
