@@ -46,8 +46,11 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
     max_customization_characters: product.max_customization_characters?.toString() || '50',
     social_proof_enabled: product.social_proof_enabled !== false,
     social_proof_text: product.social_proof_text || '🔺{count} People are Purchasing Right Now',
-    social_proof_initial_count: product.social_proof_initial_count?.toString() || '5',
-    social_proof_end_count: product.social_proof_end_count?.toString() || '15',
+    // Handle both old and new fields for backward compatibility
+    social_proof_initial_count: product.social_proof_initial_count?.toString() || 
+                                (product as any).social_proof_count?.toString() || '5',
+    social_proof_end_count: product.social_proof_end_count?.toString() || 
+                            (product as any).social_proof_count?.toString() || '15',
     is_active: product.is_active,
   });
 
@@ -160,6 +163,20 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
       setLoading(false);
     }
   };
+
+  // Generate a random preview count between initial and end
+  const getRandomPreviewCount = () => {
+    const initial = parseInt(formData.social_proof_initial_count) || 5;
+    const end = parseInt(formData.social_proof_end_count) || 15;
+    return Math.floor(Math.random() * (end - initial + 1)) + initial;
+  };
+
+  const [previewCount, setPreviewCount] = useState(getRandomPreviewCount());
+
+  // Update preview when counts change
+  useEffect(() => {
+    setPreviewCount(getRandomPreviewCount());
+  }, [formData.social_proof_initial_count, formData.social_proof_end_count]);
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -345,17 +362,21 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
 
                   <div>
                     <label className="block text-sm font-medium mb-2">
-                      Preview
+                      Live Preview
                     </label>
-                    <div className="px-4 py-3 bg-gray-50 border rounded-lg text-sm">
-                      {formData.social_proof_text.replace(
-                        '{count}', 
-                        `${formData.social_proof_initial_count}`
-                      )}
+                    <div className="px-4 py-3 bg-gray-50 border rounded-lg text-sm font-medium text-premium-gold">
+                      {formData.social_proof_text.replace('{count}', previewCount.toString())}
                     </div>
                     <p className="text-xs text-gray-500 mt-1">
-                      Count will vary between {formData.social_proof_initial_count} and {formData.social_proof_end_count}
+                      Count varies between {formData.social_proof_initial_count} and {formData.social_proof_end_count}
                     </p>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewCount(getRandomPreviewCount())}
+                      className="mt-2 text-xs text-premium-gold hover:underline"
+                    >
+                      🔄 Refresh preview
+                    </button>
                   </div>
                 </div>
               )}
