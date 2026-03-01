@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Minus, Search, Package, Trash2, Save, Upload, Camera } from 'lucide-react';
-import { Product, Combo } from '../../types';
+import { X, Plus, Minus, Search, Package, Trash2, Save, Upload, Camera, Filter } from 'lucide-react';
+import { Product, Combo, Category } from '../../types';
 import { formatCurrency, getImageUrl } from '../../utils/helpers';
 import { apiFetch } from '../../config';
 
@@ -18,6 +18,8 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedProducts, setSelectedProducts] = useState<ComboProduct[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -34,6 +36,7 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
 
   useEffect(() => {
     fetchProducts();
+    fetchCategories();
     if (combo) {
       loadComboForEdit();
     }
@@ -48,6 +51,18 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
       setProducts(data || []);
     } catch (error) {
       console.error('Error fetching products:', error);
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const token = localStorage.getItem('admin_token');
+      const data = await apiFetch('/api/admin/categories', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      setCategories(data || []);
+    } catch (error) {
+      console.error('Error fetching categories:', error);
     }
   };
 
@@ -166,11 +181,16 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
     return total;
   };
 
-  const filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.category.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filter products by category and search term
+  const filteredProducts = products.filter(product => {
+    const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
+    const matchesSearch = 
+      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.category.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    return matchesCategory && matchesSearch;
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -193,13 +213,13 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
         }
       }
 
-      // Create combo payload WITHOUT products - ensure image_url is never null
+      // Create combo payload WITHOUT products
       const comboPayload = {
         name: comboData.name,
         description: comboData.description,
         discount_percentage: comboData.discount_percentage ? parseInt(comboData.discount_percentage) : null,
         discount_price: comboData.discount_price ? parseFloat(comboData.discount_price) : null,
-        image_url: imageUrl || '', // Convert null to empty string
+        image_url: imageUrl || '',
         is_active: comboData.is_active
       };
 
@@ -503,54 +523,79 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
             <div>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold">Available Products</h3>
-                <div className="relative w-64">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <input
-                    type="text"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Search products..."
-                    className="w-full pl-10 pr-4 py-2 border rounded-lg focus:border-premium-gold focus:outline-none"
-                  />
+                <div className="flex gap-2">
+                  {/* Category Filter */}
+                  <div className="relative">
+                    <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <select
+                      value={selectedCategory}
+                      onChange={(e) => setSelectedCategory(e.target.value)}
+                      className="pl-10 pr-8 py-2 border rounded-lg focus:border-premium-gold focus:outline-none appearance-none bg-white"
+                    >
+                      <option value="all">All Categories</option>
+                      {categories.map(cat => (
+                        <option key={cat.id} value={cat.name}>{cat.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  {/* Search Input */}
+                  <div className="relative w-64">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      placeholder="Search products..."
+                      className="w-full pl-10 pr-4 py-2 border rounded-lg focus:border-premium-gold focus:outline-none"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-64 overflow-y-auto p-2">
-                {filteredProducts.map(product => (
-                  <div
-                    key={product.id}
-                    className="border rounded-lg p-4 hover:border-premium-gold transition-colors"
-                  >
-                    <div className="flex items-start space-x-3">
-                      <img
-                        src={getImageUrl(product.image_url)}
-                        alt={product.name}
-                        className="w-16 h-16 object-cover rounded"
-                      />
-                      <div className="flex-1">
-                        <h4 className="font-medium line-clamp-1">{product.name}</h4>
-                        <p className="text-premium-gold font-semibold">
-                          {formatCurrency(product.price)}
-                        </p>
-                        <p className="text-xs text-gray-600 line-clamp-2 mt-1">
-                          {product.description}
-                        </p>
-                        <div className="flex items-center justify-between mt-3">
-                          <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded text-xs">
-                            {product.category}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => addToCombo(product)}
-                            className="px-3 py-1 bg-premium-gold text-white text-sm rounded hover:bg-premium-burgundy"
-                          >
-                            Add
-                          </button>
+              {/* Products Grid */}
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto p-2">
+                {filteredProducts.length === 0 ? (
+                  <div className="col-span-full text-center py-8 text-gray-500">
+                    No products found in this category
+                  </div>
+                ) : (
+                  filteredProducts.map(product => (
+                    <div
+                      key={product.id}
+                      className="border rounded-lg p-4 hover:border-premium-gold transition-colors"
+                    >
+                      <div className="flex items-start space-x-3">
+                        <img
+                          src={getImageUrl(product.image_url)}
+                          alt={product.name}
+                          className="w-16 h-16 object-cover rounded"
+                        />
+                        <div className="flex-1">
+                          <h4 className="font-medium line-clamp-1">{product.name}</h4>
+                          <p className="text-premium-gold font-semibold">
+                            {formatCurrency(product.price)}
+                          </p>
+                          <p className="text-xs text-gray-600 line-clamp-2 mt-1">
+                            {product.description}
+                          </p>
+                          <div className="flex items-center justify-between mt-3">
+                            <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded text-xs">
+                              {product.category}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => addToCombo(product)}
+                              className="px-3 py-1 bg-premium-gold text-white text-sm rounded hover:bg-premium-burgundy"
+                            >
+                              Add
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
 
