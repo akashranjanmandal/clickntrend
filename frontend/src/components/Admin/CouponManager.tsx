@@ -72,9 +72,13 @@ const CouponManager: React.FC = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('admin_token');
-      const response = await fetch('/api/admin/coupons', {
+      const baseUrl = import.meta.env.VITE_API_URL || '';
+      
+      // FIXED: Use correct endpoint - coupons are under /api/coupons, not /api/admin/coupons
+      const response = await fetch(`${baseUrl}/api/coupons`, {
         headers: {
           'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         },
       });
       
@@ -95,7 +99,10 @@ const CouponManager: React.FC = () => {
     try {
       setLoadingUsage(true);
       const token = localStorage.getItem('admin_token');
-      const response = await fetch(`/api/admin/coupons/${couponId}/usage`, {
+      const baseUrl = import.meta.env.VITE_API_URL || '';
+      
+      // FIXED: Use correct endpoint
+      const response = await fetch(`${baseUrl}/api/coupons/${couponId}/usage`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -165,6 +172,8 @@ const CouponManager: React.FC = () => {
 
     try {
       const token = localStorage.getItem('admin_token');
+      const baseUrl = import.meta.env.VITE_API_URL || '';
+      
       const couponData = {
         ...formData,
         code: formData.code.toUpperCase(),
@@ -178,8 +187,8 @@ const CouponManager: React.FC = () => {
       };
 
       const url = editingCoupon 
-        ? `/api/admin/coupons/${editingCoupon.id}`
-        : '/api/admin/coupons';
+        ? `${baseUrl}/api/coupons/${editingCoupon.id}`  // FIXED
+        : `${baseUrl}/api/coupons`;                     // FIXED
 
       const response = await fetch(url, {
         method: editingCoupon ? 'PUT' : 'POST',
@@ -195,9 +204,13 @@ const CouponManager: React.FC = () => {
         setShowAddModal(false);
         setEditingCoupon(null);
         resetForm();
+      } else {
+        const error = await response.json();
+        alert(error.message || 'Failed to save coupon');
       }
     } catch (error) {
       console.error('Error saving coupon:', error);
+      alert('Failed to save coupon');
     }
   };
 
@@ -206,7 +219,9 @@ const CouponManager: React.FC = () => {
 
     try {
       const token = localStorage.getItem('admin_token');
-      const response = await fetch(`/api/admin/coupons/${id}`, {
+      const baseUrl = import.meta.env.VITE_API_URL || '';
+      
+      const response = await fetch(`${baseUrl}/api/coupons/${id}`, {  // FIXED
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -224,7 +239,9 @@ const CouponManager: React.FC = () => {
   const toggleCouponStatus = async (coupon: Coupon) => {
     try {
       const token = localStorage.getItem('admin_token');
-      const response = await fetch(`/api/admin/coupons/${coupon.id}`, {
+      const baseUrl = import.meta.env.VITE_API_URL || '';
+      
+      const response = await fetch(`${baseUrl}/api/coupons/${coupon.id}`, {  // FIXED
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
