@@ -4,19 +4,18 @@ import { requireAuth } from '../middleware/auth';
 
 const router = express.Router();
 
-// Get all active genders (public)
+// Get all genders (public)
 router.get('/', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('genders')
-      .select('*')
-      .eq('is_active', true)
+      .select('id, name, display_name, display_order')
       .order('display_order', { ascending: true });
 
     if (error) throw error;
     res.json(data || []);
   } catch (error: any) {
-    console.error('Error fetching genders:', error);
+    console.error('Error fetching genders:', error.message);
     res.status(500).json({ error: error.message });
   }
 });
