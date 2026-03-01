@@ -17,7 +17,7 @@ import reviewRoutes from './routes/reviews';
 import uploadRoutes from './routes/upload';
 import popupRoutes from './routes/popups';
 import socialProofRoutes from './routes/social-proof';
-
+import genderRoutes from './routes/genders';
 // ===== ADMIN ROUTES =====
 import adminRoutes from './routes/admin';
 import adminHeroRoutes from './routes/adminHero';
@@ -42,6 +42,8 @@ console.log('📝 Registering routes...');
 /* ===================== PUBLIC APIs ===================== */
 app.use('/api/products', productRoutes);
 console.log('✅ /api/products');
+
+app.use('/api/genders', genderRoutes);
 
 app.use('/api/categories', categoryRoutes);
 console.log('✅ /api/categories');

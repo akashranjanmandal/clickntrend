@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Filter, X, SlidersHorizontal } from 'lucide-react';
 import ProductCard from '../components/ProductCard';
-import { Product } from '../types';
+import { Product, Gender } from '../types';
 import { apiFetch } from '../config';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
@@ -12,6 +12,7 @@ const Products: React.FC = () => {
   const initialSubcategory = searchParams.get('subcategory');
 
   const [products, setProducts] = useState<Product[]>([]);
+  const [genders, setGenders] = useState<Gender[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [priceRange, setPriceRange] = useState([0, 50000]);
@@ -36,10 +37,14 @@ const Products: React.FC = () => {
 
   const fetchData = async () => {
     try {
-      const productsData = await apiFetch('/api/products').catch(() => []);
+      const [productsData, gendersData] = await Promise.all([
+        apiFetch('/api/products').catch(() => []),
+        apiFetch('/api/genders').catch(() => [])
+      ]);
       
       setProducts(productsData || []);
       setFilteredProducts(productsData || []);
+      setGenders(gendersData || []);
       
       // Extract unique subcategories from products
       const uniqueSubcategories: string[] = ['all'];
@@ -262,21 +267,32 @@ const Products: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Gender Filter */}
+                {/* Gender Filter - Now Dynamic */}
                 <div className="mb-8">
                   <h4 className="font-medium mb-4">For</h4>
                   <div className="flex flex-wrap gap-2">
-                    {['all', 'men', 'women', 'unisex', 'kids'].map(gender => (
+                    <button
+                      onClick={() => setSelectedGender('all')}
+                      className={`px-4 py-2 rounded-full text-sm capitalize transition-colors ${
+                        selectedGender === 'all'
+                          ? 'bg-premium-gold text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      All
+                    </button>
+                    {genders.map((gender) => (
                       <button
-                        key={gender}
-                        onClick={() => setSelectedGender(gender)}
-                        className={`px-4 py-2 rounded-full text-sm capitalize transition-colors ${
-                          selectedGender === gender
+                        key={gender.name}
+                        onClick={() => setSelectedGender(gender.name)}
+                        className={`px-4 py-2 rounded-full text-sm capitalize transition-colors flex items-center gap-1 ${
+                          selectedGender === gender.name
                             ? 'bg-premium-gold text-white'
                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}
                       >
-                        {gender === 'all' ? 'All' : gender}
+                        <span>{gender.icon}</span>
+                        <span>{gender.display_name}</span>
                       </button>
                     ))}
                   </div>

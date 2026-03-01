@@ -3,7 +3,7 @@ export interface Product {
   name: string;
   description: string;
   category: string;
-  subcategory?: string; // Add this line
+  subcategory?: string; // ADD THIS
   gender?: 'men' | 'women' | 'unisex' | 'kids';
   price: number;
   original_price?: number;
@@ -21,29 +21,6 @@ export interface Product {
   social_proof_count?: number;
 }
 
-export interface CustomizationData {
-  text?: string;
-  image_url?: string;
-  image_path?: string;
-  preview_url?: string;
-}
-
-export interface CartItem {
-  id: string;
-  name: string;
-  price: number;
-  quantity: number;
-  image_url: string;
-  type: 'product' | 'combo' | 'custom';
-  category?: string;
-  customization?: CustomizationData;
-}
-
-export interface ComboProduct {
-  product: Product;
-  quantity: number;
-}
-
 export interface Combo {
   id: string;
   name: string;
@@ -55,6 +32,11 @@ export interface Combo {
   combo_products?: ComboProduct[];
   products?: ComboProduct[];
   created_at: string;
+}
+
+export interface ComboProduct {
+  product: Product;
+  quantity: number;
 }
 
 export interface Review {
@@ -94,10 +76,10 @@ export interface HeroContent {
   muted?: boolean;
   cta_text?: string;
   cta_link?: string;
+  content_alignment?: 'left' | 'center' | 'right';
   is_active: boolean;
   display_order: number;
   created_at: string;
-  content_alignment?: 'left' | 'center' | 'right'; // Add this line
 }
 
 export interface Stat {
@@ -110,6 +92,25 @@ export interface SiteSettings {
   hero_sections: HeroContent[];
   featured_categories: string[];
   stats: Stat[];
+}
+
+export interface CartItem {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+  image_url: string;
+  type: 'product' | 'combo' | 'custom';
+  category?: string;
+  customization?: CustomizationData;
+  description?: string;
+}
+
+export interface CustomizationData {
+  text?: string;
+  image_url?: string;
+  image_path?: string;
+  preview_url?: string;
 }
 
 export interface Order {
@@ -172,6 +173,7 @@ export interface CouponUsage {
   discount_amount: number;
   used_at: string;
 }
+
 export interface PopupConfig {
   id: string;
   title: string;
@@ -193,10 +195,12 @@ export interface PopupConfig {
   start_date?: string;
   end_date?: string;
 }
-export interface SocialProofSettings {
+
+export interface Gender {
   id: string;
-  product_id: string;
-  text_template: string;
-  count: number;
-  is_enabled: boolean;
+  name: 'men' | 'women' | 'unisex' | 'kids';
+  display_name: string;
+  icon: string;
+  display_order: number;
+  is_active: boolean;
 }

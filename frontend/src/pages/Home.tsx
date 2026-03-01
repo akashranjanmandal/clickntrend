@@ -1,37 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import {
   Search, Sparkles, TrendingUp, Shield, Gift,
-  ArrowRight, Loader2, X, ChevronRight, Grid, Users, Package
+  ArrowRight, Loader2, X, ChevronRight, Grid, Users
 } from 'lucide-react';
 import ProductCard from '../components/ProductCard';
 import CategoryCard from '../components/CategoryCard';
 import HeroSection from '../components/HeroSection';
 import ProductDetailsModal from '../components/ProductDetailsModal';
-import { Product, Category, HeroContent, Stat, Combo } from '../types';
+import { Product, Category, HeroContent, Stat, Combo, Gender } from '../types';
 import { apiFetch } from '../config';
 import { motion, AnimatePresence } from 'framer-motion';
 import ComboCard from '../components/ComboCard';
 import Popup from '../components/Popup';
 
-interface CategoryWithSubcategories extends Category {
-  subcategories: string[];
-}
-
 const Home: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<CategoryWithSubcategories[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [genders, setGenders] = useState<Gender[]>([]);
   const [heroes, setHeroes] = useState<HeroContent[]>([]);
   const [stats, setStats] = useState<Stat[]>([]);
   const [combos, setCombos] = useState<Combo[]>([]);
   
   // Selection state
-  const [selectedCategory, setSelectedCategory] = useState<CategoryWithSubcategories | null>(null);
-  const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [selectedGender, setSelectedGender] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'products' | 'combos'>('products');
-  
-  // Available filters
-  const [availableGenders, setAvailableGenders] = useState<string[]>(['all']);
   
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
@@ -51,17 +44,10 @@ const Home: React.FC = () => {
     { label: '5 Star Ratings', value: '4.9/5', icon: '⭐' }
   ];
 
-  // Fetch all data
   useEffect(() => {
     fetchAllData();
   }, []);
 
-  // Update available genders when selections change
-  useEffect(() => {
-    updateAvailableGenders();
-  }, [selectedCategory, selectedSubcategory, products]);
-
-  // Check for popup
   useEffect(() => {
     const checkPopup = async () => {
       try {
@@ -84,33 +70,18 @@ const Home: React.FC = () => {
     try {
       setLoading(true);
       
-      const [productsData, categoriesData, heroesData, statsData, combosData] = await Promise.all([
+      const [productsData, categoriesData, gendersData, heroesData, statsData, combosData] = await Promise.all([
         apiFetch('/api/products').catch(() => []),
         apiFetch('/api/categories').catch(() => []),
+        apiFetch('/api/genders').catch(() => []),
         apiFetch('/api/hero').catch(() => []),
         apiFetch('/api/settings?key=stats').catch(() => ({ value: defaultStats })),
         apiFetch('/api/combos').catch(() => [])
       ]);
 
       setProducts(productsData || []);
-      
-      // Process categories to extract subcategories from products - FIXED
-      const categoriesWithSubcats = (categoriesData || []).map((cat: Category) => {
-        const categoryProducts = (productsData || []).filter((p: Product) => p.category === cat.name);
-        // Explicitly type the filter callback
-        const subcategories = [...new Set(
-          categoryProducts
-            .map((p: Product) => p.subcategory)
-            .filter((sub: string | undefined): sub is string => sub !== undefined && sub !== null)
-        )];
-        
-        return {
-          ...cat,
-          subcategories
-        };
-      });
-      
-      setCategories(categoriesWithSubcats);
+      setCategories(categoriesData || []);
+      setGenders(gendersData || []);
       setHeroes(heroesData || []);
       setStats(statsData?.value || defaultStats);
       setCombos(combosData || []);
@@ -122,40 +93,12 @@ const Home: React.FC = () => {
     }
   };
 
- // Update available genders based on current filters - FIXED
-const updateAvailableGenders = () => {
-  let filtered = [...products];
-  
-  if (selectedCategory) {
-    filtered = filtered.filter(p => p.category === selectedCategory.name);
-  }
-  
-  if (selectedSubcategory) {
-    filtered = filtered.filter(p => p.subcategory === selectedSubcategory);
-  }
-  
-  // Get unique genders and convert to string array without type predicate
-  const genderValues = filtered
-    .map(p => p.gender)
-    .filter((g): g is 'men' | 'women' | 'unisex' | 'kids' => g !== undefined && g !== null);
-  
-  // Convert the filtered values to strings
-  const genderStrings = genderValues.map(g => g as string);
-  
-  const genders = ['all', ...new Set(genderStrings)];
-  
-  setAvailableGenders(genders);
-};
   // Filter products based on selections
   const getFilteredProducts = () => {
     let filtered = [...products];
     
     if (selectedCategory) {
       filtered = filtered.filter(p => p.category === selectedCategory.name);
-    }
-    
-    if (selectedSubcategory) {
-      filtered = filtered.filter(p => p.subcategory === selectedSubcategory);
     }
     
     if (selectedGender !== 'all') {
@@ -167,7 +110,7 @@ const updateAvailableGenders = () => {
 
   // Filter combos based on selections
   const getFilteredCombos = () => {
-    if (!selectedCategory && !selectedSubcategory && selectedGender === 'all') return combos;
+    if (!selectedCategory && selectedGender === 'all') return combos;
     
     return combos.filter(combo => {
       const comboProducts = combo.combo_products || [];
@@ -178,7 +121,6 @@ const updateAvailableGenders = () => {
         if (!product) return false;
         
         if (selectedCategory && product.category !== selectedCategory.name) return false;
-        if (selectedSubcategory && product.subcategory !== selectedSubcategory) return false;
         if (selectedGender !== 'all' && product.gender !== selectedGender) return false;
         
         return true;
@@ -186,16 +128,10 @@ const updateAvailableGenders = () => {
     });
   };
 
-  const handleCategorySelect = (category: CategoryWithSubcategories) => {
+  const handleCategorySelect = (category: Category) => {
     setSelectedCategory(category);
-    setSelectedSubcategory(null);
     setSelectedGender('all');
     setViewMode('products');
-  };
-
-  const handleSubcategorySelect = (subcategory: string) => {
-    setSelectedSubcategory(subcategory);
-    setSelectedGender('all');
   };
 
   const handleGenderSelect = (gender: string) => {
@@ -204,12 +140,6 @@ const updateAvailableGenders = () => {
 
   const handleBackToCategories = () => {
     setSelectedCategory(null);
-    setSelectedSubcategory(null);
-    setSelectedGender('all');
-  };
-
-  const handleBackToSubcategories = () => {
-    setSelectedSubcategory(null);
     setSelectedGender('all');
   };
 
@@ -342,6 +272,7 @@ const updateAvailableGenders = () => {
                             <div className="flex-1">
                               <h4 className="font-medium">{product.name}</h4>
                               <p className="text-sm text-gray-600">{product.category}</p>
+                              <p className="text-sm text-gray-500 capitalize">{product.gender}</p>
                               <p className="text-premium-gold font-semibold mt-1">
                                 ₹{product.price.toLocaleString()}
                               </p>
@@ -362,7 +293,7 @@ const updateAvailableGenders = () => {
         </div>
       </section>
 
-      {/* Category Navigation */}
+      {/* Navigation */}
       <section className="py-8 bg-white border-b">
         <div className="container mx-auto px-4">
           <div className="flex items-center gap-2 text-sm flex-wrap">
@@ -379,23 +310,8 @@ const updateAvailableGenders = () => {
             {selectedCategory && (
               <>
                 <ChevronRight className="h-4 w-4 text-gray-400" />
-                <button
-                  onClick={handleBackToSubcategories}
-                  className={`px-4 py-2 rounded-full transition-colors ${
-                    !selectedSubcategory
-                      ? 'bg-premium-gold text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  {selectedCategory.name}
-                </button>
-              </>
-            )}
-            {selectedSubcategory && (
-              <>
-                <ChevronRight className="h-4 w-4 text-gray-400" />
                 <span className="px-4 py-2 bg-premium-gold text-white rounded-full">
-                  {selectedSubcategory}
+                  {selectedCategory.name}
                 </span>
               </>
             )}
@@ -436,77 +352,37 @@ const updateAvailableGenders = () => {
         </section>
       )}
 
-      {/* Subcategories Grid (Level 2) */}
-      {selectedCategory && !selectedSubcategory && selectedCategory.subcategories.length > 0 && (
-        <section className="py-12 bg-white">
-          <div className="container mx-auto px-4">
-            <h2 className="text-3xl font-serif font-bold mb-8 text-center">
-              {selectedCategory.name} - <span className="text-premium-gold">Subcategories</span>
-            </h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              <button
-                onClick={() => setViewMode('products')}
-                className={`p-6 rounded-2xl text-center transition-all ${
-                  viewMode === 'products'
-                    ? 'bg-premium-gold text-white shadow-lg scale-105'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                <Grid className="h-8 w-8 mx-auto mb-2" />
-                <span className="font-medium">All Products</span>
-                <p className="text-sm mt-1">{filteredProducts.length} items</p>
-              </button>
-              
-              <button
-                onClick={() => setViewMode('combos')}
-                className={`p-6 rounded-2xl text-center transition-all ${
-                  viewMode === 'combos'
-                    ? 'bg-premium-gold text-white shadow-lg scale-105'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                <Package className="h-8 w-8 mx-auto mb-2" />
-                <span className="font-medium">All Combos</span>
-                <p className="text-sm mt-1">{filteredCombos.length} combos</p>
-              </button>
-              
-              {selectedCategory.subcategories.map((sub: string) => (
-                <button
-                  key={sub}
-                  onClick={() => handleSubcategorySelect(sub)}
-                  className="p-6 bg-gradient-to-br from-gray-50 to-white border rounded-2xl hover:border-premium-gold hover:shadow-lg transition-all text-center"
-                >
-                  <span className="text-lg font-medium">{sub}</span>
-                  <p className="text-sm text-gray-500 mt-2">
-                    {products.filter(p => p.subcategory === sub).length} items
-                  </p>
-                </button>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Gender Filter (Level 3) */}
-      {(selectedSubcategory || (selectedCategory && selectedCategory.subcategories.length === 0)) && availableGenders.length > 1 && (
-        <section className="py-6 bg-white border-b">
+      {/* Gender Filter (Level 2) */}
+      {selectedCategory && (
+        <section className="py-8 bg-white border-b">
           <div className="container mx-auto px-4">
             <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
               <Users className="h-5 w-5 text-premium-gold" />
               Filter by Gender
             </h3>
             <div className="flex flex-wrap gap-2">
-              {availableGenders.map((gender) => (
+              <button
+                onClick={() => handleGenderSelect('all')}
+                className={`px-6 py-3 rounded-full text-sm capitalize transition-all ${
+                  selectedGender === 'all'
+                    ? 'bg-premium-gold text-white shadow-lg'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                All Genders
+              </button>
+              {genders.map((gender) => (
                 <button
-                  key={gender}
-                  onClick={() => handleGenderSelect(gender)}
+                  key={gender.name}
+                  onClick={() => handleGenderSelect(gender.name)}
                   className={`px-6 py-3 rounded-full text-sm capitalize transition-all ${
-                    selectedGender === gender
+                    selectedGender === gender.name
                       ? 'bg-premium-gold text-white shadow-lg'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                 >
-                  {gender === 'all' ? 'All Genders' : gender}
+                  <span className="mr-2">{gender.icon}</span>
+                  {gender.display_name}
                 </button>
               ))}
             </div>
@@ -514,38 +390,44 @@ const updateAvailableGenders = () => {
         </section>
       )}
 
-      {/* Products/Combos Grid (Level 4) */}
-      {(selectedSubcategory || (selectedCategory && selectedCategory.subcategories.length === 0)) && (
+      {/* View Toggle (Products/Combos) */}
+      {selectedCategory && (
+        <section className="py-6 bg-white">
+          <div className="container mx-auto px-4">
+            <div className="flex justify-center gap-4">
+              <button
+                onClick={() => setViewMode('products')}
+                className={`px-8 py-3 rounded-lg font-medium transition-all ${
+                  viewMode === 'products'
+                    ? 'bg-premium-gold text-white shadow-lg'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Products ({filteredProducts.length})
+              </button>
+              <button
+                onClick={() => setViewMode('combos')}
+                className={`px-8 py-3 rounded-lg font-medium transition-all ${
+                  viewMode === 'combos'
+                    ? 'bg-premium-gold text-white shadow-lg'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Combos ({filteredCombos.length})
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Products/Combos Grid */}
+      {selectedCategory && (
         <section className="py-12 bg-white">
           <div className="container mx-auto px-4">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-              <h2 className="text-3xl font-serif font-bold">
-                {selectedSubcategory || selectedCategory?.name}
-                {selectedGender !== 'all' && ` - ${selectedGender}`}
-              </h2>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setViewMode('products')}
-                  className={`px-4 py-2 rounded-lg transition-colors ${
-                    viewMode === 'products'
-                      ? 'bg-premium-gold text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  Products ({filteredProducts.length})
-                </button>
-                <button
-                  onClick={() => setViewMode('combos')}
-                  className={`px-4 py-2 rounded-lg transition-colors ${
-                    viewMode === 'combos'
-                      ? 'bg-premium-gold text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  Combos ({filteredCombos.length})
-                </button>
-              </div>
-            </div>
+            <h2 className="text-3xl font-serif font-bold mb-8">
+              {selectedCategory.name}
+              {selectedGender !== 'all' && ` for ${selectedGender}`}
+            </h2>
 
             {viewMode === 'products' && (
               filteredProducts.length > 0 ? (
@@ -592,30 +474,7 @@ const updateAvailableGenders = () => {
         </section>
       )}
 
-      {/* Stats Section */}
-      <section className="py-16 bg-white">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            {stats.map((stat, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className="text-center"
-              >
-                <div className="text-4xl mb-2">{stat.icon}</div>
-                <div className="text-3xl font-bold text-premium-charcoal mb-1">
-                  {stat.value}
-                </div>
-                <div className="text-gray-600">{stat.label}</div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Featured Products Section (when no category selected) */}
+      {/* Featured Products (when no category selected) */}
       {!selectedCategory && (
         <>
           <section className="py-20 bg-white">
@@ -688,6 +547,29 @@ const updateAvailableGenders = () => {
           )}
         </>
       )}
+
+      {/* Stats Section */}
+      <section className="py-16 bg-white">
+        <div className="container mx-auto px-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+            {stats.map((stat, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+                className="text-center"
+              >
+                <div className="text-4xl mb-2">{stat.icon}</div>
+                <div className="text-3xl font-bold text-premium-charcoal mb-1">
+                  {stat.value}
+                </div>
+                <div className="text-gray-600">{stat.label}</div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {/* CTA Section */}
       <section className="py-20 bg-gradient-to-r from-premium-charcoal to-premium-burgundy text-white">
