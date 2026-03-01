@@ -17,7 +17,7 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
     name: '',
     description: '',
     category: '',
-    subcategory: '', // ADD THIS
+    subcategory: '',
     gender: 'unisex',
     price: '',
     original_price: '',
@@ -28,7 +28,8 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
     max_customization_characters: '50',
     social_proof_enabled: true,
     social_proof_text: '🔺{count} People are Purchasing Right Now',
-    social_proof_count: '9',
+    social_proof_initial_count: '5',
+    social_proof_end_count: '15',
   });
   
   useEffect(() => {
@@ -72,7 +73,7 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
         name: formData.name,
         description: formData.description,
         category: formData.category,
-        subcategory: formData.subcategory || null, // ADD THIS
+        subcategory: formData.subcategory || null,
         gender: formData.gender,
         price: parseFloat(formData.price),
         stock_quantity: parseInt(formData.stock_quantity),
@@ -80,7 +81,8 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
         is_active: true,
         social_proof_enabled: formData.social_proof_enabled,
         social_proof_text: formData.social_proof_text,
-        social_proof_count: parseInt(formData.social_proof_count),
+        social_proof_initial_count: parseInt(formData.social_proof_initial_count),
+        social_proof_end_count: parseInt(formData.social_proof_end_count),
       };
 
       // Only add optional fields if they have values
@@ -184,7 +186,7 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
                 </select>
               </div>
 
-              {/* Subcategory Field - NEW */}
+              {/* Subcategory Field */}
               <div>
                 <label className="block text-sm font-medium mb-2">Subcategory (Optional)</label>
                 <input
@@ -285,8 +287,8 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
               </div>
 
               {formData.social_proof_enabled && (
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
+                <div className="grid md:grid-cols-3 gap-4">
+                  <div className="md:col-span-3">
                     <label className="block text-sm font-medium mb-2">
                       Social Proof Text
                     </label>
@@ -308,12 +310,43 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
                     </label>
                     <input
                       type="number"
-                      value={formData.social_proof_count}
-                      onChange={(e) => setFormData({...formData, social_proof_count: e.target.value})}
+                      value={formData.social_proof_initial_count}
+                      onChange={(e) => setFormData({...formData, social_proof_initial_count: e.target.value})}
                       min="1"
                       className="w-full px-4 py-3 border rounded-lg"
-                      placeholder="9"
+                      placeholder="5"
                     />
+                    <p className="text-xs text-gray-500 mt-1">Starting number</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      End Count
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.social_proof_end_count}
+                      onChange={(e) => setFormData({...formData, social_proof_end_count: e.target.value})}
+                      min="1"
+                      className="w-full px-4 py-3 border rounded-lg"
+                      placeholder="15"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Maximum number</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      Preview
+                    </label>
+                    <div className="px-4 py-3 bg-gray-50 border rounded-lg text-sm">
+                      {formData.social_proof_text.replace(
+                        '{count}', 
+                        `${formData.social_proof_initial_count}`
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Count will vary between {formData.social_proof_initial_count} and {formData.social_proof_end_count}
+                    </p>
                   </div>
                 </div>
               )}

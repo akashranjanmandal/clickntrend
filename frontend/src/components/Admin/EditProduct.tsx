@@ -46,7 +46,8 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
     max_customization_characters: product.max_customization_characters?.toString() || '50',
     social_proof_enabled: product.social_proof_enabled !== false,
     social_proof_text: product.social_proof_text || '🔺{count} People are Purchasing Right Now',
-    social_proof_count: product.social_proof_count?.toString() || '9',
+    social_proof_initial_count: product.social_proof_initial_count?.toString() || '5',
+    social_proof_end_count: product.social_proof_end_count?.toString() || '15',
     is_active: product.is_active,
   });
 
@@ -101,7 +102,8 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
         image_url: primaryImage.url,
         social_proof_enabled: formData.social_proof_enabled,
         social_proof_text: formData.social_proof_text,
-        social_proof_count: parseInt(formData.social_proof_count),
+        social_proof_initial_count: parseInt(formData.social_proof_initial_count),
+        social_proof_end_count: parseInt(formData.social_proof_end_count),
         updated_at: new Date().toISOString()
       };
 
@@ -294,8 +296,8 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
               </div>
 
               {formData.social_proof_enabled && (
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
+                <div className="grid md:grid-cols-3 gap-4">
+                  <div className="md:col-span-3">
                     <label className="block text-sm font-medium mb-2">
                       Social Proof Text
                     </label>
@@ -313,16 +315,47 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
 
                   <div>
                     <label className="block text-sm font-medium mb-2">
-                      Current Count
+                      Initial Count
                     </label>
                     <input
                       type="number"
-                      value={formData.social_proof_count}
-                      onChange={(e) => setFormData({...formData, social_proof_count: e.target.value})}
+                      value={formData.social_proof_initial_count}
+                      onChange={(e) => setFormData({...formData, social_proof_initial_count: e.target.value})}
                       min="1"
                       className="w-full px-4 py-3 border rounded-lg"
-                      placeholder="9"
+                      placeholder="5"
                     />
+                    <p className="text-xs text-gray-500 mt-1">Starting number</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      End Count
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.social_proof_end_count}
+                      onChange={(e) => setFormData({...formData, social_proof_end_count: e.target.value})}
+                      min="1"
+                      className="w-full px-4 py-3 border rounded-lg"
+                      placeholder="15"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Maximum number</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      Preview
+                    </label>
+                    <div className="px-4 py-3 bg-gray-50 border rounded-lg text-sm">
+                      {formData.social_proof_text.replace(
+                        '{count}', 
+                        `${formData.social_proof_initial_count}`
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Count will vary between {formData.social_proof_initial_count} and {formData.social_proof_end_count}
+                    </p>
                   </div>
                 </div>
               )}

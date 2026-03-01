@@ -16,9 +16,10 @@ export interface Product {
   customization_price?: number;
   max_customization_characters?: number;
   additional_images?: string[];
-  social_proof_text?: string;
-  social_proof_enabled?: boolean;
-  social_proof_count?: number;
+   social_proof_enabled: boolean;
+  social_proof_text: string;
+  social_proof_initial_count: number;  // Changed from social_proof_count
+  social_proof_end_count: number; 
 }
 
 export interface Combo {
