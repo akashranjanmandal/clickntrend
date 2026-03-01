@@ -1,17 +1,10 @@
 import React, { useState } from 'react';
 import { Upload, X, Camera, Star, Trash2 } from 'lucide-react';
-import { apiFetch } from '../../config';
 
 interface ImageFile {
   file?: File;
   preview: string;
   url?: string;
-  is_primary: boolean;
-}
-
-interface UploadedImage {
-  url: string;
-  filename: string;
   is_primary: boolean;
 }
 
@@ -56,7 +49,6 @@ const MultiImageUpload: React.FC<MultiImageUploadProps> = ({
 
   const removeImage = (index: number) => {
     const newImages = images.filter((_, i) => i !== index);
-    // If we removed the primary image, make the first one primary
     if (images[index]?.is_primary && newImages.length > 0) {
       newImages[0].is_primary = true;
     }
@@ -90,7 +82,7 @@ const MultiImageUpload: React.FC<MultiImageUploadProps> = ({
     let hasNewImages = false;
     
     images.forEach((img) => {
-      if (img.file) { // Only upload new images
+      if (img.file) {
         formData.append('images', img.file);
         hasNewImages = true;
       }
@@ -105,7 +97,7 @@ const MultiImageUpload: React.FC<MultiImageUploadProps> = ({
       const token = localStorage.getItem('admin_token');
       const baseUrl = import.meta.env.VITE_API_URL || '';
       
-      const response = await fetch(`${baseUrl}/api/upload/product-images`, {
+      const response = await fetch(`${baseUrl}/api/upload/multiple`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -114,13 +106,11 @@ const MultiImageUpload: React.FC<MultiImageUploadProps> = ({
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Upload failed' }));
-        throw new Error(errorData.error || `Upload failed with status ${response.status}`);
+        throw new Error('Upload failed');
       }
       
       const data = await response.json();
       
-      // Merge uploaded images with existing ones
       let uploadedIndex = 0;
       const updatedImages: ImageFile[] = images.map((img) => {
         if (!img.url && uploadedIndex < data.images.length) {
@@ -136,15 +126,12 @@ const MultiImageUpload: React.FC<MultiImageUploadProps> = ({
       });
 
       setImages(updatedImages);
-      
-      // Notify parent
       onImagesUploaded(updatedImages.map(img => ({
         url: img.url!,
         is_primary: img.is_primary
       })));
 
     } catch (error: any) {
-      console.error('Upload error:', error);
       setError(error.message || 'Failed to upload images');
     } finally {
       setUploading(false);
@@ -153,14 +140,12 @@ const MultiImageUpload: React.FC<MultiImageUploadProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* Error Message */}
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
           {error}
         </div>
       )}
 
-      {/* Image Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         {images.map((image, index) => (
           <div key={index} className="relative group aspect-square">
@@ -170,14 +155,12 @@ const MultiImageUpload: React.FC<MultiImageUploadProps> = ({
               className="w-full h-full object-cover rounded-lg"
             />
             
-            {/* Primary Badge */}
             {image.is_primary && (
               <div className="absolute top-2 left-2 bg-yellow-400 text-white p-1 rounded-full">
                 <Star className="h-4 w-4 fill-current" />
               </div>
             )}
 
-            {/* Action Buttons */}
             <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
               {!image.is_primary && (
                 <button
@@ -201,7 +184,6 @@ const MultiImageUpload: React.FC<MultiImageUploadProps> = ({
           </div>
         ))}
 
-        {/* Upload Button */}
         {images.length < maxImages && (
           <label className="border-2 border-dashed border-gray-300 rounded-lg aspect-square flex flex-col items-center justify-center cursor-pointer hover:border-premium-gold transition-colors">
             <Camera className="h-8 w-8 text-gray-400 mb-2" />
@@ -217,7 +199,6 @@ const MultiImageUpload: React.FC<MultiImageUploadProps> = ({
         )}
       </div>
 
-      {/* Upload Button */}
       {images.length > 0 && !uploading && !images.every(img => img.url) && (
         <button
           type="button"

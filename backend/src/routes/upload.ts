@@ -1,127 +1,125 @@
 import express from 'express';
+import multer from 'multer';
+import { uploadToCloudinary, uploadMultipleToCloudinary } from '../utils/cloudinary';
 import { requireAuth } from '../middleware/auth';
-import { uploadMultiple, upload } from '../middleware/cloudinaryUpload';
 
 const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage() });
 
-// ========== PRODUCT IMAGES UPLOAD ==========
-router.post('/product-images', requireAuth, uploadMultiple.array('images', 5), async (req, res) => {
-  console.log('📸 POST /api/upload/product-images - Uploading product images to Cloudinary');
+// Upload multiple images (for products)
+router.post('/multiple', requireAuth, upload.array('images', 5), async (req, res) => {
   try {
     const files = req.files as Express.Multer.File[];
-    
     if (!files || files.length === 0) {
       return res.status(400).json({ error: 'No files uploaded' });
     }
 
-    console.log(`📤 Uploading ${files.length} images to Cloudinary`);
-
-    // @ts-ignore - Multer-Cloudinary adds these properties
-    const uploadedImages = files.map((file: any, index) => ({
-      url: file.path,
-      public_id: file.filename,
-      is_primary: index === 0 // First image is primary by default
+    const folder = req.body.folder || 'giftshop/products';
+    const buffers = files.map(f => f.buffer);
+    const urls = await uploadMultipleToCloudinary(buffers, folder);
+    
+    const images = urls.map((url, index) => ({
+      url,
+      is_primary: index === 0
     }));
 
-    console.log(`✅ Successfully uploaded ${uploadedImages.length} images`);
-
-    res.json({
-      success: true,
-      images: uploadedImages
-    });
+    res.json({ success: true, images });
   } catch (error: any) {
-    console.error('❌ Upload error:', error);
-    res.status(500).json({ 
-      error: error.message || 'Failed to upload images',
-      details: error.toString()
-    });
+    console.error('Upload error:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 
-// ========== SINGLE IMAGE UPLOAD (General Purpose) ==========
+// Upload single image
 router.post('/single', requireAuth, upload.single('image'), async (req, res) => {
-  console.log('📸 POST /api/upload/single - Uploading single image to Cloudinary');
   try {
-    const file = req.file as any;
-    
-    if (!file) {
+    if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    res.json({
-      success: true,
-      url: file.path,
-      public_id: file.filename
-    });
+    const folder = req.body.folder || 'giftshop/general';
+    const url = await uploadToCloudinary(req.file.buffer, folder);
+    
+    res.json({ success: true, url });
   } catch (error: any) {
-    console.error('❌ Upload error:', error);
+    console.error('Upload error:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// ========== CUSTOMIZATION IMAGE UPLOAD ==========
+// Upload product images (specific)
+router.post('/product-images', requireAuth, upload.array('images', 5), async (req, res) => {
+  try {
+    const files = req.files as Express.Multer.File[];
+    if (!files || files.length === 0) {
+      return res.status(400).json({ error: 'No files uploaded' });
+    }
+
+    const buffers = files.map(f => f.buffer);
+    const urls = await uploadMultipleToCloudinary(buffers, 'giftshop/products');
+    
+    const images = urls.map((url, index) => ({
+      url,
+      is_primary: index === 0
+    }));
+
+    res.json({ success: true, images });
+  } catch (error: any) {
+    console.error('Upload error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Upload customization image
 router.post('/customization', upload.single('image'), async (req, res) => {
-  console.log('🎨 POST /api/upload/customization - Uploading customization image to Cloudinary');
   try {
-    const file = req.file as any;
-    
-    if (!file) {
+    if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    res.json({
-      success: true,
-      image_url: file.path,
-      public_id: file.filename
-    });
+    const productId = req.body.product_id || 'temp';
+    const url = await uploadToCloudinary(req.file.buffer, `giftshop/customizations/${productId}`);
+    
+    res.json({ success: true, image_url: url });
   } catch (error: any) {
-    console.error('❌ Upload error:', error);
+    console.error('Upload error:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// ========== HERO MEDIA UPLOAD ==========
+// Upload hero media
 router.post('/hero', requireAuth, upload.single('media'), async (req, res) => {
-  console.log('🎬 POST /api/upload/hero - Uploading hero media to Cloudinary');
   try {
-    const file = req.file as any;
-    
-    if (!file) {
+    if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    // Check if it's video by looking at the format or path
-    const isVideo = file.path?.includes('video') || file.mimetype?.startsWith('video/');
-
+    const isVideo = req.file.mimetype.startsWith('video/');
+    const url = await uploadToCloudinary(req.file.buffer, 'giftshop/hero');
+    
     res.json({
       success: true,
-      media_url: file.path,
-      media_type: isVideo ? 'video' : 'image',
-      public_id: file.filename
+      media_url: url,
+      media_type: isVideo ? 'video' : 'image'
     });
   } catch (error: any) {
-    console.error('❌ Upload error:', error);
+    console.error('Upload error:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// ========== LOGO UPLOAD ==========
+// Upload logo
 router.post('/logo', requireAuth, upload.single('image'), async (req, res) => {
-  console.log('🎯 POST /api/upload/logo - Uploading logo to Cloudinary');
   try {
-    const file = req.file as any;
-    
-    if (!file) {
+    if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    res.json({
-      success: true,
-      url: file.path,
-      public_id: file.filename
-    });
+    const url = await uploadToCloudinary(req.file.buffer, 'giftshop/logos');
+    
+    res.json({ success: true, url });
   } catch (error: any) {
-    console.error('❌ Upload error:', error);
+    console.error('Upload error:', error);
     res.status(500).json({ error: error.message });
   }
 });

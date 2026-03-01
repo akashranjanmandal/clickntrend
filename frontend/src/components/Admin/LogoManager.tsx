@@ -72,34 +72,32 @@ const LogoManager: React.FC = () => {
       reader.readAsDataURL(file);
     }
   };
+const uploadFile = async (file: File, type: 'logo' | 'favicon'): Promise<string | null> => {
+  setUploading(true);
+  const formData = new FormData();
+  formData.append('image', file);
+  formData.append('folder', `giftshop/${type}s`);
 
-  const uploadFile = async (file: File, type: 'logo' | 'favicon'): Promise<string | null> => {
-    setUploading(true);
-    const formData = new FormData();
-    formData.append('image', file);
-    formData.append('type', type);
+  try {
+    const token = localStorage.getItem('admin_token');
+    const baseUrl = import.meta.env.VITE_API_URL || '';
+    
+    const response = await fetch(`${baseUrl}/api/upload/single`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: formData,
+    });
 
-    try {
-      const token = localStorage.getItem('admin_token');
-      const baseUrl = import.meta.env.VITE_API_URL || '';
-      
-      // FIXED: Use correct endpoint
-      const response = await fetch(`${baseUrl}/api/logo/admin/upload-logo`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
-        body: formData,
-      });
-
-      if (!response.ok) throw new Error('Upload failed');
-      const data = await response.json();
-      return data.url;
-    } catch (error) {
-      console.error('Upload error:', error);
-      return null;
-    } finally {
-      setUploading(false);
-    }
-  };
+    if (!response.ok) throw new Error('Upload failed');
+    const data = await response.json();
+    return data.url;
+  } catch (error) {
+    console.error('Upload error:', error);
+    return null;
+  } finally {
+    setUploading(false);
+  }
+};
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -1,11 +1,8 @@
 import express from 'express';
 import { supabase, supabasePublic } from '../utils/supabase';
 import { requireAuth } from '../middleware/auth';
-import { upload } from '../middleware/cloudinaryUpload';
 
 const router = express.Router();
-
-// ========== PUBLIC ROUTES ==========
 
 // Get active logo
 router.get('/active', async (req, res) => {
@@ -29,8 +26,6 @@ router.get('/active', async (req, res) => {
   }
 });
 
-// ========== ADMIN ROUTES ==========
-
 // Get all logos
 router.get('/admin', requireAuth, async (req, res) => {
   try {
@@ -43,26 +38,6 @@ router.get('/admin', requireAuth, async (req, res) => {
     res.json(data || []);
   } catch (error: any) {
     console.error('Error fetching logos:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Upload logo to Cloudinary (kept for backward compatibility)
-router.post('/admin/upload-logo', requireAuth, upload.single('image'), async (req, res) => {
-  try {
-    const file = req.file as any;
-    
-    if (!file) {
-      return res.status(400).json({ error: 'No file uploaded' });
-    }
-
-    res.json({
-      success: true,
-      url: file.path,
-      public_id: file.filename
-    });
-  } catch (error: any) {
-    console.error('Upload error:', error);
     res.status(500).json({ error: error.message });
   }
 });
