@@ -158,14 +158,6 @@ const InvoicePDF: React.FC<InvoicePDFProps> = ({ order }) => {
         </table>
       </div>
 
-      {/* Special Requests */}
-      {order.special_requests && (
-        <div className="mb-8 p-4 bg-yellow-50 border-l-4 border-yellow-500">
-          <h4 className="font-bold text-yellow-700 mb-2">Special Requests:</h4>
-          <p className="text-gray-700">{order.special_requests}</p>
-        </div>
-      )}
-
       {/* Total Section */}
       <div className="flex justify-end">
         <div className="w-64">
