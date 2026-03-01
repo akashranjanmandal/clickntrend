@@ -7,48 +7,38 @@ export const CONFIG = {
 } as const;
 
 // Global fetch function that works in all environments
-export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
-  const baseUrl = process.env.REACT_APP_API_URL || '';
-  const url = endpoint.startsWith('http') ? endpoint : `${baseUrl}${endpoint}`;
+export const apiFetch = async <T = any>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<T> => {
+  const baseUrl = CONFIG.API_URL;
+  // Remove leading slash if present to avoid double slashes
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  const url = baseUrl ? `${baseUrl}${cleanEndpoint}` : cleanEndpoint;
+  
+  console.log(`🌐 API Request [${import.meta.env.MODE}]:`, url);
 
-  // Don't set Content-Type header for FormData
-  const headers = options.body instanceof FormData 
-    ? { ...options.headers } // Let browser set content-type with boundary
-    : { 'Content-Type': 'application/json', ...options.headers };
-
-  console.log(`API Request: ${options.method || 'GET'} ${url}`, {
-    hasBody: !!options.body,
-    isFormData: options.body instanceof FormData,
-    headers
-  });
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(options.headers || {}),
+  };
 
   const response = await fetch(url, {
     ...options,
     headers,
-    credentials: 'include',
   });
 
   if (!response.ok) {
-    const text = await response.text();
-    console.error('API Error Response:', {
-      status: response.status,
-      statusText: response.statusText,
-      body: text.substring(0, 500) // Log first 500 chars
-    });
-    
-    try {
-      const error = JSON.parse(text);
-      throw new Error(error.message || `API request failed with status ${response.status}`);
-    } catch {
-      throw new Error(`API request failed with status ${response.status}: ${text.substring(0, 100)}`);
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      const error = await response.json();
+      throw new Error(error.message || error.error || 'API request failed');
+    } else {
+      const text = await response.text();
+      console.error('Non-JSON response:', text.substring(0, 200));
+      throw new Error(`API request failed with status ${response.status}`);
     }
   }
 
-  // Check if response is JSON
-  const contentType = response.headers.get('content-type');
-  if (contentType && contentType.includes('application/json')) {
-    return response.json();
-  }
-  
-  return response.text();
+  return response.json();
 };

@@ -13,14 +13,13 @@ export const useApi = () => {
       throw new Error('No admin token found');
     }
 
-    // Use type assertion instead of generic parameter
-    return apiFetch(endpoint, {
+    return apiFetch<T>(endpoint, {
       ...options,
       headers: {
         ...options.headers,
         'Authorization': `Bearer ${token}`,
       },
-    }) as Promise<T>;
+    });
   }, [token]);
 
   return { fetchWithAuth };
