@@ -4,38 +4,9 @@ import { requireAuth } from '../middleware/auth';
 
 const router = express.Router();
 
-// Get all orders (admin only)
-router.get('/', requireAuth, async (req, res) => {
-  try {
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*')
-      .order('created_at', { ascending: false });
+// IMPORTANT: Place specific routes BEFORE parameterized routes
 
-    if (error) throw error;
-    res.json(data);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Get order by ID
-router.get('/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('id', id)
-      .single();
-
-    if (error) throw error;
-    res.json(data);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-// Add to orders.ts - Track order by ID and phone
+// Track order by ID and phone - MOVED UP (before /:id)
 router.get('/track', async (req: Request, res: Response) => {
   try {
     const { orderId, phone } = req.query;
@@ -64,6 +35,39 @@ router.get('/track', async (req: Request, res: Response) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+// Get all orders (admin only)
+router.get('/', requireAuth, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get order by ID - MOVED DOWN (after specific routes)
+router.get('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get orders by email (customer)
 router.get('/customer/:email', async (req, res) => {
   try {

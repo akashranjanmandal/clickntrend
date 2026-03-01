@@ -3,6 +3,7 @@ import 'dotenv/config';
 import cors from 'cors';
 import config from './config';
 import logoRoutes from './routes/logo';
+
 // ===== PUBLIC ROUTES =====
 import productRoutes from './routes/products';
 import categoryRoutes from './routes/categories';
@@ -14,14 +15,13 @@ import paymentRoutes from './routes/payment';
 import couponRoutes from './routes/coupons';
 import reviewRoutes from './routes/reviews';
 import uploadRoutes from './routes/upload';
-import popupRoutes from './routes/popups';              // Public popup routes
+import popupRoutes from './routes/popups';
 import socialProofRoutes from './routes/social-proof';
 
 // ===== ADMIN ROUTES =====
 import adminRoutes from './routes/admin';
 import adminHeroRoutes from './routes/adminHero';
-import adminPopupRoutes from './routes/adminPopups';     // ✅ Import admin popups (different file)
-import adminCategoryRoutes from './routes/categories';
+import adminPopupRoutes from './routes/adminPopups';
 
 const app = express();
 
@@ -49,7 +49,8 @@ console.log('✅ /api/categories');
 app.use('/api/hero', heroRoutes);
 console.log('✅ /api/hero');
 
-app.use("/api/logo", logoRoutes);
+app.use('/api/logo', logoRoutes);
+console.log('✅ /api/logo');
 
 app.use('/api/settings', settingsRoutes);
 console.log('✅ /api/settings');
@@ -72,7 +73,7 @@ console.log('✅ /api/reviews');
 app.use('/api/upload', uploadRoutes);
 console.log('✅ /api/upload');
 
-app.use('/api/popups', popupRoutes);                    // Public popup routes
+app.use('/api/popups', popupRoutes);
 console.log('✅ /api/popups');
 
 app.use('/api/social-proof', socialProofRoutes);
@@ -85,11 +86,11 @@ console.log('✅ /api/admin');
 app.use('/api/admin/hero', adminHeroRoutes);
 console.log('✅ /api/admin/hero');
 
-app.use('/api/admin/popups', adminPopupRoutes);          // Admin popup routes
+app.use('/api/admin/popups', adminPopupRoutes);
 console.log('✅ /api/admin/popups');
 
-app.use('/api/admin/categories', adminCategoryRoutes);
-console.log('✅ /api/admin/categories');
+// Admin logo routes are already handled by logoRoutes under /api/logo/admin
+// So no need to duplicate
 
 /* ===================== HEALTH ===================== */
 app.get('/health', (_req, res) => {
@@ -106,7 +107,12 @@ const PORT = config.port || 5000;
 app.listen(PORT, () => {
   console.log(`\n🚀 Server running on port ${PORT}`);
   console.log(`🔎 Health: http://localhost:${PORT}/health`);
-  console.log(`🔐 Admin Hero: http://localhost:${PORT}/api/admin/hero`);
-  console.log(`🎯 Admin Popups: http://localhost:${PORT}/api/admin/popups`);
-  console.log(`📦 Products: http://localhost:${PORT}/api/products\n`);
+  console.log(`📦 Products: http://localhost:${PORT}/api/products`);
+  console.log(`🏷️ Categories: http://localhost:${PORT}/api/categories`);
+  console.log(`🎬 Hero: http://localhost:${PORT}/api/hero`);
+  console.log(`🎯 Logo: http://localhost:${PORT}/api/logo/active`);
+  console.log(`🎯 Admin Logo: http://localhost:${PORT}/api/logo/admin`);
+  console.log(`📋 Orders: http://localhost:${PORT}/api/orders`);
+  console.log(`🎫 Coupons: http://localhost:${PORT}/api/coupons`);
+  console.log(`🔐 Admin: http://localhost:${PORT}/api/admin\n`);
 });

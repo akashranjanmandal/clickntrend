@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Upload, Camera, RefreshCw, Calendar, Edit, Trash2,Download   } from 'lucide-react';
+import { X, Save, Upload, Camera, RefreshCw, Calendar, Edit, Trash2, Download } from 'lucide-react';
 import { useApi } from '../../hooks/useApi';
 
 interface LogoConfig {
@@ -41,7 +41,8 @@ const LogoManager: React.FC = () => {
   const fetchLogos = async () => {
     try {
       setLoading(true);
-      const data = await fetchWithAuth('/api/admin/logos');
+      // FIXED: Use correct endpoint
+      const data = await fetchWithAuth('/api/logo/admin');
       setLogos(data || []);
     } catch (error) {
       console.error('Error fetching logos:', error);
@@ -82,7 +83,8 @@ const LogoManager: React.FC = () => {
       const token = localStorage.getItem('admin_token');
       const baseUrl = import.meta.env.VITE_API_URL || '';
       
-      const response = await fetch(`${baseUrl}/api/admin/upload-logo`, {
+      // FIXED: Use correct endpoint
+      const response = await fetch(`${baseUrl}/api/logo/admin/upload-logo`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData,
@@ -126,12 +128,14 @@ const LogoManager: React.FC = () => {
       };
 
       if (editingLogo) {
-        await fetchWithAuth(`/api/admin/logos/${editingLogo.id}`, {
+        // FIXED: Use correct endpoint
+        await fetchWithAuth(`/api/logo/admin/${editingLogo.id}`, {
           method: 'PUT',
           body: JSON.stringify(payload),
         });
       } else {
-        await fetchWithAuth('/api/admin/logos', {
+        // FIXED: Use correct endpoint
+        await fetchWithAuth('/api/logo/admin', {
           method: 'POST',
           body: JSON.stringify(payload),
         });
@@ -149,7 +153,8 @@ const LogoManager: React.FC = () => {
 
   const toggleStatus = async (logo: LogoConfig) => {
     try {
-      await fetchWithAuth(`/api/admin/logos/${logo.id}`, {
+      // FIXED: Use correct endpoint
+      await fetchWithAuth(`/api/logo/admin/${logo.id}`, {
         method: 'PUT',
         body: JSON.stringify({ is_active: !logo.is_active }),
       });
@@ -162,7 +167,8 @@ const LogoManager: React.FC = () => {
   const deleteLogo = async (id: string) => {
     if (!confirm('Delete this logo configuration?')) return;
     try {
-      await fetchWithAuth(`/api/admin/logos/${id}`, { method: 'DELETE' });
+      // FIXED: Use correct endpoint
+      await fetchWithAuth(`/api/logo/admin/${id}`, { method: 'DELETE' });
       await fetchLogos();
     } catch (error) {
       console.error('Error deleting logo:', error);
