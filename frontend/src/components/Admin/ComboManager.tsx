@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Minus, Search, Package, Trash2, Save, Upload, Camera, Filter } from 'lucide-react';
-import { Product, Combo, Category } from '../../types';
+import { X, Plus, Minus, Search, Package, Trash2, Save, Upload, Camera, Filter, Tag } from 'lucide-react';
+import { Product, Combo } from '../../types';
 import { formatCurrency, getImageUrl } from '../../utils/helpers';
 import { apiFetch } from '../../config';
 
@@ -14,12 +14,24 @@ interface ComboProduct extends Product {
   quantity: number;
 }
 
+interface Category {
+  id: string;
+  name: string;
+  description?: string;
+  icon?: string;
+  color?: string;
+  display_order?: number;
+  is_active?: boolean;
+}
+
 const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedGender, setSelectedGender] = useState<string>('all');
+  const [genders, setGenders] = useState<{name: string, display_name: string}[]>([]);
   const [selectedProducts, setSelectedProducts] = useState<ComboProduct[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -37,6 +49,7 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
   useEffect(() => {
     fetchProducts();
     fetchCategories();
+    fetchGenders();
     if (combo) {
       loadComboForEdit();
     }
@@ -60,9 +73,35 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
       const data = await apiFetch('/api/admin/categories', {
         headers: { 'Authorization': `Bearer ${token}` },
       });
-      setCategories(data || []);
+      // Filter only active categories
+      const activeCategories = (data || []).filter((cat: Category) => cat.is_active !== false);
+      setCategories(activeCategories);
     } catch (error) {
       console.error('Error fetching categories:', error);
+    }
+  };
+
+  const fetchGenders = async () => {
+    try {
+      const token = localStorage.getItem('admin_token');
+      const data = await apiFetch('/api/admin/genders', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      }).catch(() => [
+        { name: 'men', display_name: 'Men' },
+        { name: 'women', display_name: 'Women' },
+        { name: 'unisex', display_name: 'Unisex' },
+        { name: 'kids', display_name: 'Kids' }
+      ]);
+      setGenders(data || []);
+    } catch (error) {
+      console.error('Error fetching genders:', error);
+      // Fallback genders
+      setGenders([
+        { name: 'men', display_name: 'Men' },
+        { name: 'women', display_name: 'Women' },
+        { name: 'unisex', display_name: 'Unisex' },
+        { name: 'kids', display_name: 'Kids' }
+      ]);
     }
   };
 
@@ -181,16 +220,20 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
     return total;
   };
 
-  // Filter products by category and search term
+  // Filter products by category, gender, and search term
   const filteredProducts = products.filter(product => {
     const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
+    const matchesGender = selectedGender === 'all' || product.gender === selectedGender;
     const matchesSearch = 
       product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.category.toLowerCase().includes(searchTerm.toLowerCase());
     
-    return matchesCategory && matchesSearch;
+    return matchesCategory && matchesGender && matchesSearch;
   });
+
+  // Get unique categories from products for the filter
+  const availableCategories = [...new Set(products.map(p => p.category))].sort();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -458,6 +501,16 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
                             <p className="text-sm text-gray-600">
                               {formatCurrency(product.price)} × {product.quantity}
                             </p>
+                            <div className="flex gap-2 mt-1">
+                              <span className="px-2 py-0.5 bg-gray-100 text-xs rounded">
+                                {product.category}
+                              </span>
+                              {product.gender && (
+                                <span className="px-2 py-0.5 bg-blue-50 text-blue-700 text-xs rounded capitalize">
+                                  {product.gender}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                         <div className="flex items-center space-x-3">
@@ -523,18 +576,33 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
             <div>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold">Available Products</h3>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   {/* Category Filter */}
                   <div className="relative">
                     <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <select
                       value={selectedCategory}
                       onChange={(e) => setSelectedCategory(e.target.value)}
-                      className="pl-10 pr-8 py-2 border rounded-lg focus:border-premium-gold focus:outline-none appearance-none bg-white"
+                      className="pl-10 pr-8 py-2 border rounded-lg focus:border-premium-gold focus:outline-none appearance-none bg-white min-w-[180px]"
                     >
                       <option value="all">All Categories</option>
-                      {categories.map(cat => (
-                        <option key={cat.id} value={cat.name}>{cat.name}</option>
+                      {availableCategories.map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Gender Filter */}
+                  <div className="relative">
+                    <Tag className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <select
+                      value={selectedGender}
+                      onChange={(e) => setSelectedGender(e.target.value)}
+                      className="pl-10 pr-8 py-2 border rounded-lg focus:border-premium-gold focus:outline-none appearance-none bg-white min-w-[150px]"
+                    >
+                      <option value="all">All Genders</option>
+                      {genders.map(g => (
+                        <option key={g.name} value={g.name}>{g.display_name}</option>
                       ))}
                     </select>
                   </div>
@@ -557,7 +625,7 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto p-2">
                 {filteredProducts.length === 0 ? (
                   <div className="col-span-full text-center py-8 text-gray-500">
-                    No products found in this category
+                    No products found matching your filters
                   </div>
                 ) : (
                   filteredProducts.map(product => (
@@ -579,18 +647,23 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
                           <p className="text-xs text-gray-600 line-clamp-2 mt-1">
                             {product.description}
                           </p>
-                          <div className="flex items-center justify-between mt-3">
-                            <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded text-xs">
+                          <div className="flex items-center gap-2 mt-2">
+                            <span className="px-2 py-0.5 bg-gray-100 text-gray-800 rounded text-xs">
                               {product.category}
                             </span>
-                            <button
-                              type="button"
-                              onClick={() => addToCombo(product)}
-                              className="px-3 py-1 bg-premium-gold text-white text-sm rounded hover:bg-premium-burgundy"
-                            >
-                              Add
-                            </button>
+                            {product.gender && (
+                              <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs capitalize">
+                                {product.gender}
+                              </span>
+                            )}
                           </div>
+                          <button
+                            type="button"
+                            onClick={() => addToCombo(product)}
+                            className="mt-3 w-full px-3 py-1.5 bg-premium-gold text-white text-sm rounded hover:bg-premium-burgundy transition-colors"
+                          >
+                            Add to Combo
+                          </button>
                         </div>
                       </div>
                     </div>
