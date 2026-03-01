@@ -1,20 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { Filter, X, SlidersHorizontal } from 'lucide-react';
 import ProductCard from '../components/ProductCard';
-import CategoryCard from '../components/CategoryCard';
-import { Product, Category } from '../types';
+import { Product } from '../types';
 import { apiFetch } from '../config';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useSearchParams } from 'react-router-dom';
 
 const Products: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const initialCategory = searchParams.get('category');
+  const initialSubcategory = searchParams.get('subcategory');
+
   const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [priceRange, setPriceRange] = useState([0, 50000]);
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(
+    initialCategory ? [initialCategory] : []
+  );
   const [selectedGender, setSelectedGender] = useState<string>('all');
-  const [selectedSubcategory, setSelectedSubcategory] = useState<string>('all');
+  const [selectedSubcategory, setSelectedSubcategory] = useState<string>(
+    initialSubcategory || 'all'
+  );
   const [subcategories, setSubcategories] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [sortBy, setSortBy] = useState<'popular' | 'price-low' | 'price-high' | 'newest'>('popular');
@@ -29,16 +36,12 @@ const Products: React.FC = () => {
 
   const fetchData = async () => {
     try {
-      const [productsData, categoriesData] = await Promise.all([
-        apiFetch('/api/products').catch(() => []),
-        apiFetch('/api/categories').catch(() => [])
-      ]);
+      const productsData = await apiFetch('/api/products').catch(() => []);
       
       setProducts(productsData || []);
       setFilteredProducts(productsData || []);
-      setCategories(categoriesData || []);
       
-      // Extract unique subcategories from products with proper typing
+      // Extract unique subcategories from products
       const uniqueSubcategories: string[] = ['all'];
       
       if (productsData && Array.isArray(productsData)) {
@@ -103,9 +106,7 @@ const Products: React.FC = () => {
       case 'newest':
         filtered.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         break;
-      case 'popular':
       default:
-        // In a real app, you'd sort by popularity based on orders/reviews
         break;
     }
 
@@ -147,6 +148,36 @@ const Products: React.FC = () => {
           <span>Filters</span>
         </button>
       </div>
+
+      {/* Active Filters Display */}
+      {(selectedCategories.length > 0 || selectedGender !== 'all' || selectedSubcategory !== 'all') && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          {selectedCategories.map(cat => (
+            <span key={cat} className="px-3 py-1 bg-premium-gold/10 text-premium-gold rounded-full text-sm flex items-center gap-1">
+              Category: {cat}
+              <button onClick={() => toggleCategory(cat)}>
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          ))}
+          {selectedGender !== 'all' && (
+            <span className="px-3 py-1 bg-premium-gold/10 text-premium-gold rounded-full text-sm flex items-center gap-1 capitalize">
+              For: {selectedGender}
+              <button onClick={() => setSelectedGender('all')}>
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          )}
+          {selectedSubcategory !== 'all' && (
+            <span className="px-3 py-1 bg-premium-gold/10 text-premium-gold rounded-full text-sm flex items-center gap-1">
+              Subcategory: {selectedSubcategory}
+              <button onClick={() => setSelectedSubcategory('all')}>
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Sort Bar */}
       <div className="flex justify-end mb-6">
@@ -210,21 +241,21 @@ const Products: React.FC = () => {
                 <div className="mb-8">
                   <h4 className="font-medium mb-4">Categories</h4>
                   <div className="space-y-2">
-                    {categories.map(category => (
-                      <label key={category.id} className="flex items-center justify-between cursor-pointer group">
+                    {[...new Set(products.map(p => p.category))].map(category => (
+                      <label key={category} className="flex items-center justify-between cursor-pointer group">
                         <div className="flex items-center space-x-3">
                           <input
                             type="checkbox"
-                            checked={selectedCategories.includes(category.name)}
-                            onChange={() => toggleCategory(category.name)}
+                            checked={selectedCategories.includes(category)}
+                            onChange={() => toggleCategory(category)}
                             className="rounded border-premium-gold text-premium-gold focus:ring-premium-gold"
                           />
                           <span className="group-hover:text-premium-gold transition-colors">
-                            {category.name}
+                            {category}
                           </span>
                         </div>
                         <span className="text-sm text-gray-500">
-                          {products.filter(p => p.category === category.name).length}
+                          {products.filter(p => p.category === category).length}
                         </span>
                       </label>
                     ))}

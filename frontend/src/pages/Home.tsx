@@ -1,86 +1,164 @@
 import React, { useState, useEffect } from 'react';
 import {
   Search, Sparkles, TrendingUp, Shield, Gift,
-  ArrowRight, Loader2, X
+  ArrowRight, Loader2, X, ChevronRight, Grid,Package
 } from 'lucide-react';
 import ProductCard from '../components/ProductCard';
 import CategoryCard from '../components/CategoryCard';
 import HeroSection from '../components/HeroSection';
 import ProductDetailsModal from '../components/ProductDetailsModal';
-import { Product, Category, HeroContent, Stat } from '../types';
+import { Product, Category, HeroContent, Stat, Combo } from '../types';
 import { apiFetch } from '../config';
 import { motion, AnimatePresence } from 'framer-motion';
 import ComboCard from '../components/ComboCard';
-import { Combo } from '../types';
 import Popup from '../components/Popup';
+
+interface CategoryWithSubcategories extends Category {
+  subcategories: string[];
+}
 
 const Home: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<CategoryWithSubcategories[]>([]);
   const [heroes, setHeroes] = useState<HeroContent[]>([]);
   const [stats, setStats] = useState<Stat[]>([]);
+  const [combos, setCombos] = useState<Combo[]>([]);
+  
+  // Selection state
+  const [selectedCategory, setSelectedCategory] = useState<CategoryWithSubcategories | null>(null);
+  const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'products' | 'combos'>('products');
+  
+  // Search state
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [searchLoading, setSearchLoading] = useState(false);
+  
+  // UI state
+  const [loading, setLoading] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-const [combos, setCombos] = useState<Combo[]>([]);
-const [showPopup, setShowPopup] = useState(false);
+  const [showPopup, setShowPopup] = useState(false);
+
   const defaultStats = [
     { label: 'Happy Customers', value: '10K+', icon: '😊' },
     { label: 'Premium Gifts', value: '500+', icon: '🎁' },
     { label: 'Cities Served', value: '50+', icon: '📍' },
     { label: '5 Star Ratings', value: '4.9/5', icon: '⭐' }
   ];
-useEffect(() => {
-  const checkPopup = async () => {
-    try {
-      const popup = await apiFetch('/api/popups/active').catch(() => null);
-      if (popup) {
-        // Check if already shown in this session
-        const hasSeen = sessionStorage.getItem('popup_seen');
-        if (!hasSeen) {
-          setShowPopup(true);
-          sessionStorage.setItem('popup_seen', 'true');
-        }
-      }
-    } catch (error) {
-      console.error('Error checking popup:', error);
-    }
-  };
 
-  checkPopup();
-}, []);
-
+  // Fetch all data
   useEffect(() => {
     fetchAllData();
   }, []);
 
-const fetchAllData = async () => {
-  try {
-    setLoading(true);
-    
-    const [productsData, categoriesData, heroesData, statsData, combosData] = await Promise.all([
-      apiFetch('/api/products').catch(() => []),
-      apiFetch('/api/categories').catch(() => []),
-      apiFetch('/api/hero').catch(() => []),
-      apiFetch('/api/settings?key=stats').catch(() => ({ value: defaultStats })),
-      apiFetch('/api/combos').catch(() => [])
-    ]);
+  // Check for popup
+  useEffect(() => {
+    const checkPopup = async () => {
+      try {
+        const popup = await apiFetch('/api/popups/active').catch(() => null);
+        if (popup) {
+          const hasSeen = sessionStorage.getItem('popup_seen');
+          if (!hasSeen) {
+            setShowPopup(true);
+            sessionStorage.setItem('popup_seen', 'true');
+          }
+        }
+      } catch (error) {
+        console.error('Error checking popup:', error);
+      }
+    };
+    checkPopup();
+  }, []);
 
-    setProducts(productsData || []);
-    setCategories(categoriesData || []);
-    setHeroes(heroesData || []);
-    setStats(statsData?.value || defaultStats);
-    setCombos(combosData || []);
-  } catch (error) {
-    console.error('Error fetching data:', error);
-    setStats(defaultStats);
-  } finally {
-    setLoading(false);
-  }
-};
+  const fetchAllData = async () => {
+    try {
+      setLoading(true);
+      
+      const [productsData, categoriesData, heroesData, statsData, combosData] = await Promise.all([
+        apiFetch('/api/products').catch(() => []),
+        apiFetch('/api/categories').catch(() => []),
+        apiFetch('/api/hero').catch(() => []),
+        apiFetch('/api/settings?key=stats').catch(() => ({ value: defaultStats })),
+        apiFetch('/api/combos').catch(() => [])
+      ]);
+
+      setProducts(productsData || []);
+      
+// Process categories to extract subcategories from products
+const categoriesWithSubcats = (categoriesData || []).map((cat: Category) => {
+  const categoryProducts = (productsData || []).filter((p: Product) => p.category === cat.name);
+  const subcategories = [...new Set(categoryProducts
+    .map((p: Product) => p.subcategory)
+    .filter((sub: string | undefined): sub is string => !!sub))];
+  
+  return {
+    ...cat,
+    subcategories
+  };
+});
+    
+      setCategories(categoriesWithSubcats);
+      setHeroes(heroesData || []);
+      setStats(statsData?.value || defaultStats);
+      setCombos(combosData || []);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      setStats(defaultStats);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Filter products based on selections
+  const getFilteredProducts = () => {
+    let filtered = [...products];
+    
+    if (selectedCategory) {
+      filtered = filtered.filter(p => p.category === selectedCategory.name);
+    }
+    
+    if (selectedSubcategory) {
+      filtered = filtered.filter(p => p.subcategory === selectedSubcategory);
+    }
+    
+    return filtered;
+  };
+
+  // Filter combos based on selections
+  const getFilteredCombos = () => {
+    if (!selectedCategory && !selectedSubcategory) return combos;
+    
+    return combos.filter(combo => {
+      const comboProducts = combo.combo_products || [];
+      
+      // Check if combo has any product matching the category/subcategory
+      return comboProducts.some(item => {
+        const product = item.product;
+        if (!product) return false;
+        
+        if (selectedCategory && product.category !== selectedCategory.name) return false;
+        if (selectedSubcategory && product.subcategory !== selectedSubcategory) return false;
+        
+        return true;
+      });
+    });
+  };
+
+  const handleCategorySelect = (category: CategoryWithSubcategories) => {
+    setSelectedCategory(category);
+    setSelectedSubcategory(null);
+    setViewMode('products');
+  };
+
+  const handleSubcategorySelect = (subcategory: string) => {
+    setSelectedSubcategory(subcategory);
+  };
+
+  const handleBackToCategories = () => {
+    setSelectedCategory(null);
+    setSelectedSubcategory(null);
+  };
 
   const handleSearch = async (searchText?: string) => {
     const query = searchText || searchTerm;
@@ -110,6 +188,9 @@ const fetchAllData = async () => {
     setShowSearchResults(false);
   };
 
+  const filteredProducts = getFilteredProducts();
+  const filteredCombos = getFilteredCombos();
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -120,7 +201,7 @@ const fetchAllData = async () => {
 
   return (
     <div className="overflow-hidden">
-          {showPopup && <Popup onClose={() => setShowPopup(false)} />}
+      {showPopup && <Popup onClose={() => setShowPopup(false)} />}
 
       {/* Hero Section */}
       {heroes.length > 0 ? (
@@ -228,6 +309,201 @@ const fetchAllData = async () => {
         </div>
       </section>
 
+      {/* Category Navigation */}
+      <section className="py-8 bg-white border-b">
+        <div className="container mx-auto px-4">
+          <div className="flex items-center gap-2 text-sm flex-wrap">
+            <button
+              onClick={handleBackToCategories}
+              className={`px-4 py-2 rounded-full transition-colors ${
+                !selectedCategory
+                  ? 'bg-premium-gold text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              All Categories
+            </button>
+            {selectedCategory && (
+              <>
+                <ChevronRight className="h-4 w-4 text-gray-400" />
+                <button
+                  onClick={() => setSelectedSubcategory(null)}
+                  className={`px-4 py-2 rounded-full transition-colors ${
+                    !selectedSubcategory
+                      ? 'bg-premium-gold text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {selectedCategory.name}
+                </button>
+              </>
+            )}
+            {selectedSubcategory && (
+              <>
+                <ChevronRight className="h-4 w-4 text-gray-400" />
+                <span className="px-4 py-2 bg-premium-gold text-white rounded-full">
+                  {selectedSubcategory}
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* Categories Grid (Level 1) */}
+      {!selectedCategory && (
+        <section className="py-12 bg-white">
+          <div className="container mx-auto px-4">
+            <h2 className="text-3xl font-serif font-bold mb-8 text-center">
+              Shop by <span className="text-premium-gold">Category</span>
+            </h2>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              {categories.map((category, index) => (
+                <CategoryCard
+                  key={category.id}
+                  name={category.name}
+                  icon={category.icon}
+                  icon_type={category.icon_type || 'lucide'}
+                  color={category.color}
+                  hover_effect={category.hover_effect}
+                  count={products.filter(p => p.category === category.name).length}
+                  onClick={() => handleCategorySelect(category)}
+                />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Subcategories Grid (Level 2) */}
+      {selectedCategory && !selectedSubcategory && selectedCategory.subcategories.length > 0 && (
+        <section className="py-12 bg-white">
+          <div className="container mx-auto px-4">
+            <h2 className="text-3xl font-serif font-bold mb-8 text-center">
+              {selectedCategory.name} - <span className="text-premium-gold">Subcategories</span>
+            </h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              <button
+                onClick={() => setViewMode('products')}
+                className={`p-6 rounded-2xl text-center transition-all ${
+                  viewMode === 'products'
+                    ? 'bg-premium-gold text-white shadow-lg scale-105'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <Grid className="h-8 w-8 mx-auto mb-2" />
+                <span className="font-medium">All Products</span>
+                <p className="text-sm mt-1">{filteredProducts.length} items</p>
+              </button>
+              
+              <button
+                onClick={() => setViewMode('combos')}
+                className={`p-6 rounded-2xl text-center transition-all ${
+                  viewMode === 'combos'
+                    ? 'bg-premium-gold text-white shadow-lg scale-105'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <Package className="h-8 w-8 mx-auto mb-2" />
+                <span className="font-medium">All Combos</span>
+                <p className="text-sm mt-1">{filteredCombos.length} combos</p>
+              </button>
+              
+              {selectedCategory.subcategories.map((sub: string) => (
+                <button
+                  key={sub}
+                  onClick={() => handleSubcategorySelect(sub)}
+                  className="p-6 bg-gradient-to-br from-gray-50 to-white border rounded-2xl hover:border-premium-gold hover:shadow-lg transition-all text-center"
+                >
+                  <span className="text-lg font-medium">{sub}</span>
+                  <p className="text-sm text-gray-500 mt-2">
+                    {products.filter(p => p.subcategory === sub).length} items
+                  </p>
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Products/Combos Grid (Level 3) */}
+      {(selectedSubcategory || (selectedCategory && selectedCategory.subcategories.length === 0)) && (
+        <section className="py-12 bg-white">
+          <div className="container mx-auto px-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+              <h2 className="text-3xl font-serif font-bold">
+                {selectedSubcategory || selectedCategory?.name}
+              </h2>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setViewMode('products')}
+                  className={`px-4 py-2 rounded-lg transition-colors ${
+                    viewMode === 'products'
+                      ? 'bg-premium-gold text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  Products ({filteredProducts.length})
+                </button>
+                <button
+                  onClick={() => setViewMode('combos')}
+                  className={`px-4 py-2 rounded-lg transition-colors ${
+                    viewMode === 'combos'
+                      ? 'bg-premium-gold text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  Combos ({filteredCombos.length})
+                </button>
+              </div>
+            </div>
+
+            {viewMode === 'products' && (
+              filteredProducts.length > 0 ? (
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  {filteredProducts.map((product, index) => (
+                    <motion.div
+                      key={product.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                    >
+                      <ProductCard product={product} />
+                    </motion.div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-16">
+                  <p className="text-gray-500">No products found in this category.</p>
+                </div>
+              )
+            )}
+
+            {viewMode === 'combos' && (
+              filteredCombos.length > 0 ? (
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  {filteredCombos.map((combo, index) => (
+                    <motion.div
+                      key={combo.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                    >
+                      <ComboCard combo={combo} />
+                    </motion.div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-16">
+                  <p className="text-gray-500">No combos found in this category.</p>
+                </div>
+              )
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* Stats Section */}
       <section className="py-16 bg-white">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
@@ -250,105 +526,80 @@ const fetchAllData = async () => {
         </div>
       </section>
 
-      {/* Categories Section */}
-      {categories.length > 0 && (
-        <section className="py-20 bg-gradient-to-b from-white to-premium-cream/30">
-          <div className="container mx-auto px-4">
-            <div className="text-center mb-12">
-              <h2 className="text-4xl font-serif font-bold mb-4">
-                Shop by <span className="text-premium-gold">Occasion</span>
-              </h2>
-              <p className="text-gray-600 max-w-2xl mx-auto">
-                Perfect gifts curated for every special moment in life
-              </p>
-            </div>
+      {/* Featured Products Section (when no category selected) */}
+      {!selectedCategory && (
+        <>
+          <section className="py-20 bg-white">
+            <div className="container mx-auto px-4">
+              <div className="flex flex-col md:flex-row items-center justify-between mb-12">
+                <div>
+                  <h2 className="text-4xl font-serif font-bold">
+                    Featured <span className="text-premium-gold">Gifts</span>
+                  </h2>
+                  <p className="text-gray-600 mt-2">Handpicked premium collection</p>
+                </div>
+                <a
+                  href="/products"
+                  className="mt-4 md:mt-0 inline-flex items-center px-6 py-3 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy transition-colors group"
+                >
+                  <span>View All Collection</span>
+                  <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                </a>
+              </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-              {categories.map((category, index) => (
-                <CategoryCard
-                  key={category.id}
-                  name={category.name}
-                  icon={category.icon}
-                  icon_type={category.icon_type || 'lucide'}
-                  color={category.color}
-                  hover_effect={category.hover_effect}
-                  count={products.filter(p => p.category === category.name).length}
-                  onClick={() => window.location.href = `/products?category=${category.name.toLowerCase()}`}
-                />
-              ))}
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {products.slice(0, 6).map((product, index) => (
+                  <motion.div
+                    key={product.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                  >
+                    <ProductCard product={product} />
+                  </motion.div>
+                ))}
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+
+          {/* Featured Combos */}
+          {combos.length > 0 && (
+            <section className="py-20 bg-gradient-to-b from-white to-premium-cream/30">
+              <div className="container mx-auto px-4">
+                <div className="flex flex-col md:flex-row items-center justify-between mb-12">
+                  <div>
+                    <h2 className="text-4xl font-serif font-bold">
+                      Curated <span className="text-premium-gold">Gift Combos</span>
+                    </h2>
+                    <p className="text-gray-600 mt-2">Expertly crafted gift sets</p>
+                  </div>
+                  <a
+                    href="/combos"
+                    className="mt-4 md:mt-0 inline-flex items-center px-6 py-3 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy transition-colors group"
+                  >
+                    <span>View All Combos</span>
+                    <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                  </a>
+                </div>
+
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  {combos.slice(0, 3).map((combo, index) => (
+                    <motion.div
+                      key={combo.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                    >
+                      <ComboCard combo={combo} />
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            </section>
+          )}
+        </>
       )}
 
-      {/* Featured Products */}
-      <section className="py-20 bg-white">
-        <div className="container mx-auto px-4">
-          <div className="flex flex-col md:flex-row items-center justify-between mb-12">
-            <div>
-              <h2 className="text-4xl font-serif font-bold">
-                Featured <span className="text-premium-gold">Gifts</span>
-              </h2>
-              <p className="text-gray-600 mt-2">Handpicked premium collection</p>
-            </div>
-            <a
-              href="/products"
-              className="mt-4 md:mt-0 inline-flex items-center px-6 py-3 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy transition-colors group"
-            >
-              <span>View All Collection</span>
-              <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
-            </a>
-          </div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {products.slice(0, 6).map((product, index) => (
-              <motion.div
-                key={product.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-              >
-                <ProductCard product={product} />
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-{/* Featured Combos */}
-{combos.length > 0 && (
-  <section className="py-20 bg-gradient-to-b from-white to-premium-cream/30">
-    <div className="container mx-auto px-4">
-      <div className="flex flex-col md:flex-row items-center justify-between mb-12">
-        <div>
-          <h2 className="text-4xl font-serif font-bold">
-            Curated <span className="text-premium-gold">Gift Combos</span>
-          </h2>
-          <p className="text-gray-600 mt-2">Expertly crafted gift sets for every occasion</p>
-        </div>
-        <a
-          href="/combos"
-          className="mt-4 md:mt-0 inline-flex items-center px-6 py-3 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy transition-colors group"
-        >
-          <span>View All Combos</span>
-          <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
-        </a>
-      </div>
-
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {combos.slice(0, 3).map((combo, index) => (
-          <motion.div
-            key={combo.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 }}
-          >
-            <ComboCard combo={combo} />
-          </motion.div>
-        ))}
-      </div>
-    </div>
-  </section>
-)}
       {/* CTA Section */}
       <section className="py-20 bg-gradient-to-r from-premium-charcoal to-premium-burgundy text-white">
         <div className="container mx-auto px-4 text-center">
