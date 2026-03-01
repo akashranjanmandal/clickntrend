@@ -9,25 +9,38 @@ interface SocialProofProps {
 }
 
 const SocialProof: React.FC<SocialProofProps> = ({ product, className = '' }) => {
-  const [currentCount, setCurrentCount] = useState(product.social_proof_count || 9);
+  const [currentCount, setCurrentCount] = useState<number>(() => {
+    if (product.social_proof_enabled) {
+      const initial = product.social_proof_initial_count || 5;
+      const end = product.social_proof_end_count || 15;
+      return Math.floor(Math.random() * (end - initial + 1)) + initial;
+    }
+    return 5;
+  });
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
     if (!product.social_proof_enabled) return;
 
-    // Simulate random count updates
+    // Update count periodically within the initial-end range
     const interval = setInterval(() => {
-      setCurrentCount(prev => {
-        const change = Math.floor(Math.random() * 3) - 1; // -1, 0, or +1
-        const newCount = prev + change;
-        return Math.max(5, Math.min(20, newCount)); // Keep between 5 and 20
+      setCurrentCount((prev: number) => {
+        const initial = product.social_proof_initial_count || 5;
+        const end = product.social_proof_end_count || 15;
+        // Generate random number between initial and end
+        return Math.floor(Math.random() * (end - initial + 1)) + initial;
       });
-    }, 30000); // Update every 30 seconds
+    }, 8000); // Update every 8 seconds
 
     return () => clearInterval(interval);
-  }, [product.social_proof_enabled]);
+  }, [product.social_proof_enabled, product.social_proof_initial_count, product.social_proof_end_count]);
 
   if (!product.social_proof_enabled) return null;
+
+  // Format the text with the current count
+  const displayText = product.social_proof_text 
+    ? product.social_proof_text.replace('{count}', currentCount.toString())
+    : `🔺 ${currentCount} People are Purchasing Right Now`;
 
   return (
     <AnimatePresence>
@@ -52,7 +65,7 @@ const SocialProof: React.FC<SocialProofProps> = ({ product, className = '' }) =>
           <div className="flex items-center gap-1 text-sm">
             <TrendingUp className="h-4 w-4 text-green-600" />
             <span className="font-medium text-gray-700">
-              🔺 {currentCount} People are Purchasing Right Now
+              {displayText}
             </span>
           </div>
         </motion.div>
