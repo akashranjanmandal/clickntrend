@@ -2,25 +2,28 @@ export interface Product {
   id: string;
   name: string;
   description: string;
-  category: string;
-  subcategory?: string; // ADD THIS
-  gender?: 'men' | 'women' | 'unisex' | 'kids';
   price: number;
   original_price?: number;
   discount_percentage?: number;
   image_url: string;
+  additional_images?: string[];
+  category: string;
+  subcategory?: string;
+  gender: 'men' | 'women' | 'unisex';
   stock_quantity: number;
-  is_active: boolean;
-  created_at: string;
-  is_customizable?: boolean;
+  sku: string;
+  is_customizable: boolean;
   customization_price?: number;
   max_customization_characters?: number;
-  additional_images?: string[];
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  
   social_proof_enabled: boolean;
   social_proof_text: string;
   social_proof_initial_count: number;  // New field for starting count
-  social_proof_end_count: number;
-  sku: string;
+  social_proof_end_count: number;      // New field for maximum count
+  
 }
 
 export interface Combo {
@@ -64,7 +67,7 @@ export interface Category {
   hover_effect?: string;
   display_order: number;
   is_active: boolean;
-  gender?: 'men' | 'women' | 'unisex' | 'kids';
+  gender?: 'men' | 'women' | 'unisex';
 }
 
 export interface HeroContent {
@@ -201,7 +204,7 @@ export interface PopupConfig {
 
 export interface Gender {
   id: string;
-  name: 'men' | 'women' | 'unisex' | 'kids';
+  name: 'men' | 'women' | 'unisex';
   display_name: string;
   icon: string;
   display_order: number;

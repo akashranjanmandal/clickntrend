@@ -30,7 +30,7 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
   }, [product]);
 
   // Define the gender type
-  type GenderType = 'men' | 'women' | 'unisex' | 'kids';
+  type GenderType = 'men' | 'women' | 'unisex';
 
   const [formData, setFormData] = useState({
     name: product.name,
@@ -259,7 +259,7 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
                 <label className="block text-sm font-medium mb-2">Target Audience</label>
                 <select
                   value={formData.gender}
-                  onChange={(e) => setFormData({...formData, gender: e.target.value as 'men' | 'women' | 'unisex' | 'kids'})}
+                  onChange={(e) => setFormData({...formData, gender: e.target.value as 'men' | 'women' | 'unisex'})}
                   className="w-full px-4 py-3 border rounded-lg focus:border-premium-gold focus:outline-none"
                 >
                   {genders.map(gender => (

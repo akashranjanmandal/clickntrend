@@ -90,8 +90,7 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
       }).catch(() => [
         { name: 'men', display_name: 'Men' },
         { name: 'women', display_name: 'Women' },
-        { name: 'unisex', display_name: 'Unisex' },
-        { name: 'kids', display_name: 'Kids' }
+        { name: 'unisex', display_name: 'Unisex' }
       ]);
       setGenders(data || []);
     } catch (error) {
@@ -100,8 +99,7 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
       setGenders([
         { name: 'men', display_name: 'Men' },
         { name: 'women', display_name: 'Women' },
-        { name: 'unisex', display_name: 'Unisex' },
-        { name: 'kids', display_name: 'Kids' }
+        { name: 'unisex', display_name: 'Unisex' }
       ]);
     }
   };

@@ -257,7 +257,6 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
                   <option value="unisex">Unisex</option>
                   <option value="men">Men</option>
                   <option value="women">Women</option>
-                  <option value="kids">Kids</option>
                 </select>
               </div>
 
