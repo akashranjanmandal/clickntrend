@@ -1,80 +1,72 @@
 import express from 'express';
+import multer from 'multer';
 import { supabase, supabasePublic } from '../utils/supabase';
 import { requireAuth } from '../middleware/auth';
-import { upload } from '../middleware/cloudinaryUpload';
-
 const router = express.Router();
-
-console.log('✅ hero routes loaded');
-
-// ========== PUBLIC ROUTES ==========
-
-// Get active hero sections
-router.get('/', async (req, res) => {
-  try {
-    const { data, error } = await supabasePublic
-      .from('hero_content')
-      .select('*')
-      .eq('is_active', true)
-      .order('display_order', { ascending: true });
-
-    if (error) {
-      return res.status(500).json({ error: error.message });
+// Configure multer for file upload
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage,
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB for videos
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = [
+      'image/jpeg', 'image/png', 'image/webp', 'image/jpg',
+      'video/mp4', 'video/webm', 'video/ogg'
+    ];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only images and videos are allowed.'));
     }
-
-    res.json(data ?? []);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+  },
 });
 
-// Get public hero sections (alias)
-router.get('/public', async (req, res) => {
-  try {
-    const { data, error } = await supabasePublic
-      .from('hero_content')
-      .select('*')
-      .eq('is_active', true)
-      .order('display_order', { ascending: true });
-
-    if (error) {
-      return res.status(500).json({ error: error.message });
-    }
-
-    res.json(data ?? []);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ========== HERO MEDIA UPLOAD ==========
+// Upload hero media
 router.post('/upload', requireAuth, upload.single('media'), async (req, res) => {
   try {
-    const file = req.file as any;
-    
-    if (!file) {
+    if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    // Check if it's video based on mimetype
-    const isVideo = file.mimetype?.startsWith('video/');
+    const file = req.file;
+    const isVideo = file.mimetype.startsWith('video/');
+    const extension = file.originalname.split('.').pop();
+    const fileName = `hero/${Date.now()}-${Math.random().toString(36).substring(7)}.${extension}`;
+    
+    // Upload to Supabase Storage
+    const { data, error } = await supabase.storage
+      .from('giftshop')
+      .upload(fileName, file.buffer, {
+        contentType: file.mimetype,
+        cacheControl: '3600',
+        upsert: false
+      });
+
+    if (error) throw error;
+
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('giftshop')
+      .getPublicUrl(fileName);
+
+    // Generate video poster if it's a video (you'd need a separate service for this)
+    const posterUrl = isVideo ? publicUrl.replace(/\.\w+$/, '-poster.jpg') : null;
 
     res.json({
       success: true,
-      media_url: file.path,
+      media_url: publicUrl,
       media_type: isVideo ? 'video' : 'image',
-      public_id: file.filename
+      video_poster_url: posterUrl,
+      file_name: fileName
     });
   } catch (error: any) {
     console.error('Upload error:', error);
     res.status(500).json({ error: error.message });
   }
 });
+console.log('✅ hero routes loaded');
 
-// ========== ADMIN ROUTES ==========
-
-// Get all hero sections (admin)
-router.get('/admin', requireAuth, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('hero_content')
@@ -91,69 +83,6 @@ router.get('/admin', requireAuth, async (req, res) => {
   }
 });
 
-// Create hero section
-router.post('/admin', requireAuth, async (req, res) => {
-  try {
-    const heroData = req.body;
-    
-    const { data, error } = await supabase
-      .from('hero_content')
-      .insert({
-        ...heroData,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
-      .select()
-      .single();
-
-    if (error) throw error;
-    res.json(data);
-  } catch (error: any) {
-    console.error('Error creating hero:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Update hero section
-router.put('/admin/:id', requireAuth, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const updates = req.body;
-    
-    const { data, error } = await supabase
-      .from('hero_content')
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) throw error;
-    res.json(data);
-  } catch (error: any) {
-    console.error('Error updating hero:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Delete hero section
-router.delete('/admin/:id', requireAuth, async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    const { error } = await supabase
-      .from('hero_content')
-      .delete()
-      .eq('id', id);
-
-    if (error) throw error;
-    res.json({ success: true });
-  } catch (error: any) {
-    console.error('Error deleting hero:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
 export default router;
+
+

@@ -1,8 +1,26 @@
 import express from 'express';
 import { supabase, supabasePublic } from '../utils/supabase';
 import { requireAuth } from '../middleware/auth';
+import multer from 'multer';
 
 const router = express.Router();
+
+// Configure multer for file upload
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage,
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg', 'image/svg+xml', 'image/x-icon'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only images are allowed.'));
+    }
+  },
+});
+
+// ========== PUBLIC ROUTES ==========
 
 // Get active logo
 router.get('/active', async (req, res) => {
@@ -26,6 +44,8 @@ router.get('/active', async (req, res) => {
   }
 });
 
+// ========== ADMIN ROUTES ==========
+
 // Get all logos
 router.get('/admin', requireAuth, async (req, res) => {
   try {
@@ -38,6 +58,47 @@ router.get('/admin', requireAuth, async (req, res) => {
     res.json(data || []);
   } catch (error: any) {
     console.error('Error fetching logos:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Upload logo
+router.post('/admin/upload-logo', requireAuth, upload.single('image'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const file = req.file;
+    const type = req.body.type || 'logo';
+    
+    // Generate unique filename
+    const fileExtension = file.originalname.split('.').pop();
+    const fileName = `${type}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExtension}`;
+    
+    // Upload to Supabase Storage
+    const { data, error } = await supabase.storage
+      .from('giftshop')
+      .upload(fileName, file.buffer, {
+        contentType: file.mimetype,
+        cacheControl: '3600',
+        upsert: false
+      });
+
+    if (error) throw error;
+
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('giftshop')
+      .getPublicUrl(fileName);
+
+    res.json({
+      success: true,
+      url: publicUrl,
+      file_name: fileName
+    });
+  } catch (error: any) {
+    console.error('Upload error:', error);
     res.status(500).json({ error: error.message });
   }
 });
