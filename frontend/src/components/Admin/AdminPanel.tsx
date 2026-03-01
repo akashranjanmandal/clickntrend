@@ -187,14 +187,30 @@ const AdminPanel: React.FC = () => {
           comparison = a.name.localeCompare(b.name);
           break;
         case 'price':
-          const aPrice = a.discount_price || a.discount_percentage 
-            ? a.combo_products?.reduce((sum, cp) => sum + (cp.product?.price || 0) * (cp.quantity || 1), 0) * (1 - (a.discount_percentage || 0) / 100)
-            : a.combo_products?.reduce((sum, cp) => sum + (cp.product?.price || 0) * (cp.quantity || 1), 0) || 0;
-          const bPrice = b.discount_price || b.discount_percentage 
-            ? b.combo_products?.reduce((sum, cp) => sum + (cp.product?.price || 0) * (cp.quantity || 1), 0) * (1 - (b.discount_percentage || 0) / 100)
-            : b.combo_products?.reduce((sum, cp) => sum + (cp.product?.price || 0) * (cp.quantity || 1), 0) || 0;
-          comparison = aPrice - bPrice;
-          break;
+  // Safely handle undefined combo_products
+  const aComboProducts = a.combo_products || [];
+  const bComboProducts = b.combo_products || [];
+  
+  const aTotalValue = aComboProducts.reduce(
+    (sum, cp) => sum + (cp.product?.price || 0) * (cp.quantity || 1), 
+    0
+  );
+  
+  const bTotalValue = bComboProducts.reduce(
+    (sum, cp) => sum + (cp.product?.price || 0) * (cp.quantity || 1), 
+    0
+  );
+  
+  const aPrice = a.discount_price || a.discount_percentage 
+    ? aTotalValue * (1 - (a.discount_percentage || 0) / 100)
+    : aTotalValue;
+    
+  const bPrice = b.discount_price || b.discount_percentage 
+    ? bTotalValue * (1 - (b.discount_percentage || 0) / 100)
+    : bTotalValue;
+    
+  comparison = aPrice - bPrice;
+  break;
         case 'status':
           comparison = (a.is_active ? 1 : 0) - (b.is_active ? 1 : 0);
           break;

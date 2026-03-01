@@ -112,6 +112,7 @@ const Products: React.FC = () => {
         filtered.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         break;
       default:
+        // 'popular' - keep as is from API
         break;
     }
 
@@ -335,22 +336,22 @@ const Products: React.FC = () => {
         {/* Products Grid */}
         <div className="flex-1 min-w-0">
           {loading ? (
-            <div className="grid grid-cols-2 gap-1.5 sm:gap-2 md:gap-3 lg:gap-4">
-              {[...Array(6)].map((_, i) => (
-                <div key={i} className="bg-white rounded-md sm:rounded-lg md:rounded-xl p-1.5 sm:p-2 md:p-3 animate-pulse">
-                  <div className="aspect-square bg-gray-200 rounded-md sm:rounded-lg mb-1 sm:mb-1.5 md:mb-2"></div>
-                  <div className="h-1.5 sm:h-2 md:h-2.5 bg-gray-200 rounded mb-1 sm:mb-1.5"></div>
-                  <div className="h-1.5 sm:h-2 md:h-2.5 bg-gray-200 rounded w-2/3 mb-1 sm:mb-1.5"></div>
-                  <div className="h-2 sm:h-2.5 md:h-3 bg-gray-200 rounded w-1/2"></div>
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
+              {[...Array(8)].map((_, i) => (
+                <div key={i} className="bg-white rounded-lg sm:rounded-xl p-2 sm:p-3 animate-pulse">
+                  <div className="aspect-square bg-gray-200 rounded-lg mb-2"></div>
+                  <div className="h-2 sm:h-3 bg-gray-200 rounded mb-1.5"></div>
+                  <div className="h-2 sm:h-3 bg-gray-200 rounded w-2/3 mb-1.5"></div>
+                  <div className="h-3 sm:h-4 bg-gray-200 rounded w-1/2"></div>
                 </div>
               ))}
             </div>
           ) : (
             <>
-              <div className="mb-2 sm:mb-3 md:mb-4 text-[10px] sm:text-xs md:text-sm text-gray-600">
+              <div className="mb-2 sm:mb-3 md:mb-4 text-xs sm:text-sm text-gray-600">
                 Showing {filteredProducts.length} of {products.length} products
               </div>
-              <div className="grid grid-cols-2 gap-1.5 sm:gap-2 md:gap-3 lg:gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
                 {filteredProducts.map((product) => (
                   <ProductCard key={product.id} product={product} />
                 ))}
@@ -359,16 +360,16 @@ const Products: React.FC = () => {
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="text-center py-6 sm:py-8 md:py-12"
+                  className="text-center py-8 sm:py-12"
                 >
-                  <div className="text-3xl sm:text-4xl md:text-5xl mb-2 sm:mb-3">😕</div>
-                  <h3 className="text-lg sm:text-xl md:text-2xl font-serif font-bold mb-1 sm:mb-2">No Products Found</h3>
-                  <p className="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4">
+                  <div className="text-4xl sm:text-5xl mb-3">😕</div>
+                  <h3 className="text-lg sm:text-xl font-serif font-bold mb-2">No Products Found</h3>
+                  <p className="text-sm text-gray-600 mb-4">
                     No products match your selected filters.
                   </p>
                   <button
                     onClick={clearFilters}
-                    className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy transition-colors"
+                    className="px-4 py-2 text-sm bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy transition-colors"
                   >
                     Clear Filters
                   </button>

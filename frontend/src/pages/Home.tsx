@@ -4,6 +4,7 @@ import {
   ArrowRight, Loader2, X, ChevronRight, Users, Package,
   Heart, Clock, Award, Star, Gem, Rocket
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom'; // Add this import
 import ProductCard from '../components/ProductCard';
 import CategoryCard from '../components/CategoryCard';
 import HeroSection from '../components/HeroSection';
@@ -16,6 +17,7 @@ import ComboCard from '../components/ComboCard';
 import Popup from '../components/Popup';
 
 const Home: React.FC = () => {
+  const navigate = useNavigate(); // Add navigate hook
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [genders, setGenders] = useState<Gender[]>([]);
@@ -146,6 +148,7 @@ const Home: React.FC = () => {
   const handleBackToCategories = () => {
     setSelectedCategory(null);
     setSelectedGender('all');
+    // Don't navigate, just clear local state
   };
 
   const handleProductClick = (product: Product) => {
@@ -225,14 +228,13 @@ const Home: React.FC = () => {
               GFTD
             </h1>
             <p className="text-2xl text-gray-300 mb-8">The Art Of Gifting</p>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+            <button
+              onClick={() => navigate('/products')}
               className="px-8 py-4 bg-premium-gold text-white rounded-full font-medium inline-flex items-center gap-2 hover:bg-opacity-90 transition-all shadow-lg"
             >
               Explore Collection
               <ArrowRight className="h-5 w-5" />
-            </motion.button>
+            </button>
           </motion.div>
         </div>
       )}
@@ -384,7 +386,7 @@ const Home: React.FC = () => {
                 Explore our curated collection of premium gifts
               </p>
             </motion.div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 sm:gap-4 md:gap-6">
               {categories.map((category, index) => (
                 <motion.div
                   key={category.id}
@@ -421,10 +423,10 @@ const Home: React.FC = () => {
                 <Users className="h-5 w-5 text-premium-gold" />
                 Filter by Gender
               </h3>
-              <div className="flex flex-wrap gap-3">
+              <div className="flex flex-wrap gap-2 sm:gap-3">
                 <button
                   onClick={() => handleGenderSelect('all')}
-                  className={`px-6 py-3 rounded-full text-sm capitalize transition-all duration-300 ${
+                  className={`px-4 sm:px-6 py-2 sm:py-3 rounded-full text-xs sm:text-sm capitalize transition-all duration-300 ${
                     selectedGender === 'all'
                       ? 'bg-gradient-to-r from-premium-gold to-yellow-500 text-white shadow-lg scale-105'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:scale-105'
@@ -436,13 +438,13 @@ const Home: React.FC = () => {
                   <button
                     key={gender.name}
                     onClick={() => handleGenderSelect(gender.name)}
-                    className={`px-6 py-3 rounded-full text-sm capitalize transition-all duration-300 ${
+                    className={`px-4 sm:px-6 py-2 sm:py-3 rounded-full text-xs sm:text-sm capitalize transition-all duration-300 ${
                       selectedGender === gender.name
                         ? 'bg-gradient-to-r from-premium-gold to-yellow-500 text-white shadow-lg scale-105'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:scale-105'
                     }`}
                   >
-                    <span className="mr-2">{gender.icon}</span>
+                    <span className="mr-1 sm:mr-2">{gender.icon}</span>
                     {gender.display_name}
                   </button>
                 ))}
@@ -456,10 +458,10 @@ const Home: React.FC = () => {
       {selectedCategory && (
         <section className="py-8">
           <div className="container mx-auto px-4">
-            <div className="flex justify-center gap-4">
+            <div className="flex justify-center gap-3 sm:gap-4">
               <button
                 onClick={() => setViewMode('products')}
-                className={`px-8 py-3 rounded-full font-medium transition-all duration-300 ${
+                className={`px-6 sm:px-8 py-2 sm:py-3 rounded-full text-sm sm:text-base font-medium transition-all duration-300 ${
                   viewMode === 'products'
                     ? 'bg-gradient-to-r from-premium-gold to-yellow-500 text-white shadow-lg scale-105'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -469,7 +471,7 @@ const Home: React.FC = () => {
               </button>
               <button
                 onClick={() => setViewMode('combos')}
-                className={`px-8 py-3 rounded-full font-medium transition-all duration-300 ${
+                className={`px-6 sm:px-8 py-2 sm:py-3 rounded-full text-sm sm:text-base font-medium transition-all duration-300 ${
                   viewMode === 'combos'
                     ? 'bg-gradient-to-r from-premium-gold to-yellow-500 text-white shadow-lg scale-105'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -489,7 +491,7 @@ const Home: React.FC = () => {
             <motion.h2 
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
-              className="text-4xl font-serif font-bold mb-8"
+              className="text-2xl sm:text-3xl md:text-4xl font-serif font-bold mb-6 sm:mb-8"
             >
               {selectedCategory.name}
               {selectedGender !== 'all' && (
@@ -499,14 +501,14 @@ const Home: React.FC = () => {
 
             {viewMode === 'products' && (
               filteredProducts.length > 0 ? (
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
                   {filteredProducts.map((product, index) => (
                     <motion.div
                       key={product.id}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                      whileHover={{ y: -5 }}
+                      transition={{ delay: index * 0.05 }}
+                      whileHover={{ y: -3 }}
                       onClick={() => handleProductClick(product)}
                       className="cursor-pointer"
                     >
@@ -530,14 +532,14 @@ const Home: React.FC = () => {
 
             {viewMode === 'combos' && (
               filteredCombos.length > 0 ? (
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
                   {filteredCombos.map((combo, index) => (
                     <motion.div
                       key={combo.id}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                      whileHover={{ y: -5 }}
+                      transition={{ delay: index * 0.05 }}
+                      whileHover={{ y: -3 }}
                     >
                       <ComboCard 
                         combo={combo} 
@@ -575,30 +577,30 @@ const Home: React.FC = () => {
                 className="flex flex-col md:flex-row items-center justify-between mb-12"
               >
                 <div>
-                  <h2 className="text-5xl font-serif font-bold mb-2">
+                  <h2 className="text-4xl sm:text-5xl font-serif font-bold mb-2">
                     Featured <span className="bg-gradient-to-r from-premium-gold to-yellow-500 bg-clip-text text-transparent">Gifts</span>
                   </h2>
-                  <p className="text-xl text-gray-600">Handpicked premium collection</p>
+                  <p className="text-lg sm:text-xl text-gray-600">Handpicked premium collection</p>
                 </div>
-                <motion.a
+                <motion.button
                   whileHover={{ x: 5 }}
-                  href="/products"
+                  onClick={() => navigate('/products')}
                   className="mt-4 md:mt-0 inline-flex items-center px-6 py-3 bg-gradient-to-r from-premium-gold to-yellow-500 text-white rounded-full hover:shadow-lg transition-all group"
                 >
                   <span>View All Collection</span>
                   <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
-                </motion.a>
+                </motion.button>
               </motion.div>
 
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {products.slice(0, 6).map((product, index) => (
+              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+                {products.slice(0, 8).map((product, index) => (
                   <motion.div
                     key={product.id}
                     initial={{ opacity: 0, y: 20 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
-                    transition={{ delay: index * 0.1 }}
-                    whileHover={{ y: -5 }}
+                    transition={{ delay: index * 0.05 }}
+                    whileHover={{ y: -3 }}
                     onClick={() => handleProductClick(product)}
                     className="cursor-pointer"
                   >
@@ -620,30 +622,30 @@ const Home: React.FC = () => {
                   className="flex flex-col md:flex-row items-center justify-between mb-12"
                 >
                   <div>
-                    <h2 className="text-5xl font-serif font-bold mb-2">
+                    <h2 className="text-4xl sm:text-5xl font-serif font-bold mb-2">
                       Curated <span className="bg-gradient-to-r from-premium-gold to-yellow-500 bg-clip-text text-transparent">Gift Combos</span>
                     </h2>
-                    <p className="text-xl text-gray-600">Expertly crafted gift sets</p>
+                    <p className="text-lg sm:text-xl text-gray-600">Expertly crafted gift sets</p>
                   </div>
-                  <motion.a
+                  <motion.button
                     whileHover={{ x: 5 }}
-                    href="/combos"
+                    onClick={() => navigate('/combos')}
                     className="mt-4 md:mt-0 inline-flex items-center px-6 py-3 bg-gradient-to-r from-premium-gold to-yellow-500 text-white rounded-full hover:shadow-lg transition-all group"
                   >
                     <span>View All Combos</span>
                     <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
-                  </motion.a>
+                  </motion.button>
                 </motion.div>
 
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-                  {combos.slice(0, 3).map((combo, index) => (
+                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+                  {combos.slice(0, 4).map((combo, index) => (
                     <motion.div
                       key={combo.id}
                       initial={{ opacity: 0, y: 20 }}
                       whileInView={{ opacity: 1, y: 0 }}
                       viewport={{ once: true }}
-                      transition={{ delay: index * 0.1 }}
-                      whileHover={{ y: -5 }}
+                      transition={{ delay: index * 0.05 }}
+                      whileHover={{ y: -3 }}
                     >
                       <ComboCard 
                         combo={combo} 
@@ -657,7 +659,6 @@ const Home: React.FC = () => {
           )}
         </>
       )}
-
 
       {/* CTA Section */}
       <section className="py-20 bg-gradient-to-r from-premium-gold to-yellow-500 relative overflow-hidden">
@@ -679,25 +680,26 @@ const Home: React.FC = () => {
             >
               <Gift className="h-20 w-20 text-white" />
             </motion.div>
-            <h2 className="text-5xl font-serif font-bold text-white mb-6">
+            <h2 className="text-4xl sm:text-5xl font-serif font-bold text-white mb-6">
               Create Your Perfect Gift Combo
             </h2>
-            <p className="text-xl text-white/90 mb-8">
+            <p className="text-lg sm:text-xl text-white/90 mb-8">
               Mix and match premium gifts to create a personalized experience
             </p>
-            <motion.a
+            <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              href="/custom-combo"
-              className="inline-flex items-center px-8 py-4 bg-white text-premium-gold rounded-full hover:shadow-2xl transition-all duration-300 text-lg font-medium group"
+              onClick={() => navigate('/custom-combo')}
+              className="inline-flex items-center px-6 sm:px-8 py-3 sm:py-4 bg-white text-premium-gold rounded-full hover:shadow-2xl transition-all duration-300 text-base sm:text-lg font-medium group"
             >
-              <Sparkles className="mr-3 h-6 w-6" />
+              <Sparkles className="mr-2 sm:mr-3 h-5 w-5 sm:h-6 sm:w-6" />
               Design Custom Combo
-              <ArrowRight className="ml-3 h-5 w-5 group-hover:translate-x-2 transition-transform" />
-            </motion.a>
+              <ArrowRight className="ml-2 sm:ml-3 h-4 w-4 sm:h-5 sm:w-5 group-hover:translate-x-2 transition-transform" />
+            </motion.button>
           </motion.div>
         </div>
       </section>
+      
       {/* Stats Section */}
       <section className="py-20 bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] text-white">
         <div className="container mx-auto px-4">
@@ -707,12 +709,12 @@ const Home: React.FC = () => {
             viewport={{ once: true }}
             className="text-center mb-12"
           >
-            <h2 className="text-5xl font-serif font-bold mb-4">
+            <h2 className="text-4xl sm:text-5xl font-serif font-bold mb-4">
               Our <span className="text-premium-gold">Numbers</span>
             </h2>
-            <p className="text-xl text-gray-300">We take pride in our achievements</p>
+            <p className="text-lg sm:text-xl text-gray-300">We take pride in our achievements</p>
           </motion.div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 md:gap-8">
             {stats.map((stat, index) => (
               <motion.div
                 key={index}
@@ -722,13 +724,13 @@ const Home: React.FC = () => {
                 transition={{ delay: index * 0.1 }}
                 className="text-center group"
               >
-                <div className="text-5xl mb-4 transform group-hover:scale-110 transition-transform duration-300">
+                <div className="text-3xl sm:text-4xl md:text-5xl mb-3 sm:mb-4 transform group-hover:scale-110 transition-transform duration-300">
                   {stat.icon}
                 </div>
-                <div className="text-4xl font-bold text-premium-gold mb-2">
+                <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-premium-gold mb-1 sm:mb-2">
                   {stat.value}
                 </div>
-                <div className="text-gray-300">{stat.label}</div>
+                <div className="text-xs sm:text-sm md:text-base text-gray-300">{stat.label}</div>
               </motion.div>
             ))}
           </div>
