@@ -1,15 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
-  Package, ShoppingCart, Sparkles, ArrowRight, ChevronRight,
-  Grid, Users, X, Plus, Minus, Tag, Gift, Search,Save
+  Package, Sparkles, ChevronRight,
+  Users, X, Plus, Minus, Tag, Gift, Search, Save
 } from 'lucide-react';
-import { useCart } from '../context/CartContext';
 import { Product, Category, Gender } from '../types';
 import toast from 'react-hot-toast';
 import { getImageUrl, formatCurrency } from '../utils/helpers';
 import { apiFetch } from '../config';
-import { Link } from 'react-router-dom';
+import CategoryCard from '../components/CategoryCard'; // Import CategoryCard
 
 const CustomCombo: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -227,7 +226,7 @@ const CustomCombo: React.FC = () => {
       <div className="grid lg:grid-cols-3 gap-8">
         {/* Left Side - Product Selection */}
         <div className="lg:col-span-2">
-          {/* Search Bar */}
+          {/* Search Bar - Same as Home page */}
           <div className="mb-6">
             <div className="relative">
               <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -253,69 +252,60 @@ const CustomCombo: React.FC = () => {
             </div>
           </div>
 
-          {/* Navigation */}
-          {!showSearchResults && (
-            <section className="mb-8 bg-white border rounded-xl p-4">
-              <div className="flex items-center gap-2 text-sm flex-wrap">
-                <button
-                  onClick={handleBackToCategories}
-                  className={`px-4 py-2 rounded-full transition-colors ${
-                    !selectedCategory
-                      ? 'bg-premium-gold text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  All Categories
-                </button>
-                {selectedCategory && (
-                  <>
-                    <ChevronRight className="h-4 w-4 text-gray-400" />
-                    <span className="px-4 py-2 bg-premium-gold text-white rounded-full">
-                      {selectedCategory.name}
-                    </span>
-                  </>
-                )}
-                {selectedGender !== 'all' && (
-                  <>
-                    <ChevronRight className="h-4 w-4 text-gray-400" />
-                    <span className="px-4 py-2 bg-premium-gold text-white rounded-full capitalize">
-                      {selectedGender}
-                    </span>
-                  </>
-                )}
-              </div>
-            </section>
-          )}
+          {/* Navigation - Same as Home page */}
+          <section className="mb-8 bg-white border rounded-xl p-4">
+            <div className="flex items-center gap-2 text-sm flex-wrap">
+              <button
+                onClick={handleBackToCategories}
+                className={`px-4 py-2 rounded-full transition-colors ${
+                  !selectedCategory
+                    ? 'bg-premium-gold text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                All Categories
+              </button>
+              {selectedCategory && (
+                <>
+                  <ChevronRight className="h-4 w-4 text-gray-400" />
+                  <span className="px-4 py-2 bg-premium-gold text-white rounded-full">
+                    {selectedCategory.name}
+                  </span>
+                </>
+              )}
+              {selectedGender !== 'all' && (
+                <>
+                  <ChevronRight className="h-4 w-4 text-gray-400" />
+                  <span className="px-4 py-2 bg-premium-gold text-white rounded-full capitalize">
+                    {selectedGender}
+                  </span>
+                </>
+              )}
+            </div>
+          </section>
 
-          {/* Categories Grid */}
+          {/* Categories Grid - Using CategoryCard exactly like Home page */}
           {!selectedCategory && !showSearchResults && (
             <section className="mb-8">
               <h2 className="text-2xl font-serif font-bold mb-6">Choose a Category</h2>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {categories.map((category) => (
-                  <button
+                  <CategoryCard
                     key={category.id}
+                    name={category.name}
+                    icon={category.icon}
+                    icon_type={category.icon_type || 'lucide'}
+                    color={category.color}
+                    hover_effect={category.hover_effect}
+                    count={products.filter(p => p.category === category.name).length}
                     onClick={() => handleCategorySelect(category)}
-                    className="p-6 bg-gradient-to-br from-gray-50 to-white border rounded-2xl hover:border-premium-gold hover:shadow-lg transition-all text-center"
-                  >
-                    <div className={`w-16 h-16 mx-auto rounded-full bg-gradient-to-br ${category.color} flex items-center justify-center mb-3`}>
-                      {category.icon_type === 'lucide' ? (
-                        <span className="text-2xl">{category.icon}</span>
-                      ) : (
-                        <span className="text-3xl">{category.icon}</span>
-                      )}
-                    </div>
-                    <h3 className="font-medium">{category.name}</h3>
-                    <p className="text-sm text-gray-500 mt-1">
-                      {products.filter(p => p.category === category.name).length} items
-                    </p>
-                  </button>
+                  />
                 ))}
               </div>
             </section>
           )}
 
-          {/* Gender Filter */}
+          {/* Gender Filter - Same as Home page */}
           {selectedCategory && !showSearchResults && (
             <section className="mb-8">
               <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
