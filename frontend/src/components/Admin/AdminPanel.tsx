@@ -6,7 +6,7 @@ import {
   BarChart3, Shield, Printer, XCircle, Tag, Copy,
   Image as ImageIcon, Star, Video, Gift, ChevronDown,
   ChevronUp, ChevronsLeft, ChevronsRight, ArrowUpDown,
-  Loader
+  Loader, Filter, CreditCard, Truck, CheckCircle, X, Users
 } from 'lucide-react';
 import { Order, Product, Combo, ComboProduct } from '../../types';
 import CategoryManager from './CategoryManager';
@@ -40,10 +40,27 @@ const AdminPanel: React.FC = () => {
   const [editingCombo, setEditingCombo] = useState<Combo | null>(null);
   const [copySuccess, setCopySuccess] = useState<string>('');
 
+  // Filter dropdown states
+  const [showFilters, setShowFilters] = useState(false);
+  
+  // Order filter states
+  const [orderStatusFilter, setOrderStatusFilter] = useState<string>('all');
+  const [orderPaymentFilter, setOrderPaymentFilter] = useState<string>('all');
+  const [orderCustomizationFilter, setOrderCustomizationFilter] = useState<string>('all');
+  
+  // Product filter states
+  const [productCategoryFilter, setProductCategoryFilter] = useState<string>('all');
+  const [productGenderFilter, setProductGenderFilter] = useState<string>('all');
+  const [productCustomizableFilter, setProductCustomizableFilter] = useState<string>('all');
+  const [productStatusFilter, setProductStatusFilter] = useState<string>('all');
+  
+  // Combo filter states
+  const [comboStatusFilter, setComboStatusFilter] = useState<string>('all');
+
   // Pagination states for orders
   const [orderPage, setOrderPage] = useState(1);
   const [ordersPerPage] = useState(20);
-  const [orderSortField, setOrderSortField] = useState<'date' | 'status' | 'amount' | 'name'>('date');
+  const [orderSortField, setOrderSortField] = useState<'date' | 'status' | 'amount' | 'name' | 'payment' | 'customization'>('date');
   const [orderSortDirection, setOrderSortDirection] = useState<'asc' | 'desc'>('desc');
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [paginatedOrders, setPaginatedOrders] = useState<Order[]>([]);
@@ -51,7 +68,7 @@ const AdminPanel: React.FC = () => {
   // Pagination states for products
   const [productPage, setProductPage] = useState(1);
   const [productsPerPage] = useState(20);
-  const [productSortField, setProductSortField] = useState<'name' | 'price' | 'stock' | 'category'>('name');
+  const [productSortField, setProductSortField] = useState<'name' | 'price' | 'stock' | 'category' | 'gender' | 'customizable' | 'status'>('name');
   const [productSortDirection, setProductSortDirection] = useState<'asc' | 'desc'>('asc');
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [paginatedProducts, setPaginatedProducts] = useState<Product[]>([]);
@@ -59,7 +76,7 @@ const AdminPanel: React.FC = () => {
   // Pagination states for combos
   const [comboPage, setComboPage] = useState(1);
   const [combosPerPage] = useState(20);
-  const [comboSortField, setComboSortField] = useState<'name' | 'price' | 'status'>('name');
+  const [comboSortField, setComboSortField] = useState<'name' | 'price' | 'status' | 'productsCount'>('name');
   const [comboSortDirection, setComboSortDirection] = useState<'asc' | 'desc'>('asc');
   const [filteredCombos, setFilteredCombos] = useState<Combo[]>([]);
   const [paginatedCombos, setPaginatedCombos] = useState<Combo[]>([]);
@@ -96,6 +113,38 @@ const AdminPanel: React.FC = () => {
       );
     }
     
+    // Apply status filter
+    if (orderStatusFilter !== 'all') {
+      filtered = filtered.filter(order => order.status === orderStatusFilter);
+    }
+    
+    // Apply payment filter
+    if (orderPaymentFilter !== 'all') {
+      if (orderPaymentFilter === 'paid') {
+        filtered = filtered.filter(order => 
+          ['paid', 'delivered', 'completed'].includes(order.status)
+        );
+      } else if (orderPaymentFilter === 'unpaid') {
+        filtered = filtered.filter(order => 
+          ['pending', 'created', 'processing'].includes(order.status)
+        );
+      } else if (orderPaymentFilter === 'refunded') {
+        filtered = filtered.filter(order => 
+          ['refunded', 'cancelled'].includes(order.status)
+        );
+      }
+    }
+    
+    // Apply customization filter
+    if (orderCustomizationFilter !== 'all') {
+      filtered = filtered.filter(order => {
+        const hasCustomization = Array.isArray(order.items) 
+          ? order.items.some((item: any) => item.customization)
+          : false;
+        return orderCustomizationFilter === 'yes' ? hasCustomization : !hasCustomization;
+      });
+    }
+    
     // Apply sorting
     filtered.sort((a, b) => {
       let comparison = 0;
@@ -112,6 +161,16 @@ const AdminPanel: React.FC = () => {
         case 'name':
           comparison = a.customer_name.localeCompare(b.customer_name);
           break;
+        case 'payment':
+          const aPaid = ['paid', 'delivered', 'completed'].includes(a.status) ? 1 : 0;
+          const bPaid = ['paid', 'delivered', 'completed'].includes(b.status) ? 1 : 0;
+          comparison = aPaid - bPaid;
+          break;
+        case 'customization':
+          const aHasCustom = Array.isArray(a.items) ? a.items.some((item: any) => item.customization) : false;
+          const bHasCustom = Array.isArray(b.items) ? b.items.some((item: any) => item.customization) : false;
+          comparison = (aHasCustom ? 1 : 0) - (bHasCustom ? 1 : 0);
+          break;
         default:
           comparison = 0;
       }
@@ -120,7 +179,7 @@ const AdminPanel: React.FC = () => {
     
     setFilteredOrders(filtered);
     setOrderPage(1);
-  }, [orders, searchQuery, orderSortField, orderSortDirection]);
+  }, [orders, searchQuery, orderSortField, orderSortDirection, orderStatusFilter, orderPaymentFilter, orderCustomizationFilter]);
 
   // Filter and sort products
   useEffect(() => {
@@ -135,6 +194,30 @@ const AdminPanel: React.FC = () => {
         product.name.toLowerCase().includes(query) ||
         product.description.toLowerCase().includes(query) ||
         product.category.toLowerCase().includes(query)
+      );
+    }
+    
+    // Apply category filter
+    if (productCategoryFilter !== 'all') {
+      filtered = filtered.filter(product => product.category === productCategoryFilter);
+    }
+    
+    // Apply gender filter
+    if (productGenderFilter !== 'all') {
+      filtered = filtered.filter(product => product.gender === productGenderFilter);
+    }
+    
+    // Apply customizable filter
+    if (productCustomizableFilter !== 'all') {
+      filtered = filtered.filter(product => 
+        productCustomizableFilter === 'yes' ? product.is_customizable : !product.is_customizable
+      );
+    }
+    
+    // Apply status filter
+    if (productStatusFilter !== 'all') {
+      filtered = filtered.filter(product => 
+        productStatusFilter === 'active' ? product.is_active : !product.is_active
       );
     }
     
@@ -154,6 +237,15 @@ const AdminPanel: React.FC = () => {
         case 'category':
           comparison = a.category.localeCompare(b.category);
           break;
+        case 'gender':
+          comparison = (a.gender || 'unisex').localeCompare(b.gender || 'unisex');
+          break;
+        case 'customizable':
+          comparison = (a.is_customizable ? 1 : 0) - (b.is_customizable ? 1 : 0);
+          break;
+        case 'status':
+          comparison = (a.is_active ? 1 : 0) - (b.is_active ? 1 : 0);
+          break;
         default:
           comparison = 0;
       }
@@ -162,7 +254,7 @@ const AdminPanel: React.FC = () => {
     
     setFilteredProducts(filtered);
     setProductPage(1);
-  }, [products, searchQuery, productSortField, productSortDirection]);
+  }, [products, searchQuery, productSortField, productSortDirection, productCategoryFilter, productGenderFilter, productCustomizableFilter, productStatusFilter]);
 
   // Filter and sort combos
   useEffect(() => {
@@ -179,6 +271,13 @@ const AdminPanel: React.FC = () => {
       );
     }
     
+    // Apply status filter
+    if (comboStatusFilter !== 'all') {
+      filtered = filtered.filter(combo => 
+        comboStatusFilter === 'active' ? combo.is_active : !combo.is_active
+      );
+    }
+    
     // Apply sorting
     filtered.sort((a, b) => {
       let comparison = 0;
@@ -187,32 +286,37 @@ const AdminPanel: React.FC = () => {
           comparison = a.name.localeCompare(b.name);
           break;
         case 'price':
-  // Safely handle undefined combo_products
-  const aComboProducts = a.combo_products || [];
-  const bComboProducts = b.combo_products || [];
-  
-  const aTotalValue = aComboProducts.reduce(
-    (sum, cp) => sum + (cp.product?.price || 0) * (cp.quantity || 1), 
-    0
-  );
-  
-  const bTotalValue = bComboProducts.reduce(
-    (sum, cp) => sum + (cp.product?.price || 0) * (cp.quantity || 1), 
-    0
-  );
-  
-  const aPrice = a.discount_price || a.discount_percentage 
-    ? aTotalValue * (1 - (a.discount_percentage || 0) / 100)
-    : aTotalValue;
-    
-  const bPrice = b.discount_price || b.discount_percentage 
-    ? bTotalValue * (1 - (b.discount_percentage || 0) / 100)
-    : bTotalValue;
-    
-  comparison = aPrice - bPrice;
-  break;
+          // Safely handle undefined combo_products
+          const aComboProducts = a.combo_products || [];
+          const bComboProducts = b.combo_products || [];
+          
+          const aTotalValue = aComboProducts.reduce(
+            (sum, cp) => sum + (cp.product?.price || 0) * (cp.quantity || 1), 
+            0
+          );
+          
+          const bTotalValue = bComboProducts.reduce(
+            (sum, cp) => sum + (cp.product?.price || 0) * (cp.quantity || 1), 
+            0
+          );
+          
+          const aPrice = a.discount_price || a.discount_percentage 
+            ? aTotalValue * (1 - (a.discount_percentage || 0) / 100)
+            : aTotalValue;
+            
+          const bPrice = b.discount_price || b.discount_percentage 
+            ? bTotalValue * (1 - (b.discount_percentage || 0) / 100)
+            : bTotalValue;
+            
+          comparison = aPrice - bPrice;
+          break;
         case 'status':
           comparison = (a.is_active ? 1 : 0) - (b.is_active ? 1 : 0);
+          break;
+        case 'productsCount':
+          const aCount = a.combo_products?.length || 0;
+          const bCount = b.combo_products?.length || 0;
+          comparison = aCount - bCount;
           break;
         default:
           comparison = 0;
@@ -222,7 +326,7 @@ const AdminPanel: React.FC = () => {
     
     setFilteredCombos(filtered);
     setComboPage(1);
-  }, [combos, searchQuery, comboSortField, comboSortDirection]);
+  }, [combos, searchQuery, comboSortField, comboSortDirection, comboStatusFilter]);
 
   // Update paginated orders
   useEffect(() => {
@@ -424,12 +528,13 @@ const AdminPanel: React.FC = () => {
       'Pincode': order.shipping_pincode || '',
       'Amount': order.total_amount,
       'Status': order.status,
-      'Tracking Number': order.tracking_number || '',
-      'Payment ID': order.razorpay_payment_id || '',
-      'Items Count': Array.isArray(order.items) ? order.items.length : 0,
+      'Payment Status': ['paid', 'delivered', 'completed'].includes(order.status) ? 'Paid' : 'Pending',
       'Has Customization': Array.isArray(order.items) 
         ? order.items.some((item: any) => item.customization).toString()
         : 'false',
+      'Tracking Number': order.tracking_number || '',
+      'Payment ID': order.razorpay_payment_id || '',
+      'Items Count': Array.isArray(order.items) ? order.items.length : 0,
     }));
 
     const headers = Object.keys(csvData[0]).join(',');
@@ -463,11 +568,31 @@ const AdminPanel: React.FC = () => {
     }
   };
 
+  const clearOrderFilters = () => {
+    setOrderStatusFilter('all');
+    setOrderPaymentFilter('all');
+    setOrderCustomizationFilter('all');
+    setSearchQuery('');
+  };
+
+  const clearProductFilters = () => {
+    setProductCategoryFilter('all');
+    setProductGenderFilter('all');
+    setProductCustomizableFilter('all');
+    setProductStatusFilter('all');
+    setSearchQuery('');
+  };
+
+  const clearComboFilters = () => {
+    setComboStatusFilter('all');
+    setSearchQuery('');
+  };
+
   // Sort button component
   const SortButton = ({ field, currentField, direction, onSort, children }: any) => (
     <button
       onClick={() => onSort(field)}
-      className="flex items-center gap-1 hover:text-premium-gold transition-colors"
+      className="flex items-center gap-1 hover:text-premium-gold transition-colors whitespace-nowrap"
     >
       {children}
       {currentField === field ? (
@@ -480,6 +605,25 @@ const AdminPanel: React.FC = () => {
         <ArrowUpDown className="h-4 w-4 opacity-30" />
       )}
     </button>
+  );
+
+  // Filter dropdown component
+  const FilterDropdown = ({ label, value, options, onChange, icon }: any) => (
+    <div className="relative">
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="pl-8 pr-4 py-2 border rounded-lg text-sm focus:outline-none focus:border-premium-gold appearance-none bg-white"
+      >
+        <option value="all">{label} - All</option>
+        {options.map((opt: any) => (
+          <option key={opt.value} value={opt.value}>{opt.label}</option>
+        ))}
+      </select>
+      <div className="absolute left-2 top-1/2 transform -translate-y-1/2">
+        {icon}
+      </div>
+    </div>
   );
 
   // Pagination component
@@ -925,26 +1069,79 @@ const AdminPanel: React.FC = () => {
 
         {activeTab === 'orders' && (
           <div className="bg-white rounded-xl shadow border border-gray-100 overflow-hidden">
-            <div className="px-6 py-4 border-b flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <h2 className="text-xl font-semibold">All Orders ({filteredOrders.length})</h2>
-              <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search orders..."
-                    className="pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:border-premium-gold w-full"
-                  />
+            <div className="px-6 py-4 border-b space-y-4">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <h2 className="text-xl font-semibold">All Orders ({filteredOrders.length})</h2>
+                <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search orders..."
+                      className="pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:border-premium-gold w-full"
+                    />
+                  </div>
+                  <button
+                    onClick={exportOrdersCSV}
+                    className="flex items-center justify-center space-x-2 px-4 py-2 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy transition-colors"
+                  >
+                    <Download className="h-4 w-4" />
+                    <span>Export CSV</span>
+                  </button>
                 </div>
-                <button
-                  onClick={exportOrdersCSV}
-                  className="flex items-center justify-center space-x-2 px-4 py-2 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy transition-colors"
-                >
-                  <Download className="h-4 w-4" />
-                  <span>Export CSV</span>
-                </button>
+              </div>
+              
+              {/* Filter Row */}
+              <div className="flex flex-wrap items-center gap-3 pt-2">
+                <FilterDropdown
+                  label="Status"
+                  value={orderStatusFilter}
+                  onChange={setOrderStatusFilter}
+                  icon={<Package className="h-4 w-4 text-gray-400" />}
+                  options={[
+                    { value: 'pending', label: 'Pending' },
+                    { value: 'processing', label: 'Processing' },
+                    { value: 'paid', label: 'Paid' },
+                    { value: 'shipped', label: 'Shipped' },
+                    { value: 'delivered', label: 'Delivered' },
+                    { value: 'cancelled', label: 'Cancelled' },
+                  ]}
+                />
+                
+                <FilterDropdown
+                  label="Payment"
+                  value={orderPaymentFilter}
+                  onChange={setOrderPaymentFilter}
+                  icon={<CreditCard className="h-4 w-4 text-gray-400" />}
+                  options={[
+                    { value: 'paid', label: 'Paid' },
+                    { value: 'unpaid', label: 'Unpaid' },
+                    { value: 'refunded', label: 'Refunded' },
+                  ]}
+                />
+                
+                <FilterDropdown
+                  label="Customization"
+                  value={orderCustomizationFilter}
+                  onChange={setOrderCustomizationFilter}
+                  icon={<ImageIcon className="h-4 w-4 text-gray-400" />}
+                  options={[
+                    { value: 'yes', label: 'Has Customization' },
+                    { value: 'no', label: 'No Customization' },
+                  ]}
+                />
+                
+                {(orderStatusFilter !== 'all' || orderPaymentFilter !== 'all' || orderCustomizationFilter !== 'all' || searchQuery) && (
+                  <button
+                    onClick={clearOrderFilters}
+                    className="flex items-center gap-1 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  >
+                    <X className="h-4 w-4" />
+                    Clear Filters
+                  </button>
+                )}
               </div>
             </div>
             
@@ -1019,7 +1216,40 @@ const AdminPanel: React.FC = () => {
                             Status
                           </SortButton>
                         </th>
-                        <th className="text-left p-4">Customization</th>
+                        <th className="text-left p-4">
+                          <SortButton
+                            field="payment"
+                            currentField={orderSortField}
+                            direction={orderSortDirection}
+                            onSort={(field: string) => {
+                              if (orderSortField === field) {
+                                setOrderSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+                              } else {
+                                setOrderSortField(field as any);
+                                setOrderSortDirection('asc');
+                              }
+                            }}
+                          >
+                            Payment
+                          </SortButton>
+                        </th>
+                        <th className="text-left p-4">
+                          <SortButton
+                            field="customization"
+                            currentField={orderSortField}
+                            direction={orderSortDirection}
+                            onSort={(field: string) => {
+                              if (orderSortField === field) {
+                                setOrderSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+                              } else {
+                                setOrderSortField(field as any);
+                                setOrderSortDirection('asc');
+                              }
+                            }}
+                          >
+                            Customization
+                          </SortButton>
+                        </th>
                         <th className="text-left p-4">
                           <SortButton
                             field="date"
@@ -1045,6 +1275,8 @@ const AdminPanel: React.FC = () => {
                         const hasCustomization = Array.isArray(order.items) 
                           ? order.items.some((item: any) => item.customization)
                           : false;
+                        
+                        const isPaid = ['paid', 'delivered', 'completed'].includes(order.status);
                         
                         return (
                           <tr key={order.id} className="border-b hover:bg-gray-50">
@@ -1076,6 +1308,13 @@ const AdminPanel: React.FC = () => {
                                 <option value="delivered">DELIVERED</option>
                                 <option value="cancelled">CANCELLED</option>
                               </select>
+                            </td>
+                            <td className="p-4">
+                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                isPaid ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                              }`}>
+                                {isPaid ? 'Paid' : 'Pending'}
+                              </span>
                             </td>
                             <td className="p-4">
                               {hasCustomization ? (
@@ -1121,22 +1360,6 @@ const AdminPanel: React.FC = () => {
                   itemsPerPage={ordersPerPage}
                   onPageChange={setOrderPage}
                 />
-                
-                {paginatedOrders.length < filteredOrders.length && (
-                  <div className="text-center py-4 border-t">
-                    <button
-                      onClick={loadMoreData}
-                      disabled={loadingMore}
-                      className="px-4 py-2 text-premium-gold hover:text-premium-burgundy font-medium disabled:opacity-50"
-                    >
-                      {loadingMore ? (
-                        <Loader className="h-5 w-5 animate-spin mx-auto" />
-                      ) : (
-                        `Load More (${filteredOrders.length - paginatedOrders.length} remaining)`
-                      )}
-                    </button>
-                  </div>
-                )}
               </>
             )}
           </div>
@@ -1144,26 +1367,86 @@ const AdminPanel: React.FC = () => {
 
         {activeTab === 'products' && (
           <div className="bg-white rounded-xl shadow border border-gray-100 overflow-hidden">
-            <div className="px-6 py-4 border-b flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <h2 className="text-xl font-semibold">All Products ({filteredProducts.length})</h2>
-              <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search products..."
-                    className="pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:border-premium-gold w-full"
-                  />
+            <div className="px-6 py-4 border-b space-y-4">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <h2 className="text-xl font-semibold">All Products ({filteredProducts.length})</h2>
+                <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search products..."
+                      className="pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:border-premium-gold w-full"
+                    />
+                  </div>
+                  <button
+                    onClick={() => setShowProductUpload(true)}
+                    className="flex items-center justify-center space-x-2 px-4 py-2 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy transition-colors"
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span>Add Product</span>
+                  </button>
                 </div>
-                <button
-                  onClick={() => setShowProductUpload(true)}
-                  className="flex items-center justify-center space-x-2 px-4 py-2 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy transition-colors"
-                >
-                  <Plus className="h-4 w-4" />
-                  <span>Add Product</span>
-                </button>
+              </div>
+              
+              {/* Filter Row */}
+              <div className="flex flex-wrap items-center gap-3 pt-2">
+                <FilterDropdown
+                  label="Category"
+                  value={productCategoryFilter}
+                  onChange={setProductCategoryFilter}
+                  icon={<Tag className="h-4 w-4 text-gray-400" />}
+                  options={[...new Set(products.map(p => p.category))].map(cat => ({
+                    value: cat,
+                    label: cat
+                  }))}
+                />
+                
+                <FilterDropdown
+                  label="Gender"
+                  value={productGenderFilter}
+                  onChange={setProductGenderFilter}
+                  icon={<Users className="h-4 w-4 text-gray-400" />}
+                  options={[
+                    { value: 'male', label: 'Male' },
+                    { value: 'female', label: 'Female' },
+                    { value: 'unisex', label: 'Unisex' },
+                  ]}
+                />
+                
+                <FilterDropdown
+                  label="Customizable"
+                  value={productCustomizableFilter}
+                  onChange={setProductCustomizableFilter}
+                  icon={<ImageIcon className="h-4 w-4 text-gray-400" />}
+                  options={[
+                    { value: 'yes', label: 'Customizable' },
+                    { value: 'no', label: 'Not Customizable' },
+                  ]}
+                />
+                
+                <FilterDropdown
+                  label="Status"
+                  value={productStatusFilter}
+                  onChange={setProductStatusFilter}
+                  icon={<CheckCircle className="h-4 w-4 text-gray-400" />}
+                  options={[
+                    { value: 'active', label: 'Active' },
+                    { value: 'inactive', label: 'Inactive' },
+                  ]}
+                />
+                
+                {(productCategoryFilter !== 'all' || productGenderFilter !== 'all' || productCustomizableFilter !== 'all' || productStatusFilter !== 'all' || searchQuery) && (
+                  <button
+                    onClick={clearProductFilters}
+                    className="flex items-center gap-1 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  >
+                    <X className="h-4 w-4" />
+                    Clear Filters
+                  </button>
+                )}
               </div>
             </div>
             
@@ -1221,7 +1504,23 @@ const AdminPanel: React.FC = () => {
                             Category
                           </SortButton>
                         </th>
-                        <th className="text-left p-4">Gender</th>
+                        <th className="text-left p-4">
+                          <SortButton
+                            field="gender"
+                            currentField={productSortField}
+                            direction={productSortDirection}
+                            onSort={(field: string) => {
+                              if (productSortField === field) {
+                                setProductSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+                              } else {
+                                setProductSortField(field as any);
+                                setProductSortDirection('asc');
+                              }
+                            }}
+                          >
+                            Gender
+                          </SortButton>
+                        </th>
                         <th className="text-left p-4">
                           <SortButton
                             field="price"
@@ -1256,8 +1555,40 @@ const AdminPanel: React.FC = () => {
                             Stock
                           </SortButton>
                         </th>
-                        <th className="text-left p-4">Customizable</th>
-                        <th className="text-left p-4">Status</th>
+                        <th className="text-left p-4">
+                          <SortButton
+                            field="customizable"
+                            currentField={productSortField}
+                            direction={productSortDirection}
+                            onSort={(field: string) => {
+                              if (productSortField === field) {
+                                setProductSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+                              } else {
+                                setProductSortField(field as any);
+                                setProductSortDirection('asc');
+                              }
+                            }}
+                          >
+                            Customizable
+                          </SortButton>
+                        </th>
+                        <th className="text-left p-4">
+                          <SortButton
+                            field="status"
+                            currentField={productSortField}
+                            direction={productSortDirection}
+                            onSort={(field: string) => {
+                              if (productSortField === field) {
+                                setProductSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+                              } else {
+                                setProductSortField(field as any);
+                                setProductSortDirection('asc');
+                              }
+                            }}
+                          >
+                            Status
+                          </SortButton>
+                        </th>
                         <th className="text-left p-4">Actions</th>
                       </tr>
                     </thead>
@@ -1359,22 +1690,6 @@ const AdminPanel: React.FC = () => {
                   itemsPerPage={productsPerPage}
                   onPageChange={setProductPage}
                 />
-                
-                {paginatedProducts.length < filteredProducts.length && (
-                  <div className="text-center py-4 border-t">
-                    <button
-                      onClick={loadMoreData}
-                      disabled={loadingMore}
-                      className="px-4 py-2 text-premium-gold hover:text-premium-burgundy font-medium disabled:opacity-50"
-                    >
-                      {loadingMore ? (
-                        <Loader className="h-5 w-5 animate-spin mx-auto" />
-                      ) : (
-                        `Load More (${filteredProducts.length - paginatedProducts.length} remaining)`
-                      )}
-                    </button>
-                  </div>
-                )}
               </>
             )}
           </div>
@@ -1382,26 +1697,52 @@ const AdminPanel: React.FC = () => {
 
         {activeTab === 'combos' && (
           <div className="bg-white rounded-xl shadow border border-gray-100 overflow-hidden">
-            <div className="px-6 py-4 border-b flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <h2 className="text-xl font-semibold">All Combos ({filteredCombos.length})</h2>
-              <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search combos..."
-                    className="pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:border-premium-gold w-full"
-                  />
+            <div className="px-6 py-4 border-b space-y-4">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <h2 className="text-xl font-semibold">All Combos ({filteredCombos.length})</h2>
+                <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search combos..."
+                      className="pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:border-premium-gold w-full"
+                    />
+                  </div>
+                  <button
+                    onClick={() => setShowComboManager(true)}
+                    className="flex items-center justify-center space-x-2 px-4 py-2 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy transition-colors"
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span>Create Combo</span>
+                  </button>
                 </div>
-                <button
-                  onClick={() => setShowComboManager(true)}
-                  className="flex items-center justify-center space-x-2 px-4 py-2 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy transition-colors"
-                >
-                  <Plus className="h-4 w-4" />
-                  <span>Create Combo</span>
-                </button>
+              </div>
+              
+              {/* Filter Row */}
+              <div className="flex flex-wrap items-center gap-3 pt-2">
+                <FilterDropdown
+                  label="Status"
+                  value={comboStatusFilter}
+                  onChange={setComboStatusFilter}
+                  icon={<CheckCircle className="h-4 w-4 text-gray-400" />}
+                  options={[
+                    { value: 'active', label: 'Active' },
+                    { value: 'inactive', label: 'Inactive' },
+                  ]}
+                />
+                
+                {(comboStatusFilter !== 'all' || searchQuery) && (
+                  <button
+                    onClick={clearComboFilters}
+                    className="flex items-center gap-1 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  >
+                    <X className="h-4 w-4" />
+                    Clear Filters
+                  </button>
+                )}
               </div>
             </div>
             
@@ -1440,7 +1781,23 @@ const AdminPanel: React.FC = () => {
                             Name
                           </SortButton>
                         </th>
-                        <th className="text-left p-4">Products</th>
+                        <th className="text-left p-4">
+                          <SortButton
+                            field="productsCount"
+                            currentField={comboSortField}
+                            direction={comboSortDirection}
+                            onSort={(field: string) => {
+                              if (comboSortField === field) {
+                                setComboSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+                              } else {
+                                setComboSortField(field as any);
+                                setComboSortDirection('asc');
+                              }
+                            }}
+                          >
+                            Products
+                          </SortButton>
+                        </th>
                         <th className="text-left p-4">
                           <SortButton
                             field="price"
@@ -1609,22 +1966,6 @@ const AdminPanel: React.FC = () => {
                   itemsPerPage={combosPerPage}
                   onPageChange={setComboPage}
                 />
-                
-                {paginatedCombos.length < filteredCombos.length && (
-                  <div className="text-center py-4 border-t">
-                    <button
-                      onClick={loadMoreData}
-                      disabled={loadingMore}
-                      className="px-4 py-2 text-premium-gold hover:text-premium-burgundy font-medium disabled:opacity-50"
-                    >
-                      {loadingMore ? (
-                        <Loader className="h-5 w-5 animate-spin mx-auto" />
-                      ) : (
-                        `Load More (${filteredCombos.length - paginatedCombos.length} remaining)`
-                      )}
-                    </button>
-                  </div>
-                )}
               </>
             )}
           </div>
