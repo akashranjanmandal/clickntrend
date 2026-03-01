@@ -4,7 +4,9 @@ import {
   RefreshCw, Plus, Edit, Trash2, Download, Search,
   ShoppingBag, MapPin, Phone, Mail, Calendar,
   BarChart3, Shield, Printer, XCircle, Tag, Copy,
-  Image as ImageIcon, Star, Video, Gift, ChevronDown
+  Image as ImageIcon, Star, Video, Gift, ChevronDown,
+  ChevronUp, ChevronsLeft, ChevronsRight, ArrowUpDown,
+  Loader
 } from 'lucide-react';
 import { Order, Product, Combo, ComboProduct } from '../../types';
 import CategoryManager from './CategoryManager';
@@ -26,6 +28,7 @@ const AdminPanel: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [combos, setCombos] = useState<Combo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'products' | 'combos' | 'coupons' | 'categories' | 'hero' |'reviews' |'popups' | 'logo'>('dashboard');
   const [showProductUpload, setShowProductUpload] = useState(false);
   const [showComboManager, setShowComboManager] = useState(false);
@@ -34,15 +37,32 @@ const AdminPanel: React.FC = () => {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showInvoice, setShowInvoice] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [editingCombo, setEditingCombo] = useState<Combo | null>(null);
   const [copySuccess, setCopySuccess] = useState<string>('');
 
-  const handleEditCombo = (combo: Combo) => {
-    setEditingCombo(combo);
-    setShowComboManager(true);
-  };
+  // Pagination states for orders
+  const [orderPage, setOrderPage] = useState(1);
+  const [ordersPerPage] = useState(20);
+  const [orderSortField, setOrderSortField] = useState<'date' | 'status' | 'amount' | 'name'>('date');
+  const [orderSortDirection, setOrderSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
+  const [paginatedOrders, setPaginatedOrders] = useState<Order[]>([]);
+
+  // Pagination states for products
+  const [productPage, setProductPage] = useState(1);
+  const [productsPerPage] = useState(20);
+  const [productSortField, setProductSortField] = useState<'name' | 'price' | 'stock' | 'category'>('name');
+  const [productSortDirection, setProductSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const [paginatedProducts, setPaginatedProducts] = useState<Product[]>([]);
+
+  // Pagination states for combos
+  const [comboPage, setComboPage] = useState(1);
+  const [combosPerPage] = useState(20);
+  const [comboSortField, setComboSortField] = useState<'name' | 'price' | 'status'>('name');
+  const [comboSortDirection, setComboSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [filteredCombos, setFilteredCombos] = useState<Combo[]>([]);
+  const [paginatedCombos, setPaginatedCombos] = useState<Combo[]>([]);
 
   const [stats, setStats] = useState({
     totalOrders: 0,
@@ -59,29 +79,155 @@ const AdminPanel: React.FC = () => {
     fetchDashboardData();
   }, []);
 
+  // Filter and sort orders
   useEffect(() => {
-    if (searchQuery.trim() === '') {
-      setFilteredOrders(orders);
-      setFilteredProducts(products);
-    } else {
+    if (!orders.length) return;
+    
+    let filtered = [...orders];
+    
+    // Apply search filter
+    if (searchQuery.trim() !== '') {
       const query = searchQuery.toLowerCase();
-      setFilteredOrders(
-        orders.filter(order => 
-          order.customer_name.toLowerCase().includes(query) ||
-          order.customer_email.toLowerCase().includes(query) ||
-          order.id.toLowerCase().includes(query) ||
-          (order.customer_phone && order.customer_phone.includes(query))
-        )
-      );
-      setFilteredProducts(
-        products.filter(product => 
-          product.name.toLowerCase().includes(query) ||
-          product.description.toLowerCase().includes(query) ||
-          product.category.toLowerCase().includes(query)
-        )
+      filtered = filtered.filter(order => 
+        order.customer_name.toLowerCase().includes(query) ||
+        order.customer_email.toLowerCase().includes(query) ||
+        order.id.toLowerCase().includes(query) ||
+        (order.customer_phone && order.customer_phone.includes(query))
       );
     }
-  }, [searchQuery, orders, products]);
+    
+    // Apply sorting
+    filtered.sort((a, b) => {
+      let comparison = 0;
+      switch (orderSortField) {
+        case 'date':
+          comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+          break;
+        case 'status':
+          comparison = a.status.localeCompare(b.status);
+          break;
+        case 'amount':
+          comparison = a.total_amount - b.total_amount;
+          break;
+        case 'name':
+          comparison = a.customer_name.localeCompare(b.customer_name);
+          break;
+        default:
+          comparison = 0;
+      }
+      return orderSortDirection === 'asc' ? comparison : -comparison;
+    });
+    
+    setFilteredOrders(filtered);
+    setOrderPage(1);
+  }, [orders, searchQuery, orderSortField, orderSortDirection]);
+
+  // Filter and sort products
+  useEffect(() => {
+    if (!products.length) return;
+    
+    let filtered = [...products];
+    
+    // Apply search filter
+    if (searchQuery.trim() !== '') {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(product => 
+        product.name.toLowerCase().includes(query) ||
+        product.description.toLowerCase().includes(query) ||
+        product.category.toLowerCase().includes(query)
+      );
+    }
+    
+    // Apply sorting
+    filtered.sort((a, b) => {
+      let comparison = 0;
+      switch (productSortField) {
+        case 'name':
+          comparison = a.name.localeCompare(b.name);
+          break;
+        case 'price':
+          comparison = a.price - b.price;
+          break;
+        case 'stock':
+          comparison = (a.stock_quantity || 0) - (b.stock_quantity || 0);
+          break;
+        case 'category':
+          comparison = a.category.localeCompare(b.category);
+          break;
+        default:
+          comparison = 0;
+      }
+      return productSortDirection === 'asc' ? comparison : -comparison;
+    });
+    
+    setFilteredProducts(filtered);
+    setProductPage(1);
+  }, [products, searchQuery, productSortField, productSortDirection]);
+
+  // Filter and sort combos
+  useEffect(() => {
+    if (!combos.length) return;
+    
+    let filtered = [...combos];
+    
+    // Apply search filter
+    if (searchQuery.trim() !== '') {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(combo => 
+        combo.name.toLowerCase().includes(query) ||
+        combo.description.toLowerCase().includes(query)
+      );
+    }
+    
+    // Apply sorting
+    filtered.sort((a, b) => {
+      let comparison = 0;
+      switch (comboSortField) {
+        case 'name':
+          comparison = a.name.localeCompare(b.name);
+          break;
+        case 'price':
+          const aPrice = a.discount_price || a.discount_percentage 
+            ? a.combo_products?.reduce((sum, cp) => sum + (cp.product?.price || 0) * (cp.quantity || 1), 0) * (1 - (a.discount_percentage || 0) / 100)
+            : a.combo_products?.reduce((sum, cp) => sum + (cp.product?.price || 0) * (cp.quantity || 1), 0) || 0;
+          const bPrice = b.discount_price || b.discount_percentage 
+            ? b.combo_products?.reduce((sum, cp) => sum + (cp.product?.price || 0) * (cp.quantity || 1), 0) * (1 - (b.discount_percentage || 0) / 100)
+            : b.combo_products?.reduce((sum, cp) => sum + (cp.product?.price || 0) * (cp.quantity || 1), 0) || 0;
+          comparison = aPrice - bPrice;
+          break;
+        case 'status':
+          comparison = (a.is_active ? 1 : 0) - (b.is_active ? 1 : 0);
+          break;
+        default:
+          comparison = 0;
+      }
+      return comboSortDirection === 'asc' ? comparison : -comparison;
+    });
+    
+    setFilteredCombos(filtered);
+    setComboPage(1);
+  }, [combos, searchQuery, comboSortField, comboSortDirection]);
+
+  // Update paginated orders
+  useEffect(() => {
+    const startIndex = (orderPage - 1) * ordersPerPage;
+    const endIndex = startIndex + ordersPerPage;
+    setPaginatedOrders(filteredOrders.slice(startIndex, endIndex));
+  }, [filteredOrders, orderPage, ordersPerPage]);
+
+  // Update paginated products
+  useEffect(() => {
+    const startIndex = (productPage - 1) * productsPerPage;
+    const endIndex = startIndex + productsPerPage;
+    setPaginatedProducts(filteredProducts.slice(startIndex, endIndex));
+  }, [filteredProducts, productPage, productsPerPage]);
+
+  // Update paginated combos
+  useEffect(() => {
+    const startIndex = (comboPage - 1) * combosPerPage;
+    const endIndex = startIndex + combosPerPage;
+    setPaginatedCombos(filteredCombos.slice(startIndex, endIndex));
+  }, [filteredCombos, comboPage, combosPerPage]);
 
   const fetchDashboardData = async () => {
     try {
@@ -94,9 +240,7 @@ const AdminPanel: React.FC = () => {
       ]);
 
       setOrders(ordersData);
-      setFilteredOrders(ordersData);
       setProducts(productsData);
-      setFilteredProducts(productsData);
       setCombos(combosData);
 
       const totalRevenue = ordersData.reduce(
@@ -134,6 +278,13 @@ const AdminPanel: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadMoreData = async () => {
+    setLoadingMore(true);
+    // Simulate loading more data
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    setLoadingMore(false);
   };
 
   const deleteCombo = async (comboId: string) => {
@@ -206,6 +357,11 @@ const AdminPanel: React.FC = () => {
     setShowEditProduct(true);
   };
 
+  const handleEditCombo = (combo: Combo) => {
+    setEditingCombo(combo);
+    setShowComboManager(true);
+  };
+
   const handleLogout = () => {
     localStorage.removeItem('admin_token');
     window.location.href = '/admin';
@@ -240,7 +396,7 @@ const AdminPanel: React.FC = () => {
   };
 
   const exportOrdersCSV = () => {
-    const csvData = orders.map(order => ({
+    const csvData = filteredOrders.map(order => ({
       'Order ID': order.id,
       'Date': new Date(order.created_at).toLocaleDateString(),
       'Customer Name': order.customer_name,
@@ -289,6 +445,82 @@ const AdminPanel: React.FC = () => {
       document.body.innerHTML = originalContent;
       window.location.reload();
     }
+  };
+
+  // Sort button component
+  const SortButton = ({ field, currentField, direction, onSort, children }: any) => (
+    <button
+      onClick={() => onSort(field)}
+      className="flex items-center gap-1 hover:text-premium-gold transition-colors"
+    >
+      {children}
+      {currentField === field ? (
+        direction === 'asc' ? (
+          <ChevronUp className="h-4 w-4" />
+        ) : (
+          <ChevronDown className="h-4 w-4" />
+        )
+      ) : (
+        <ArrowUpDown className="h-4 w-4 opacity-30" />
+      )}
+    </button>
+  );
+
+  // Pagination component
+  const Pagination = ({ currentPage, totalItems, itemsPerPage, onPageChange }: any) => {
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    if (totalPages <= 1) return null;
+
+    const pageNumbers = [];
+    const maxVisible = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+    
+    if (endPage - startPage + 1 < maxVisible) {
+      startPage = Math.max(1, endPage - maxVisible + 1);
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      pageNumbers.push(i);
+    }
+
+    return (
+      <div className="flex items-center justify-between px-6 py-4 border-t">
+        <div className="text-sm text-gray-600">
+          Showing {Math.min((currentPage - 1) * itemsPerPage + 1, totalItems)} to{' '}
+          {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} results
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => onPageChange(1)}
+            disabled={currentPage === 1}
+            className="p-2 hover:bg-gray-100 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <ChevronsLeft className="h-5 w-5" />
+          </button>
+          {pageNumbers.map(number => (
+            <button
+              key={number}
+              onClick={() => onPageChange(number)}
+              className={`px-3 py-1 rounded ${
+                currentPage === number
+                  ? 'bg-premium-gold text-white'
+                  : 'hover:bg-gray-100'
+              }`}
+            >
+              {number}
+            </button>
+          ))}
+          <button
+            onClick={() => onPageChange(totalPages)}
+            disabled={currentPage === totalPages}
+            className="p-2 hover:bg-gray-100 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <ChevronsRight className="h-5 w-5" />
+          </button>
+        </div>
+      </div>
+    );
   };
 
   if (loading && activeTab === 'dashboard') {
@@ -714,106 +946,182 @@ const AdminPanel: React.FC = () => {
                 )}
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="text-left p-4">Order ID</th>
-                      <th className="text-left p-4">Customer</th>
-                      <th className="text-left p-4">Contact</th>
-                      <th className="text-left p-4">Amount</th>
-                      <th className="text-left p-4">Status</th>
-                      <th className="text-left p-4">Customization</th>
-                      <th className="text-left p-4">Date</th>
-                      <th className="text-left p-4">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredOrders.map((order) => {
-                      const hasCustomization = Array.isArray(order.items) 
-                        ? order.items.some((item: any) => item.customization)
-                        : false;
-                      
-                      return (
-                        <tr key={order.id} className="border-b hover:bg-gray-50">
-                          <td className="p-4">
-                            <div className="font-mono text-sm">{order.id.slice(0, 8)}...</div>
-                          </td>
-                          <td className="p-4">
-                            <div>
-                              <p className="font-medium">{order.customer_name}</p>
-                              <p className="text-sm text-gray-600 flex items-center">
-                                <MapPin className="h-3 w-3 mr-1" />
-                                {order.shipping_city || 'N/A'}
-                              </p>
-                            </div>
-                          </td>
-                          <td className="p-4">
-                            <div className="space-y-1">
-                              <p className="text-sm flex items-center">
-                                <Mail className="h-3 w-3 mr-1" />
-                                {order.customer_email}
-                              </p>
-                              <p className="text-sm flex items-center">
-                                <Phone className="h-3 w-3 mr-1" />
-                                {order.customer_phone || 'N/A'}
-                              </p>
-                            </div>
-                          </td>
-                          <td className="p-4 font-semibold">
-                            {formatCurrency(order.total_amount)}
-                          </td>
-                          <td className="p-4">
-                            <select
-                              value={order.status}
-                              onChange={(e) => updateOrderStatus(order.id, e.target.value)}
-                              className={`px-3 py-1 rounded text-xs font-medium border ${getStatusColor(order.status)} focus:outline-none`}
-                            >
-                              <option value="pending">PENDING</option>
-                              <option value="processing">PROCESSING</option>
-                              <option value="paid">PAID</option>
-                              <option value="shipped">SHIPPED</option>
-                              <option value="delivered">DELIVERED</option>
-                              <option value="cancelled">CANCELLED</option>
-                            </select>
-                          </td>
-                          <td className="p-4">
-                            {hasCustomization ? (
-                              <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
-                                Yes
-                              </span>
-                            ) : (
-                              <span className="text-gray-400 text-xs">No</span>
-                            )}
-                          </td>
-                          <td className="p-4 text-sm text-gray-600">
-                            <div className="flex items-center">
-                              <Calendar className="h-3 w-3 mr-1" />
-                              {new Date(order.created_at).toLocaleDateString()}
-                            </div>
-                          </td>
-                          <td className="p-4">
-                            <div className="flex space-x-2">
-                              <button
-                                onClick={() => setSelectedOrder(order)}
-                                className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm hover:bg-blue-200 transition-colors"
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="text-left p-4">Order ID</th>
+                        <th className="text-left p-4">
+                          <SortButton
+                            field="name"
+                            currentField={orderSortField}
+                            direction={orderSortDirection}
+                            onSort={(field: string) => {
+                              if (orderSortField === field) {
+                                setOrderSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+                              } else {
+                                setOrderSortField(field as any);
+                                setOrderSortDirection('asc');
+                              }
+                            }}
+                          >
+                            Customer
+                          </SortButton>
+                        </th>
+                        <th className="text-left p-4">
+                          <SortButton
+                            field="amount"
+                            currentField={orderSortField}
+                            direction={orderSortDirection}
+                            onSort={(field: string) => {
+                              if (orderSortField === field) {
+                                setOrderSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+                              } else {
+                                setOrderSortField(field as any);
+                                setOrderSortDirection('asc');
+                              }
+                            }}
+                          >
+                            Amount
+                          </SortButton>
+                        </th>
+                        <th className="text-left p-4">
+                          <SortButton
+                            field="status"
+                            currentField={orderSortField}
+                            direction={orderSortDirection}
+                            onSort={(field: string) => {
+                              if (orderSortField === field) {
+                                setOrderSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+                              } else {
+                                setOrderSortField(field as any);
+                                setOrderSortDirection('asc');
+                              }
+                            }}
+                          >
+                            Status
+                          </SortButton>
+                        </th>
+                        <th className="text-left p-4">Customization</th>
+                        <th className="text-left p-4">
+                          <SortButton
+                            field="date"
+                            currentField={orderSortField}
+                            direction={orderSortDirection}
+                            onSort={(field: string) => {
+                              if (orderSortField === field) {
+                                setOrderSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+                              } else {
+                                setOrderSortField(field as any);
+                                setOrderSortDirection('desc');
+                              }
+                            }}
+                          >
+                            Date
+                          </SortButton>
+                        </th>
+                        <th className="text-left p-4">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedOrders.map((order) => {
+                        const hasCustomization = Array.isArray(order.items) 
+                          ? order.items.some((item: any) => item.customization)
+                          : false;
+                        
+                        return (
+                          <tr key={order.id} className="border-b hover:bg-gray-50">
+                            <td className="p-4">
+                              <div className="font-mono text-sm">{order.id.slice(0, 8)}...</div>
+                            </td>
+                            <td className="p-4">
+                              <div>
+                                <p className="font-medium">{order.customer_name}</p>
+                                <p className="text-sm text-gray-600 flex items-center">
+                                  <MapPin className="h-3 w-3 mr-1" />
+                                  {order.shipping_city || 'N/A'}
+                                </p>
+                              </div>
+                            </td>
+                            <td className="p-4 font-semibold">
+                              {formatCurrency(order.total_amount)}
+                            </td>
+                            <td className="p-4">
+                              <select
+                                value={order.status}
+                                onChange={(e) => updateOrderStatus(order.id, e.target.value)}
+                                className={`px-3 py-1 rounded text-xs font-medium border ${getStatusColor(order.status)} focus:outline-none`}
                               >
-                                View
-                              </button>
-                              <button
-                                onClick={() => updateOrderStatus(order.id, 'shipped', `TRK${Date.now()}`)}
-                                className="px-3 py-1 bg-green-100 text-green-700 rounded text-sm hover:bg-green-200 transition-colors"
-                              >
-                                Ship
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                                <option value="pending">PENDING</option>
+                                <option value="processing">PROCESSING</option>
+                                <option value="paid">PAID</option>
+                                <option value="shipped">SHIPPED</option>
+                                <option value="delivered">DELIVERED</option>
+                                <option value="cancelled">CANCELLED</option>
+                              </select>
+                            </td>
+                            <td className="p-4">
+                              {hasCustomization ? (
+                                <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
+                                  Yes
+                                </span>
+                              ) : (
+                                <span className="text-gray-400 text-xs">No</span>
+                              )}
+                            </td>
+                            <td className="p-4 text-sm text-gray-600">
+                              <div className="flex items-center">
+                                <Calendar className="h-3 w-3 mr-1" />
+                                {new Date(order.created_at).toLocaleDateString()}
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              <div className="flex space-x-2">
+                                <button
+                                  onClick={() => setSelectedOrder(order)}
+                                  className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm hover:bg-blue-200 transition-colors"
+                                >
+                                  View
+                                </button>
+                                <button
+                                  onClick={() => updateOrderStatus(order.id, 'shipped', `TRK${Date.now()}`)}
+                                  className="px-3 py-1 bg-green-100 text-green-700 rounded text-sm hover:bg-green-200 transition-colors"
+                                >
+                                  Ship
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                
+                <Pagination
+                  currentPage={orderPage}
+                  totalItems={filteredOrders.length}
+                  itemsPerPage={ordersPerPage}
+                  onPageChange={setOrderPage}
+                />
+                
+                {paginatedOrders.length < filteredOrders.length && (
+                  <div className="text-center py-4 border-t">
+                    <button
+                      onClick={loadMoreData}
+                      disabled={loadingMore}
+                      className="px-4 py-2 text-premium-gold hover:text-premium-burgundy font-medium disabled:opacity-50"
+                    >
+                      {loadingMore ? (
+                        <Loader className="h-5 w-5 animate-spin mx-auto" />
+                      ) : (
+                        `Load More (${filteredOrders.length - paginatedOrders.length} remaining)`
+                      )}
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
@@ -857,112 +1165,201 @@ const AdminPanel: React.FC = () => {
                 )}
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="text-left p-4">Image</th>
-                      <th className="text-left p-4">Name</th>
-                      <th className="text-left p-4">Category</th>
-                      <th className="text-left p-4">Gender</th>
-                      <th className="text-left p-4">Price</th>
-                      <th className="text-left p-4">Stock</th>
-                      <th className="text-left p-4">Customizable</th>
-                      <th className="text-left p-4">Status</th>
-                      <th className="text-left p-4">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredProducts.map((product) => (
-                      <tr key={product.id} className="border-b hover:bg-gray-50">
-                        <td className="p-4">
-                          <img
-                            src={getImageUrl(product.image_url)}
-                            alt={product.name}
-                            className="w-16 h-16 object-cover rounded-lg"
-                          />
-                        </td>
-                        <td className="p-4">
-                          <div>
-                            <p className="font-medium">{product.name}</p>
-                            <p className="text-sm text-gray-600 line-clamp-1">{product.description}</p>
-                          </div>
-                        </td>
-                        <td className="p-4">
-                          <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded text-xs">
-                            {product.category}
-                          </span>
-                        </td>
-                        <td className="p-4">
-                          <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs capitalize">
-                            {product.gender || 'unisex'}
-                          </span>
-                        </td>
-                        <td className="p-4">
-                          <div>
-                            <p className="font-semibold">{formatCurrency(product.price)}</p>
-                            {product.discount_percentage && (
-                              <p className="text-sm text-red-600">
-                                -{product.discount_percentage}%
-                              </p>
-                            )}
-                          </div>
-                        </td>
-                        <td className="p-4">
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                            product.stock_quantity > 10 
-                              ? 'bg-green-100 text-green-800' 
-                              : product.stock_quantity > 0 
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : 'bg-red-100 text-red-800'
-                          }`}>
-                            {product.stock_quantity} in stock
-                          </span>
-                        </td>
-                        <td className="p-4">
-                          {product.is_customizable ? (
-                            <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
-                              Yes
-                            </span>
-                          ) : (
-                            <span className="text-gray-400 text-xs">No</span>
-                          )}
-                        </td>
-                        <td className="p-4">
-                          <button
-                            onClick={() => toggleProductStatus(product)}
-                            className={`px-3 py-1 rounded-full text-xs font-medium ${
-                              product.is_active 
-                                ? 'bg-green-100 text-green-800 hover:bg-green-200' 
-                                : 'bg-red-100 text-red-800 hover:bg-red-200'
-                            }`}
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="text-left p-4">Image</th>
+                        <th className="text-left p-4">
+                          <SortButton
+                            field="name"
+                            currentField={productSortField}
+                            direction={productSortDirection}
+                            onSort={(field: string) => {
+                              if (productSortField === field) {
+                                setProductSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+                              } else {
+                                setProductSortField(field as any);
+                                setProductSortDirection('asc');
+                              }
+                            }}
                           >
-                            {product.is_active ? 'Active' : 'Inactive'}
-                          </button>
-                        </td>
-                        <td className="p-4">
-                          <div className="flex space-x-2">
-                            <button 
-                              onClick={() => handleEditProduct(product)}
-                              className="p-2 hover:bg-gray-100 rounded transition-colors"
-                              title="Edit"
-                            >
-                              <Edit className="h-4 w-4 text-blue-600" />
-                            </button>
-                            <button 
-                              onClick={() => deleteProduct(product.id)}
-                              className="p-2 hover:bg-gray-100 rounded transition-colors"
-                              title="Delete"
-                            >
-                              <Trash2 className="h-4 w-4 text-red-600" />
-                            </button>
-                          </div>
-                        </td>
+                            Name
+                          </SortButton>
+                        </th>
+                        <th className="text-left p-4">
+                          <SortButton
+                            field="category"
+                            currentField={productSortField}
+                            direction={productSortDirection}
+                            onSort={(field: string) => {
+                              if (productSortField === field) {
+                                setProductSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+                              } else {
+                                setProductSortField(field as any);
+                                setProductSortDirection('asc');
+                              }
+                            }}
+                          >
+                            Category
+                          </SortButton>
+                        </th>
+                        <th className="text-left p-4">Gender</th>
+                        <th className="text-left p-4">
+                          <SortButton
+                            field="price"
+                            currentField={productSortField}
+                            direction={productSortDirection}
+                            onSort={(field: string) => {
+                              if (productSortField === field) {
+                                setProductSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+                              } else {
+                                setProductSortField(field as any);
+                                setProductSortDirection('asc');
+                              }
+                            }}
+                          >
+                            Price
+                          </SortButton>
+                        </th>
+                        <th className="text-left p-4">
+                          <SortButton
+                            field="stock"
+                            currentField={productSortField}
+                            direction={productSortDirection}
+                            onSort={(field: string) => {
+                              if (productSortField === field) {
+                                setProductSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+                              } else {
+                                setProductSortField(field as any);
+                                setProductSortDirection('asc');
+                              }
+                            }}
+                          >
+                            Stock
+                          </SortButton>
+                        </th>
+                        <th className="text-left p-4">Customizable</th>
+                        <th className="text-left p-4">Status</th>
+                        <th className="text-left p-4">Actions</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {paginatedProducts.map((product) => (
+                        <tr key={product.id} className="border-b hover:bg-gray-50">
+                          <td className="p-4">
+                            <img
+                              src={getImageUrl(product.image_url)}
+                              alt={product.name}
+                              className="w-16 h-16 object-cover rounded-lg"
+                            />
+                          </td>
+                          <td className="p-4">
+                            <div>
+                              <p className="font-medium">{product.name}</p>
+                              <p className="text-sm text-gray-600 line-clamp-1">{product.description}</p>
+                            </div>
+                          </td>
+                          <td className="p-4">
+                            <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded text-xs">
+                              {product.category}
+                            </span>
+                          </td>
+                          <td className="p-4">
+                            <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs capitalize">
+                              {product.gender || 'unisex'}
+                            </span>
+                          </td>
+                          <td className="p-4">
+                            <div>
+                              <p className="font-semibold">{formatCurrency(product.price)}</p>
+                              {product.discount_percentage && (
+                                <p className="text-sm text-red-600">
+                                  -{product.discount_percentage}%
+                                </p>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-4">
+                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                              product.stock_quantity > 10 
+                                ? 'bg-green-100 text-green-800' 
+                                : product.stock_quantity > 0 
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : 'bg-red-100 text-red-800'
+                            }`}>
+                              {product.stock_quantity} in stock
+                            </span>
+                          </td>
+                          <td className="p-4">
+                            {product.is_customizable ? (
+                              <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
+                                Yes
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 text-xs">No</span>
+                            )}
+                          </td>
+                          <td className="p-4">
+                            <button
+                              onClick={() => toggleProductStatus(product)}
+                              className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                product.is_active 
+                                  ? 'bg-green-100 text-green-800 hover:bg-green-200' 
+                                  : 'bg-red-100 text-red-800 hover:bg-red-200'
+                              }`}
+                            >
+                              {product.is_active ? 'Active' : 'Inactive'}
+                            </button>
+                          </td>
+                          <td className="p-4">
+                            <div className="flex space-x-2">
+                              <button 
+                                onClick={() => handleEditProduct(product)}
+                                className="p-2 hover:bg-gray-100 rounded transition-colors"
+                                title="Edit"
+                              >
+                                <Edit className="h-4 w-4 text-blue-600" />
+                              </button>
+                              <button 
+                                onClick={() => deleteProduct(product.id)}
+                                className="p-2 hover:bg-gray-100 rounded transition-colors"
+                                title="Delete"
+                              >
+                                <Trash2 className="h-4 w-4 text-red-600" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                
+                <Pagination
+                  currentPage={productPage}
+                  totalItems={filteredProducts.length}
+                  itemsPerPage={productsPerPage}
+                  onPageChange={setProductPage}
+                />
+                
+                {paginatedProducts.length < filteredProducts.length && (
+                  <div className="text-center py-4 border-t">
+                    <button
+                      onClick={loadMoreData}
+                      disabled={loadingMore}
+                      className="px-4 py-2 text-premium-gold hover:text-premium-burgundy font-medium disabled:opacity-50"
+                    >
+                      {loadingMore ? (
+                        <Loader className="h-5 w-5 animate-spin mx-auto" />
+                      ) : (
+                        `Load More (${filteredProducts.length - paginatedProducts.length} remaining)`
+                      )}
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
@@ -970,7 +1367,7 @@ const AdminPanel: React.FC = () => {
         {activeTab === 'combos' && (
           <div className="bg-white rounded-xl shadow border border-gray-100 overflow-hidden">
             <div className="px-6 py-4 border-b flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <h2 className="text-xl font-semibold">All Combos ({combos.length})</h2>
+              <h2 className="text-xl font-semibold">All Combos ({filteredCombos.length})</h2>
               <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -992,7 +1389,7 @@ const AdminPanel: React.FC = () => {
               </div>
             </div>
             
-            {combos.length === 0 ? (
+            {filteredCombos.length === 0 ? (
               <div className="p-8 text-center">
                 <Package className="h-12 w-12 text-gray-300 mx-auto mb-4" />
                 <p className="text-gray-500">No combos created yet</p>
@@ -1004,142 +1401,215 @@ const AdminPanel: React.FC = () => {
                 </button>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="text-left p-4">Image</th>
-                      <th className="text-left p-4">Name</th>
-                      <th className="text-left p-4">Products</th>
-                      <th className="text-left p-4">Price</th>
-                      <th className="text-left p-4">Status</th>
-                      <th className="text-left p-4">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {combos.map((combo) => {
-                      const comboProducts = combo.combo_products || [];
-                      const totalValue = comboProducts.reduce(
-                        (sum: number, cp: ComboProduct) => 
-                          sum + (cp.product?.price || 0) * (cp.quantity || 1), 
-                        0
-                      );
-                      
-                      const discountedPrice = combo.discount_percentage 
-                        ? totalValue * (1 - combo.discount_percentage / 100)
-                        : combo.discount_price || totalValue;
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="text-left p-4">Image</th>
+                        <th className="text-left p-4">
+                          <SortButton
+                            field="name"
+                            currentField={comboSortField}
+                            direction={comboSortDirection}
+                            onSort={(field: string) => {
+                              if (comboSortField === field) {
+                                setComboSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+                              } else {
+                                setComboSortField(field as any);
+                                setComboSortDirection('asc');
+                              }
+                            }}
+                          >
+                            Name
+                          </SortButton>
+                        </th>
+                        <th className="text-left p-4">Products</th>
+                        <th className="text-left p-4">
+                          <SortButton
+                            field="price"
+                            currentField={comboSortField}
+                            direction={comboSortDirection}
+                            onSort={(field: string) => {
+                              if (comboSortField === field) {
+                                setComboSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+                              } else {
+                                setComboSortField(field as any);
+                                setComboSortDirection('asc');
+                              }
+                            }}
+                          >
+                            Price
+                          </SortButton>
+                        </th>
+                        <th className="text-left p-4">
+                          <SortButton
+                            field="status"
+                            currentField={comboSortField}
+                            direction={comboSortDirection}
+                            onSort={(field: string) => {
+                              if (comboSortField === field) {
+                                setComboSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+                              } else {
+                                setComboSortField(field as any);
+                                setComboSortDirection('asc');
+                              }
+                            }}
+                          >
+                            Status
+                          </SortButton>
+                        </th>
+                        <th className="text-left p-4">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedCombos.map((combo) => {
+                        const comboProducts = combo.combo_products || [];
+                        const totalValue = comboProducts.reduce(
+                          (sum: number, cp: ComboProduct) => 
+                            sum + (cp.product?.price || 0) * (cp.quantity || 1), 
+                          0
+                        );
+                        
+                        const discountedPrice = combo.discount_percentage 
+                          ? totalValue * (1 - combo.discount_percentage / 100)
+                          : combo.discount_price || totalValue;
 
-                      // Get unique genders from combo products
-                      const genders = [...new Set(
-                        comboProducts
-                          .map(cp => cp.product?.gender)
-                          .filter(Boolean)
-                      )];
+                        // Get unique genders from combo products
+                        const genders = [...new Set(
+                          comboProducts
+                            .map(cp => cp.product?.gender)
+                            .filter(Boolean)
+                        )];
 
-                      return (
-                        <tr key={combo.id} className="border-b hover:bg-gray-50">
-                          <td className="p-4">
-                            <img
-                              src={getImageUrl(combo.image_url)}
-                              alt={combo.name}
-                              className="w-16 h-16 object-cover rounded-lg"
-                              onError={(e) => {
-                                e.currentTarget.src = 'https://images.unsplash.com/photo-1511381939415-e44015466834?w=200&h=200&fit=crop';
-                              }}
-                            />
-                          </td>
-                          <td className="p-4">
-                            <div>
-                              <p className="font-medium">{combo.name}</p>
-                              <p className="text-sm text-gray-600 line-clamp-2">{combo.description}</p>
-                              {combo.discount_percentage && (
-                                <span className="inline-block mt-1 px-2 py-1 bg-red-100 text-red-800 text-xs rounded">
-                                  {combo.discount_percentage}% OFF
-                                </span>
-                              )}
-                              {genders.length > 0 && (
-                                <div className="flex gap-1 mt-2">
-                                  {genders.map(gender => (
-                                    <span key={gender} className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs capitalize">
-                                      {gender}
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          </td>
-                          <td className="p-4">
-                            <div className="flex -space-x-2">
-                              {comboProducts.slice(0, 4).map((cp: ComboProduct, idx: number) => (
-                                <div key={idx} className="w-8 h-8 rounded-full border-2 border-white bg-gray-200 overflow-hidden">
-                                  <img 
-                                    src={getImageUrl(cp.product?.image_url)} 
-                                    alt={cp.product?.name}
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => {
-                                      e.currentTarget.src = 'https://images.unsplash.com/photo-1511381939415-e44015466834?w=100&h=100&fit=crop';
-                                    }}
-                                  />
-                                </div>
-                              ))}
-                              {comboProducts.length > 4 && (
-                                <div className="w-8 h-8 rounded-full border-2 border-white bg-gray-800 text-white text-xs flex items-center justify-center">
-                                  +{comboProducts.length - 4}
-                                </div>
-                              )}
-                            </div>
-                            <p className="text-xs text-gray-500 mt-2">
-                              {comboProducts.length} products
-                            </p>
-                          </td>
-                          <td className="p-4">
-                            <div>
-                              {combo.discount_percentage && (
-                                <p className="text-sm text-gray-500 line-through">
-                                  {formatCurrency(totalValue)}
-                                </p>
-                              )}
-                              <p className="font-semibold text-premium-gold">
-                                {formatCurrency(discountedPrice)}
+                        return (
+                          <tr key={combo.id} className="border-b hover:bg-gray-50">
+                            <td className="p-4">
+                              <img
+                                src={getImageUrl(combo.image_url)}
+                                alt={combo.name}
+                                className="w-16 h-16 object-cover rounded-lg"
+                                onError={(e) => {
+                                  e.currentTarget.src = 'https://images.unsplash.com/photo-1511381939415-e44015466834?w=200&h=200&fit=crop';
+                                }}
+                              />
+                            </td>
+                            <td className="p-4">
+                              <div>
+                                <p className="font-medium">{combo.name}</p>
+                                <p className="text-sm text-gray-600 line-clamp-2">{combo.description}</p>
+                                {combo.discount_percentage && (
+                                  <span className="inline-block mt-1 px-2 py-1 bg-red-100 text-red-800 text-xs rounded">
+                                    {combo.discount_percentage}% OFF
+                                  </span>
+                                )}
+                                {genders.length > 0 && (
+                                  <div className="flex gap-1 mt-2">
+                                    {genders.map(gender => (
+                                      <span key={gender} className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs capitalize">
+                                        {gender}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              <div className="flex -space-x-2">
+                                {comboProducts.slice(0, 4).map((cp: ComboProduct, idx: number) => (
+                                  <div key={idx} className="w-8 h-8 rounded-full border-2 border-white bg-gray-200 overflow-hidden">
+                                    <img 
+                                      src={getImageUrl(cp.product?.image_url)} 
+                                      alt={cp.product?.name}
+                                      className="w-full h-full object-cover"
+                                      onError={(e) => {
+                                        e.currentTarget.src = 'https://images.unsplash.com/photo-1511381939415-e44015466834?w=100&h=100&fit=crop';
+                                      }}
+                                    />
+                                  </div>
+                                ))}
+                                {comboProducts.length > 4 && (
+                                  <div className="w-8 h-8 rounded-full border-2 border-white bg-gray-800 text-white text-xs flex items-center justify-center">
+                                    +{comboProducts.length - 4}
+                                  </div>
+                                )}
+                              </div>
+                              <p className="text-xs text-gray-500 mt-2">
+                                {comboProducts.length} products
                               </p>
-                            </div>
-                          </td>
-                          <td className="p-4">
-                            <button
-                              onClick={() => toggleComboStatus(combo)}
-                              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                                combo.is_active 
-                                  ? 'bg-green-100 text-green-800 hover:bg-green-200' 
-                                  : 'bg-red-100 text-red-800 hover:bg-red-200'
-                              }`}
-                            >
-                              {combo.is_active ? 'Active' : 'Inactive'}
-                            </button>
-                          </td>
-                          <td className="p-4">
-                            <div className="flex space-x-2">
-                              <button 
-                                onClick={() => handleEditCombo(combo)}
-                                className="p-2 hover:bg-gray-100 rounded transition-colors"
-                                title="Edit"
+                            </td>
+                            <td className="p-4">
+                              <div>
+                                {combo.discount_percentage && (
+                                  <p className="text-sm text-gray-500 line-through">
+                                    {formatCurrency(totalValue)}
+                                  </p>
+                                )}
+                                <p className="font-semibold text-premium-gold">
+                                  {formatCurrency(discountedPrice)}
+                                </p>
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              <button
+                                onClick={() => toggleComboStatus(combo)}
+                                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                                  combo.is_active 
+                                    ? 'bg-green-100 text-green-800 hover:bg-green-200' 
+                                    : 'bg-red-100 text-red-800 hover:bg-red-200'
+                                }`}
                               >
-                                <Edit className="h-4 w-4 text-blue-600" />
+                                {combo.is_active ? 'Active' : 'Inactive'}
                               </button>
-                              <button 
-                                onClick={() => deleteCombo(combo.id)}
-                                className="p-2 hover:bg-gray-100 rounded transition-colors"
-                                title="Delete"
-                              >
-                                <Trash2 className="h-4 w-4 text-red-600" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                            </td>
+                            <td className="p-4">
+                              <div className="flex space-x-2">
+                                <button 
+                                  onClick={() => handleEditCombo(combo)}
+                                  className="p-2 hover:bg-gray-100 rounded transition-colors"
+                                  title="Edit"
+                                >
+                                  <Edit className="h-4 w-4 text-blue-600" />
+                                </button>
+                                <button 
+                                  onClick={() => deleteCombo(combo.id)}
+                                  className="p-2 hover:bg-gray-100 rounded transition-colors"
+                                  title="Delete"
+                                >
+                                  <Trash2 className="h-4 w-4 text-red-600" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                
+                <Pagination
+                  currentPage={comboPage}
+                  totalItems={filteredCombos.length}
+                  itemsPerPage={combosPerPage}
+                  onPageChange={setComboPage}
+                />
+                
+                {paginatedCombos.length < filteredCombos.length && (
+                  <div className="text-center py-4 border-t">
+                    <button
+                      onClick={loadMoreData}
+                      disabled={loadingMore}
+                      className="px-4 py-2 text-premium-gold hover:text-premium-burgundy font-medium disabled:opacity-50"
+                    >
+                      {loadingMore ? (
+                        <Loader className="h-5 w-5 animate-spin mx-auto" />
+                      ) : (
+                        `Load More (${filteredCombos.length - paginatedCombos.length} remaining)`
+                      )}
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
