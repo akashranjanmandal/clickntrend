@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingCart, Star, Eye, PenTool } from 'lucide-react';
+import { ShoppingCart, Eye, Star, PenTool, X } from 'lucide-react';
 import { Product } from '../types';
 import { formatCurrency, getImageUrl } from '../utils/helpers';
 import { useCart } from '../context/CartContext';
@@ -16,14 +16,26 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const [showDetails, setShowDetails] = useState(false);
   const [showCustomization, setShowCustomization] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
-  const [purchaseCount, setPurchaseCount] = useState(product.social_proof_count || 9);
+  const [purchaseCount, setPurchaseCount] = useState<number>(() => {
+    if (product.social_proof_enabled) {
+      const initial = product.social_proof_initial_count || 5;
+      const end = product.social_proof_end_count || 15;
+      return Math.floor(Math.random() * (end - initial + 1)) + initial;
+    }
+    return 0;
+  });
 
   useEffect(() => {
     const fetchSocialProof = async () => {
       try {
         const data = await apiFetch(`/api/social-proof/${product.id}`).catch(() => null);
-        if (data) {
-          setPurchaseCount(data.count || product.social_proof_count || 9);
+        if (data && data.is_enabled) {
+          // Update count based on API response
+          if (data.count) {
+            setPurchaseCount(data.count);
+          }
+          
+          // Track view
           await apiFetch('/api/social-proof/track-view', {
             method: 'POST',
             body: JSON.stringify({ product_id: product.id })
@@ -34,44 +46,53 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       }
     };
 
-    if (product.social_proof_enabled !== false) {
+    if (product.social_proof_enabled) {
       fetchSocialProof();
       
+      // Update count periodically between initial and end range
       const interval = setInterval(() => {
         setPurchaseCount(prev => {
-          const variation = Math.floor(Math.random() * 3) - 1;
-          const newCount = Math.max(5, prev + variation);
-          return newCount;
+          const initial = product.social_proof_initial_count || 5;
+          const end = product.social_proof_end_count || 15;
+          // Generate random number between initial and end
+          return Math.floor(Math.random() * (end - initial + 1)) + initial;
         });
-      }, 10000);
+      }, 8000); // Change every 8 seconds
 
       return () => clearInterval(interval);
     }
-  }, [product.id]);
+  }, [product.id, product.social_proof_enabled, product.social_proof_initial_count, product.social_proof_end_count]);
 
-  const handleAddToCart = (e: React.MouseEvent) => {
+  const handleQuickAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
     
-    if (product.social_proof_enabled !== false) {
+    if (product.social_proof_enabled) {
       apiFetch('/api/social-proof/track-purchase', {
         method: 'POST',
         body: JSON.stringify({ product_id: product.id })
       }).catch(() => {});
     }
 
-    if (product.is_customizable) {
-      setShowCustomization(true);
-    } else {
-      addItem({
-        id: product.id,
-        name: product.name,
-        price: product.price,
-        quantity: 1,
-        image_url: product.image_url,
-        type: 'product',
-        category: product.category
-      });
-    }
+    // Direct add to cart without customization
+    addItem({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      quantity: 1,
+      image_url: product.image_url,
+      type: 'product',
+      category: product.category
+    });
+  };
+
+  const handleShowMore = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowDetails(true);
+  };
+
+  const handleCustomizeFromModal = () => {
+    setShowDetails(false);
+    setShowCustomization(true);
   };
 
   return (
@@ -84,46 +105,30 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           <img
             src={getImageUrl(product.image_url)}
             alt={product.name}
-            className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${
+            className={`w-full h-full object-cover transition-transform duration-300 ${
               imageLoaded ? 'opacity-100' : 'opacity-0'
             }`}
             onLoad={() => setImageLoaded(true)}
           />
-          {product.discount_percentage && (
-            <div className="absolute top-2 left-2 sm:top-3 sm:left-3 bg-premium-burgundy text-white px-2 py-0.5 sm:px-3 sm:py-1 rounded-full text-[10px] sm:text-xs font-semibold shadow-lg">
+          
+          {/* Discount Badge */}
+          {product.discount_percentage && product.discount_percentage > 0 && (
+            <div className="absolute top-2 left-2 sm:top-3 sm:left-3 bg-premium-burgundy text-white px-2 py-0.5 sm:px-3 sm:py-1 rounded-full text-[10px] sm:text-xs font-semibold shadow-lg z-10">
               -{product.discount_percentage}%
             </div>
           )}
           
+          {/* Customizable Badge - Moved to top right */}
           {product.is_customizable && (
-            <div className="absolute top-2 right-2 sm:top-3 sm:right-3 bg-purple-600 text-white px-2 py-0.5 sm:px-3 sm:py-1 rounded-full text-[10px] sm:text-xs font-semibold shadow-lg flex items-center gap-0.5">
+            <div className="absolute top-2 right-2 sm:top-3 sm:right-3 bg-purple-600 text-white px-2 py-0.5 sm:px-3 sm:py-1 rounded-full text-[10px] sm:text-xs font-semibold shadow-lg flex items-center gap-0.5 z-10">
               <PenTool className="h-2.5 w-2.5" />
               <span className="hidden xs:inline">Custom</span>
             </div>
           )}
-          
-          <div className="absolute inset-x-0 bottom-0 translate-y-full group-hover:translate-y-0 transition-transform duration-300 bg-gradient-to-t from-black/70 via-black/50 to-transparent p-2 sm:p-3">
-            <div className="flex gap-1 sm:gap-2">
-              <button
-                onClick={() => setShowDetails(true)}
-                className="flex-1 px-2 sm:px-3 py-1.5 sm:py-2 bg-white/90 backdrop-blur-sm text-premium-charcoal rounded-lg hover:bg-premium-gold hover:text-white transition-colors font-medium text-[10px] sm:text-xs flex items-center justify-center gap-1"
-              >
-                <Eye className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                <span className="hidden xs:inline">Quick</span>
-              </button>
-              <button
-                onClick={handleAddToCart}
-                className="flex-1 px-2 sm:px-3 py-1.5 sm:py-2 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy transition-colors font-medium text-[10px] sm:text-xs flex items-center justify-center gap-1"
-              >
-                <ShoppingCart className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                <span className="hidden xs:inline">{product.is_customizable ? 'Custom' : 'Add'}</span>
-              </button>
-            </div>
-          </div>
         </div>
         
         {/* Social Proof Banner */}
-        {product.social_proof_enabled !== false && (
+        {product.social_proof_enabled && (
           <div className="bg-gradient-to-r from-orange-50 to-red-50 px-2 sm:px-3 py-1 sm:py-1.5 border-b border-premium-gold/10">
             <p className="text-[10px] sm:text-xs text-premium-burgundy font-medium flex items-center gap-1">
               <span className="relative flex h-1.5 w-1.5 sm:h-2 sm:w-2">
@@ -155,30 +160,44 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
               <p className="text-sm sm:text-base font-bold text-premium-gold">
                 {formatCurrency(product.price)}
               </p>
-              {product.original_price && (
+              {product.original_price && product.original_price > product.price && (
                 <p className="text-[8px] sm:text-[10px] text-gray-500 line-through">
                   {formatCurrency(product.original_price)}
                 </p>
               )}
             </div>
             
-            <button
-              onClick={handleAddToCart}
-              className="px-2 sm:px-3 py-1 bg-premium-gold/10 text-premium-gold rounded-lg hover:bg-premium-gold hover:text-white transition-colors font-medium text-[10px] sm:text-xs"
-            >
-              {product.is_customizable ? 'Customize' : 'Add'}
-            </button>
+            {/* Two Buttons: Cart and Show More */}
+            <div className="flex gap-1 sm:gap-2">
+              <button
+                onClick={handleQuickAdd}
+                className="p-1.5 sm:p-2 bg-premium-gold/10 text-premium-gold rounded-lg hover:bg-premium-gold hover:text-white transition-colors"
+                title="Add to cart"
+              >
+                <ShoppingCart className="h-3 w-3 sm:h-4 sm:w-4" />
+              </button>
+              <button
+                onClick={handleShowMore}
+                className="p-1.5 sm:p-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-premium-gold hover:text-white transition-colors"
+                title="Show more details"
+              >
+                <Eye className="h-3 w-3 sm:h-4 sm:w-4" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
+      {/* Details Modal */}
       {showDetails && (
         <ProductDetailsModal
           product={product}
           onClose={() => setShowDetails(false)}
+          onCustomize={product.is_customizable ? handleCustomizeFromModal : undefined}
         />
       )}
 
+      {/* Customization Modal */}
       {showCustomization && (
         <ProductCustomizationModal
           product={product}

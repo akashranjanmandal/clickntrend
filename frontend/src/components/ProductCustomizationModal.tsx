@@ -4,6 +4,7 @@ import { Product, CustomizationData } from '../types';
 import { useCart } from '../context/CartContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { apiFetch } from '../config';
+import toast from 'react-hot-toast';
 
 interface ProductCustomizationModalProps {
   product: Product;
@@ -23,7 +24,7 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({ p
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 2 * 1024 * 1024) {
-        alert('Image size should be less than 2MB');
+        toast.error('Image size should be less than 2MB');
         return;
       }
       setCustomImageFile(file);
@@ -57,6 +58,7 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({ p
       return response.image_url;
     } catch (error) {
       console.error('Error uploading image:', error);
+      toast.error('Failed to upload image');
       return null;
     } finally {
       setUploading(false);
@@ -67,6 +69,9 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({ p
     let imageUrl = null;
     if (customImageFile) {
       imageUrl = await uploadCustomImage();
+      if (!imageUrl) {
+        return; // Stop if upload failed
+      }
     }
 
     const customization: CustomizationData = {
@@ -90,7 +95,8 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({ p
       });
     }
 
-    onClose();
+    toast.success(`Added ${quantity} customized item${quantity > 1 ? 's' : ''} to cart!`);
+    onClose(); // Close only the customization modal
   };
 
   useEffect(() => {
@@ -101,7 +107,7 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({ p
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
