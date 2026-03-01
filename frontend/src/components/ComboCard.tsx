@@ -7,9 +7,10 @@ import { motion } from 'framer-motion';
 
 interface ComboCardProps {
   combo: Combo;
+  onShowMore?: (combo: Combo) => void; // Add this prop
 }
 
-const ComboCard: React.FC<ComboCardProps> = ({ combo }) => {
+const ComboCard: React.FC<ComboCardProps> = ({ combo, onShowMore }) => {
   const { addItem } = useCart();
   const [imageLoaded, setImageLoaded] = useState(false);
   
@@ -26,7 +27,8 @@ const ComboCard: React.FC<ComboCardProps> = ({ combo }) => {
   const savingsPercentage = combo.discount_percentage || 
     (savings > 0 ? Math.round((savings / originalPrice) * 100) : 0);
 
-  const addToCart = () => {
+  const addToCart = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering the card click
     addItem({
       id: `combo-${combo.id}`,
       name: combo.name,
@@ -37,10 +39,24 @@ const ComboCard: React.FC<ComboCardProps> = ({ combo }) => {
     });
   };
 
+  const handleShowMore = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering the card click
+    if (onShowMore) {
+      onShowMore(combo);
+    }
+  };
+
+  const handleCardClick = () => {
+    if (onShowMore) {
+      onShowMore(combo);
+    }
+  };
+
   return (
     <motion.div
       whileHover={{ y: -5 }}
-      className="group bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden border border-premium-gold/10"
+      onClick={handleCardClick}
+      className="group bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden border border-premium-gold/10 cursor-pointer"
     >
       <div className="relative overflow-hidden aspect-[4/3]">
         {!imageLoaded && (
@@ -114,13 +130,26 @@ const ComboCard: React.FC<ComboCardProps> = ({ combo }) => {
             )}
           </div>
           
-          <button
-            onClick={addToCart}
-            className="px-4 py-2 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy transition-colors font-medium text-sm flex items-center gap-2"
-          >
-            <ShoppingCart className="h-4 w-4" />
-            Add
-          </button>
+          <div className="flex gap-2">
+            {/* Show More Button */}
+            <button
+              onClick={handleShowMore}
+              className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium text-sm flex items-center gap-1"
+              title="View details"
+            >
+              <Eye className="h-4 w-4" />
+              <span className="hidden sm:inline">Details</span>
+            </button>
+            
+            {/* Add to Cart Button */}
+            <button
+              onClick={addToCart}
+              className="px-3 py-2 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy transition-colors font-medium text-sm flex items-center gap-1"
+            >
+              <ShoppingCart className="h-4 w-4" />
+              <span className="hidden sm:inline">Add</span>
+            </button>
+          </div>
         </div>
       </div>
     </motion.div>
