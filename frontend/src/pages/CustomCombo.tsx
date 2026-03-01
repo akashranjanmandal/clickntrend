@@ -1,51 +1,137 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, X, Package, Check, Minus, ShoppingCart } from 'lucide-react';
-import { Product } from '../types';
-import { formatCurrency } from '../utils/helpers';
-import { CONFIG } from '../config';
+import { motion } from 'framer-motion';
+import {
+  Package, ShoppingCart, Sparkles, ArrowRight, ChevronRight,
+  Grid, Users, X, Plus, Minus, Tag, Gift, Search,Save
+} from 'lucide-react';
 import { useCart } from '../context/CartContext';
-import { useNavigate } from 'react-router-dom';
+import { Product, Category, Gender } from '../types';
+import toast from 'react-hot-toast';
+import { getImageUrl, formatCurrency } from '../utils/helpers';
+import { apiFetch } from '../config';
+import { Link } from 'react-router-dom';
 
 const CustomCombo: React.FC = () => {
-  const { addItem } = useCart();
-  const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
-  const [selectedProducts, setSelectedProducts] = useState<Array<Product & { quantity: number }>>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [genders, setGenders] = useState<Gender[]>([]);
+  const [selectedProducts, setSelectedProducts] = useState<Map<string, { product: Product; quantity: number }>>(new Map());
+  
+  // Selection state
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+  const [selectedGender, setSelectedGender] = useState<string>('all');
+  
+  // Search state
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState<Product[]>([]);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+  
+  // Combo details
   const [comboName, setComboName] = useState('');
   const [specialRequests, setSpecialRequests] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [saved, setSaved] = useState(false);
+  
+  // UI state
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchProducts();
+    fetchData();
   }, []);
 
-  const fetchProducts = async () => {
+  const fetchData = async () => {
     try {
-      const response = await fetch(`${CONFIG.API_URL}/api/products`);
-      const data = await response.json();
-      setProducts(data);
+      setLoading(true);
+      
+      const [productsData, categoriesData, gendersData] = await Promise.all([
+        apiFetch('/api/products').catch(() => []),
+        apiFetch('/api/categories').catch(() => []),
+        apiFetch('/api/genders').catch(() => [])
+      ]);
+
+      setProducts(productsData || []);
+      setCategories(categoriesData || []);
+      setGenders(gendersData || []);
     } catch (error) {
-      console.error('Error fetching products:', error);
+      console.error('Error fetching data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Filter products based on selections
+  const getFilteredProducts = () => {
+    let filtered = [...products];
+    
+    if (selectedCategory) {
+      filtered = filtered.filter(p => p.category === selectedCategory.name);
+    }
+    
+    if (selectedGender !== 'all') {
+      filtered = filtered.filter(p => p.gender === selectedGender);
+    }
+    
+    return filtered;
+  };
+
+  const handleCategorySelect = (category: Category) => {
+    setSelectedCategory(category);
+    setSelectedGender('all');
+    setSearchTerm('');
+    setShowSearchResults(false);
+  };
+
+  const handleGenderSelect = (gender: string) => {
+    setSelectedGender(gender);
+  };
+
+  const handleBackToCategories = () => {
+    setSelectedCategory(null);
+    setSelectedGender('all');
+  };
+
+  const handleSearch = async (searchText?: string) => {
+    const query = searchText || searchTerm;
+    
+    if (!query.trim()) {
+      setShowSearchResults(false);
+      setSearchResults([]);
+      return;
+    }
+
+    setSearchLoading(true);
+    setShowSearchResults(true);
+    
+    try {
+      const data = await apiFetch(`/api/products/search?q=${encodeURIComponent(query)}`);
+      setSearchResults(data || []);
+    } catch (error) {
+      console.error('Error searching products:', error);
+      setSearchResults([]);
+    } finally {
+      setSearchLoading(false);
     }
   };
 
   const addToCombo = (product: Product) => {
     setSelectedProducts(prev => {
-      const existing = prev.find(p => p.id === product.id);
+      const newMap = new Map(prev);
+      const existing = newMap.get(product.id);
       if (existing) {
-        return prev.map(p =>
-          p.id === product.id
-            ? { ...p, quantity: p.quantity + 1 }
-            : p
-        );
+        newMap.set(product.id, { product, quantity: existing.quantity + 1 });
+      } else {
+        newMap.set(product.id, { product, quantity: 1 });
       }
-      return [...prev, { ...product, quantity: 1 }];
+      return newMap;
     });
+    toast.success(`${product.name} added to combo`);
   };
 
   const removeFromCombo = (productId: string) => {
-    setSelectedProducts(prev => prev.filter(p => p.id !== productId));
+    setSelectedProducts(prev => {
+      const newMap = new Map(prev);
+      newMap.delete(productId);
+      return newMap;
+    });
   };
 
   const updateQuantity = (productId: string, quantity: number) => {
@@ -53,268 +139,371 @@ const CustomCombo: React.FC = () => {
       removeFromCombo(productId);
       return;
     }
-    setSelectedProducts(prev =>
-      prev.map(p => (p.id === productId ? { ...p, quantity } : p))
-    );
+    setSelectedProducts(prev => {
+      const newMap = new Map(prev);
+      const existing = newMap.get(productId);
+      if (existing) {
+        newMap.set(productId, { ...existing, quantity });
+      }
+      return newMap;
+    });
   };
 
-  const totalPrice = selectedProducts.reduce(
-    (sum, product) => sum + product.price * product.quantity,
-    0
-  );
+  const calculateTotal = () => {
+    let total = 0;
+    selectedProducts.forEach(item => {
+      total += item.product.price * item.quantity;
+    });
+    return total;
+  };
 
   const saveCombo = async () => {
-    if (selectedProducts.length === 0) {
-      alert('Please add at least one product to create a combo');
+    if (selectedProducts.size === 0) {
+      toast.error('Please add at least one product to your combo');
       return;
     }
 
-    setLoading(true);
     try {
       const comboData = {
         name: comboName || 'My Custom Combo',
-        description: 'Custom gift combo created by user',
-        products: selectedProducts.map(p => ({
-          id: p.id,
-          quantity: p.quantity
+        description: 'Custom created gift combo',
+        products: Array.from(selectedProducts.values()).map(item => ({
+          id: item.product.id,
+          quantity: item.quantity
         })),
-        total_price: totalPrice,
+        total_price: calculateTotal(),
         special_requests: specialRequests
       };
 
-      const response = await fetch(`${CONFIG.API_URL}/api/combos/custom`, {
+      const response = await apiFetch('/api/combos/custom', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(comboData),
+        body: JSON.stringify(comboData)
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        
-        // Add the custom combo to cart
-        addItem({
-          id: data.combo.id,
-          name: comboName || 'Custom Combo',
-          price: totalPrice,
-          quantity: 1,
-          image_url: selectedProducts[0]?.image_url || '',
-          type: 'custom',
-        });
-        
-        setSaved(true);
-        setTimeout(() => {
-          setSaved(false);
-          // Redirect to checkout
-          navigate('/checkout');
-        }, 1500);
-        
-        // Reset form
-        setSelectedProducts([]);
+      if (response.success) {
+        toast.success('Combo saved successfully!');
+        setSelectedProducts(new Map());
         setComboName('');
         setSpecialRequests('');
       }
     } catch (error) {
       console.error('Error saving combo:', error);
-    } finally {
-      setLoading(false);
+      toast.error('Failed to save combo');
     }
   };
 
-  const addToCartAndCheckout = () => {
-    if (selectedProducts.length === 0) {
-      alert('Please add at least one product to create a combo');
-      return;
-    }
+  const filteredProducts = getFilteredProducts();
+  const displayProducts = showSearchResults ? searchResults : filteredProducts;
 
-    // Add to cart immediately
-    const comboItem = {
-      id: `custom-${Date.now()}`,
-      name: comboName || 'Custom Combo',
-      price: totalPrice,
-      quantity: 1,
-      image_url: selectedProducts[0]?.image_url || '',
-      type: 'custom' as const,
-      description: `Custom combo with ${selectedProducts.length} items`
-    };
-    
-    addItem(comboItem);
-    navigate('/checkout');
-  };
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-premium-gold"></div>
+      </div>
+    );
+  }
 
   return (
-    <div className="container mx-auto px-4 py-8 md:py-12">
-      <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-8 md:mb-12">
-          <h1 className="text-3xl md:text-4xl lg:text-5xl font-serif font-bold mb-4">
-            Create Your <span className="text-premium-gold">Custom Combo</span>
-          </h1>
-          <p className="text-base md:text-lg text-gray-600 px-4">
-            Mix and match products to create the perfect gift combination
-          </p>
-        </div>
+    <div className="container mx-auto px-4 py-12">
+      {/* Header */}
+      <div className="text-center max-w-3xl mx-auto mb-12">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center justify-center gap-3 mb-4"
+        >
+          <Package className="w-8 h-8 text-premium-gold" />
+          <Sparkles className="w-8 h-8 text-yellow-500" />
+          <Gift className="w-8 h-8 text-purple-600" />
+        </motion.div>
+        <h1 className="text-5xl font-serif font-bold text-premium-charcoal mb-4">
+          Create Your Custom Combo
+        </h1>
+        <p className="text-xl text-gray-600">
+          Mix and match products to create the perfect gift combination
+        </p>
+      </div>
 
-        <div className="grid lg:grid-cols-2 gap-6 md:gap-8">
-          {/* Product Selection - Mobile Scrollable */}
-          <div className="order-2 lg:order-1">
-            <div className="bg-white rounded-xl md:rounded-2xl shadow-lg p-4 md:p-6">
-              <h2 className="text-xl md:text-2xl font-serif font-semibold mb-4 md:mb-6">
-                Available Products
-              </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 max-h-[500px] overflow-y-auto pr-2">
-                {products.slice(0, 8).map(product => (
-                  <div
-                    key={product.id}
-                    className="border rounded-lg md:rounded-xl p-3 md:p-4 hover:border-premium-gold transition-colors"
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-medium text-sm md:text-base line-clamp-1 pr-2">{product.name}</h4>
-                        <p className="text-premium-gold font-semibold text-sm md:text-base">
-                          {formatCurrency(product.price)}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => addToCombo(product)}
-                        className="p-1.5 md:p-2 bg-premium-cream hover:bg-premium-gold hover:text-white rounded-lg transition-colors flex-shrink-0"
-                        aria-label="Add to combo"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </button>
-                    </div>
-                    <p className="text-xs md:text-sm text-gray-600 line-clamp-2">
-                      {product.description}
-                    </p>
-                  </div>
-                ))}
-              </div>
+      <div className="grid lg:grid-cols-3 gap-8">
+        {/* Left Side - Product Selection */}
+        <div className="lg:col-span-2">
+          {/* Search Bar */}
+          <div className="mb-6">
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                placeholder="Search for products..."
+                className="w-full pl-12 pr-4 py-4 border rounded-xl focus:border-premium-gold focus:outline-none"
+              />
+              {searchTerm && (
+                <button
+                  onClick={() => {
+                    setSearchTerm('');
+                    setShowSearchResults(false);
+                  }}
+                  className="absolute right-4 top-1/2 transform -translate-y-1/2"
+                >
+                  <X className="h-4 w-4 text-gray-400" />
+                </button>
+              )}
             </div>
           </div>
 
-          {/* Combo Builder - Sticky on Mobile/Desktop */}
-          <div className="order-1 lg:order-2">
-            <div className="bg-white rounded-xl md:rounded-2xl shadow-lg p-4 md:p-6 sticky top-20 md:top-24">
-              <div className="flex items-center justify-between mb-4 md:mb-6">
-                <h2 className="text-xl md:text-2xl font-serif font-semibold">Your Combo</h2>
-                <div className="flex items-center space-x-2 bg-premium-cream px-3 py-1.5 rounded-full">
-                  <Package className="h-4 w-4 md:h-5 md:w-5 text-premium-gold" />
-                  <span className="font-semibold text-sm md:text-base">
-                    {selectedProducts.length}
-                  </span>
-                </div>
-              </div>
-
-              {/* Combo Name */}
-              <div className="mb-4 md:mb-6">
-                <label className="block text-sm font-medium mb-2">
-                  Combo Name (Optional)
-                </label>
-                <input
-                  type="text"
-                  value={comboName}
-                  onChange={(e) => setComboName(e.target.value)}
-                  placeholder="e.g., Anniversary Special"
-                  className="w-full px-3 md:px-4 py-2 md:py-3 text-sm md:text-base border rounded-lg focus:border-premium-gold focus:outline-none"
-                />
-              </div>
-
-              {/* Selected Products - Mobile Optimized */}
-              <div className="mb-4 md:mb-6">
-                <h3 className="font-medium mb-3">Selected Items</h3>
-                {selectedProducts.length === 0 ? (
-                  <p className="text-gray-500 text-center py-6 md:py-8 text-sm md:text-base bg-premium-cream/30 rounded-lg">
-                    No items added yet. Select products from the list.
-                  </p>
-                ) : (
-                  <div className="space-y-2 md:space-y-3 max-h-[300px] md:max-h-64 overflow-y-auto pr-1">
-                    {selectedProducts.map(product => (
-                      <div
-                        key={product.id}
-                        className="flex items-center justify-between p-2 md:p-3 bg-premium-cream/30 rounded-lg"
-                      >
-                        <div className="flex-1 min-w-0 pr-2">
-                          <h4 className="font-medium text-sm md:text-base line-clamp-1">{product.name}</h4>
-                          <p className="text-xs md:text-sm text-gray-600">
-                            {formatCurrency(product.price)} × {product.quantity}
-                          </p>
-                        </div>
-                        <div className="flex items-center space-x-2 md:space-x-3 flex-shrink-0">
-                          <div className="flex items-center space-x-1 md:space-x-2">
-                            <button
-                              onClick={() => updateQuantity(product.id, product.quantity - 1)}
-                              className="p-1 hover:bg-white rounded"
-                              aria-label="Decrease quantity"
-                            >
-                              <Minus className="h-3 w-3 md:h-4 md:w-4" />
-                            </button>
-                            <span className="w-6 md:w-8 text-center text-sm md:text-base">{product.quantity}</span>
-                            <button
-                              onClick={() => updateQuantity(product.id, product.quantity + 1)}
-                              className="p-1 hover:bg-white rounded"
-                              aria-label="Increase quantity"
-                            >
-                              <Plus className="h-3 w-3 md:h-4 md:w-4" />
-                            </button>
-                          </div>
-                          <button
-                            onClick={() => removeFromCombo(product.id)}
-                            className="p-1.5 hover:bg-white rounded-lg text-gray-500 hover:text-red-500"
-                            aria-label="Remove item"
-                          >
-                            <X className="h-3 w-3 md:h-4 md:w-4" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+          {/* Navigation */}
+          {!showSearchResults && (
+            <section className="mb-8 bg-white border rounded-xl p-4">
+              <div className="flex items-center gap-2 text-sm flex-wrap">
+                <button
+                  onClick={handleBackToCategories}
+                  className={`px-4 py-2 rounded-full transition-colors ${
+                    !selectedCategory
+                      ? 'bg-premium-gold text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  All Categories
+                </button>
+                {selectedCategory && (
+                  <>
+                    <ChevronRight className="h-4 w-4 text-gray-400" />
+                    <span className="px-4 py-2 bg-premium-gold text-white rounded-full">
+                      {selectedCategory.name}
+                    </span>
+                  </>
+                )}
+                {selectedGender !== 'all' && (
+                  <>
+                    <ChevronRight className="h-4 w-4 text-gray-400" />
+                    <span className="px-4 py-2 bg-premium-gold text-white rounded-full capitalize">
+                      {selectedGender}
+                    </span>
+                  </>
                 )}
               </div>
+            </section>
+          )}
 
-              {/* Special Requests */}
-              <div className="mb-4 md:mb-6">
-                <label className="block text-sm font-medium mb-2">
-                  Special Requests
-                </label>
-                <textarea
-                  value={specialRequests}
-                  onChange={(e) => setSpecialRequests(e.target.value)}
-                  placeholder="Gift wrapping, messages, delivery instructions..."
-                  rows={2}
-                  className="w-full px-3 md:px-4 py-2 text-sm md:text-base border rounded-lg focus:border-premium-gold focus:outline-none"
-                />
-              </div>
-
-              {/* Total & Actions */}
-              <div className="border-t pt-4 md:pt-6">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-                  <div>
-                    <p className="text-xs md:text-sm text-gray-600">Total Value</p>
-                    <p className="text-2xl md:text-3xl font-bold text-premium-gold">
-                      {formatCurrency(totalPrice)}
+          {/* Categories Grid */}
+          {!selectedCategory && !showSearchResults && (
+            <section className="mb-8">
+              <h2 className="text-2xl font-serif font-bold mb-6">Choose a Category</h2>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {categories.map((category) => (
+                  <button
+                    key={category.id}
+                    onClick={() => handleCategorySelect(category)}
+                    className="p-6 bg-gradient-to-br from-gray-50 to-white border rounded-2xl hover:border-premium-gold hover:shadow-lg transition-all text-center"
+                  >
+                    <div className={`w-16 h-16 mx-auto rounded-full bg-gradient-to-br ${category.color} flex items-center justify-center mb-3`}>
+                      {category.icon_type === 'lucide' ? (
+                        <span className="text-2xl">{category.icon}</span>
+                      ) : (
+                        <span className="text-3xl">{category.icon}</span>
+                      )}
+                    </div>
+                    <h3 className="font-medium">{category.name}</h3>
+                    <p className="text-sm text-gray-500 mt-1">
+                      {products.filter(p => p.category === category.name).length} items
                     </p>
-                  </div>
-                  <div className="flex flex-col sm:flex-row gap-2">
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
 
-                    <button
-                      onClick={addToCartAndCheckout}
-                      disabled={selectedProducts.length === 0}
-                      className={`px-4 md:px-6 py-2.5 md:py-3 rounded-lg font-medium text-sm md:text-base flex items-center justify-center space-x-2 ${
-                        selectedProducts.length === 0
-                          ? 'bg-gray-300 cursor-not-allowed'
-                          : 'bg-premium-burgundy hover:bg-premium-charcoal text-white'
-                      }`}
-                    >
-                      <ShoppingCart className="h-4 w-4 md:h-5 md:w-5" />
-                      <span>Add to Cart & Checkout</span>
-                    </button>
-                  </div>
+          {/* Gender Filter */}
+          {selectedCategory && !showSearchResults && (
+            <section className="mb-8">
+              <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+                <Users className="h-5 w-5 text-premium-gold" />
+                Filter by Gender
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => handleGenderSelect('all')}
+                  className={`px-6 py-3 rounded-full text-sm capitalize transition-all ${
+                    selectedGender === 'all'
+                      ? 'bg-premium-gold text-white shadow-lg'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  All Genders
+                </button>
+                {genders.map((gender) => (
+                  <button
+                    key={gender.name}
+                    onClick={() => handleGenderSelect(gender.name)}
+                    className={`px-6 py-3 rounded-full text-sm capitalize transition-all ${
+                      selectedGender === gender.name
+                        ? 'bg-premium-gold text-white shadow-lg'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    <span className="mr-2">{gender.icon}</span>
+                    {gender.display_name}
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Products Grid */}
+          <section>
+            <h2 className="text-2xl font-serif font-bold mb-6">
+              {showSearchResults ? 'Search Results' : 'Select Products'}
+            </h2>
+            {displayProducts.length > 0 ? (
+              <div className="grid md:grid-cols-2 gap-4">
+                {displayProducts.map((product) => (
+                  <motion.div
+                    key={product.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="border rounded-xl p-4 hover:border-premium-gold transition-all"
+                  >
+                    <div className="flex gap-4">
+                      <img
+                        src={getImageUrl(product.image_url)}
+                        alt={product.name}
+                        className="w-24 h-24 object-cover rounded-lg"
+                      />
+                      <div className="flex-1">
+                        <h4 className="font-medium line-clamp-1">{product.name}</h4>
+                        <p className="text-sm text-gray-600 line-clamp-2 mt-1">
+                          {product.description}
+                        </p>
+                        <div className="flex items-center justify-between mt-2">
+                          <span className="text-premium-gold font-bold">
+                            {formatCurrency(product.price)}
+                          </span>
+                          <button
+                            onClick={() => addToCombo(product)}
+                            className="px-4 py-2 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy text-sm"
+                          >
+                            Add
+                          </button>
+                        </div>
+                        <div className="flex gap-2 mt-2">
+                          <span className="text-xs px-2 py-1 bg-gray-100 rounded-full">
+                            {product.category}
+                          </span>
+                          {product.gender && (
+                            <span className="text-xs px-2 py-1 bg-gray-100 rounded-full capitalize">
+                              {product.gender}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <p className="text-gray-500">No products found</p>
+              </div>
+            )}
+          </section>
+        </div>
+
+        {/* Right Side - Combo Builder */}
+        <div className="lg:col-span-1">
+          <div className="bg-white rounded-xl shadow-lg p-6 sticky top-24">
+            <h2 className="text-2xl font-serif font-bold mb-6 flex items-center gap-2">
+              <Package className="h-5 w-5 text-premium-gold" />
+              Your Combo
+            </h2>
+
+            {/* Combo Name */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">Combo Name (Optional)</label>
+              <input
+                type="text"
+                value={comboName}
+                onChange={(e) => setComboName(e.target.value)}
+                placeholder="My Awesome Gift Combo"
+                className="w-full px-4 py-3 border rounded-lg focus:border-premium-gold focus:outline-none"
+              />
+            </div>
+
+            {/* Selected Products */}
+            <div className="mb-4 max-h-96 overflow-y-auto">
+              {selectedProducts.size === 0 ? (
+                <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
+                  <Gift className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500">No products selected</p>
+                  <p className="text-sm text-gray-400">Add products from the left panel</p>
                 </div>
-                <p className="text-xs md:text-sm text-gray-500 text-center sm:text-left">
-                  Your custom combo will be added to cart for checkout.
-                </p>
+              ) : (
+                <div className="space-y-3">
+                  {Array.from(selectedProducts.values()).map(({ product, quantity }) => (
+                    <div key={product.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex-1">
+                        <h4 className="font-medium text-sm line-clamp-1">{product.name}</h4>
+                        <p className="text-xs text-gray-500">{formatCurrency(product.price)} each</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => updateQuantity(product.id, quantity - 1)}
+                          className="p-1 hover:bg-white rounded"
+                        >
+                          <Minus className="h-3 w-3" />
+                        </button>
+                        <span className="w-8 text-center text-sm">{quantity}</span>
+                        <button
+                          onClick={() => updateQuantity(product.id, quantity + 1)}
+                          className="p-1 hover:bg-white rounded"
+                        >
+                          <Plus className="h-3 w-3" />
+                        </button>
+                        <button
+                          onClick={() => removeFromCombo(product.id)}
+                          className="p-1 hover:bg-white rounded text-red-600"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Total */}
+            <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+              <div className="flex justify-between items-center">
+                <span className="font-medium">Total:</span>
+                <span className="text-2xl font-bold text-premium-gold">
+                  {formatCurrency(calculateTotal())}
+                </span>
               </div>
             </div>
+
+            {/* Special Requests */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium mb-2">Special Requests</label>
+              <textarea
+                value={specialRequests}
+                onChange={(e) => setSpecialRequests(e.target.value)}
+                rows={3}
+                placeholder="Gift wrapping, personalized message, etc."
+                className="w-full px-4 py-3 border rounded-lg focus:border-premium-gold focus:outline-none"
+              />
+            </div>
+
+            {/* Save Button */}
+            <button
+              onClick={saveCombo}
+              disabled={selectedProducts.size === 0}
+              className="w-full py-4 bg-gradient-to-r from-premium-gold to-premium-burgundy text-white rounded-xl font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              <Save className="h-5 w-5" />
+              Save Combo
+            </button>
           </div>
         </div>
       </div>

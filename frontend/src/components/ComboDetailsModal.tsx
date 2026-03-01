@@ -3,14 +3,15 @@ import { X, ShoppingCart, Package, Tag, Star } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Combo, ComboProduct } from '../types';
 import { getImageUrl, formatCurrency } from '../utils/helpers';
+import { useCart } from '../context/CartContext';
 
 interface ComboDetailsModalProps {
   combo: Combo;
   onClose: () => void;
-  onAddToCart: (combo: Combo) => void;
 }
 
-const ComboDetailsModal: React.FC<ComboDetailsModalProps> = ({ combo, onClose, onAddToCart }) => {
+const ComboDetailsModal: React.FC<ComboDetailsModalProps> = ({ combo, onClose }) => {
+  const { addItem } = useCart();
   const comboProducts = combo.combo_products || [];
   const originalPrice = comboProducts.reduce(
     (sum, item) => sum + (item.product?.price || 0) * (item.quantity || 1),
@@ -19,6 +20,18 @@ const ComboDetailsModal: React.FC<ComboDetailsModalProps> = ({ combo, onClose, o
   const finalPrice = combo.discount_price ?? originalPrice;
   const savings = originalPrice - finalPrice;
   const savingsPercentage = savings > 0 ? Math.round((savings / originalPrice) * 100) : 0;
+
+  const handleAddToCart = () => {
+    addItem({
+      id: `combo-${combo.id}`,
+      name: combo.name,
+      price: finalPrice,
+      quantity: 1,
+      image_url: combo.image_url || '',
+      type: 'combo',
+    });
+    onClose();
+  };
 
   return (
     <AnimatePresence>
@@ -98,6 +111,11 @@ const ComboDetailsModal: React.FC<ComboDetailsModalProps> = ({ combo, onClose, o
                           <p className="text-sm text-gray-600">
                             Qty: {item.quantity} × {formatCurrency(item.product?.price || 0)}
                           </p>
+                          {item.product?.gender && (
+                            <span className="inline-block mt-1 text-xs px-2 py-1 bg-gray-100 rounded-full capitalize">
+                              {item.product.gender}
+                            </span>
+                          )}
                         </div>
                         <p className="font-semibold">
                           {formatCurrency((item.product?.price || 0) * item.quantity)}
@@ -135,10 +153,7 @@ const ComboDetailsModal: React.FC<ComboDetailsModalProps> = ({ combo, onClose, o
                 {/* Action Buttons */}
                 <div className="flex gap-3 pt-4">
                   <button
-                    onClick={() => {
-                      onAddToCart(combo);
-                      onClose();
-                    }}
+                    onClick={handleAddToCart}
                     className="flex-1 py-4 bg-premium-gold text-white rounded-xl hover:bg-premium-burgundy transition-colors font-medium flex items-center justify-center gap-2"
                   >
                     <ShoppingCart className="h-5 w-5" />

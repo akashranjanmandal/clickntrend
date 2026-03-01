@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, Camera, RefreshCw, Users, Download } from 'lucide-react';
-import { Product } from '../../types';
+import { Product, Gender } from '../../types';
 import { apiFetch } from '../../config';
 import MultiImageUpload from './MultiImageUpload';
 
@@ -13,6 +13,7 @@ interface EditProductProps {
 const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<string[]>([]);
+  const [genders, setGenders] = useState<Gender[]>([]);
   const [productImages, setProductImages] = useState<{ url: string; is_primary: boolean }[]>([
     { url: product.image_url, is_primary: true }
   ]);
@@ -35,7 +36,6 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
     name: product.name,
     description: product.description,
     category: product.category,
-    subcategory: product.subcategory || '', // ADD THIS
     gender: (product.gender || 'unisex') as GenderType,
     price: product.price.toString(),
     original_price: product.original_price?.toString() || '',
@@ -52,6 +52,7 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
 
   useEffect(() => {
     fetchCategories();
+    fetchGenders();
   }, []);
 
   const fetchCategories = async () => {
@@ -63,6 +64,15 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
       setCategories(data.map((c: any) => c.name));
     } catch (error) {
       console.error('Error fetching categories:', error);
+    }
+  };
+
+  const fetchGenders = async () => {
+    try {
+      const data = await apiFetch('/api/genders');
+      setGenders(data);
+    } catch (error) {
+      console.error('Error fetching genders:', error);
     }
   };
 
@@ -85,7 +95,6 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
         name: formData.name,
         description: formData.description,
         category: formData.category,
-        subcategory: formData.subcategory || null, // ADD THIS
         gender: formData.gender,
         price: parseFloat(formData.price),
         stock_quantity: parseInt(formData.stock_quantity),
@@ -199,18 +208,6 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
                 </select>
               </div>
 
-              {/* Subcategory Field - NEW */}
-              <div>
-                <label className="block text-sm font-medium mb-2">Subcategory (Optional)</label>
-                <input
-                  type="text"
-                  value={formData.subcategory}
-                  onChange={(e) => setFormData({...formData, subcategory: e.target.value})}
-                  className="w-full px-4 py-3 border rounded-lg focus:border-premium-gold focus:outline-none"
-                  placeholder="e.g., Luxury, Classic, Premium"
-                />
-              </div>
-
               <div>
                 <label className="block text-sm font-medium mb-2">Target Audience</label>
                 <select
@@ -218,10 +215,11 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
                   onChange={(e) => setFormData({...formData, gender: e.target.value as 'men' | 'women' | 'unisex' | 'kids'})}
                   className="w-full px-4 py-3 border rounded-lg focus:border-premium-gold focus:outline-none"
                 >
-                  <option value="unisex">Unisex</option>
-                  <option value="men">Men</option>
-                  <option value="women">Women</option>
-                  <option value="kids">Kids</option>
+                  {genders.map(gender => (
+                    <option key={gender.name} value={gender.name}>
+                      {gender.icon} {gender.display_name}
+                    </option>
+                  ))}
                 </select>
               </div>
 

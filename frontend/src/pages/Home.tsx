@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import {
   Search, Sparkles, TrendingUp, Shield, Gift,
-  ArrowRight, Loader2, X, ChevronRight, Grid, Users
+  ArrowRight, Loader2, X, ChevronRight, Users, Package
 } from 'lucide-react';
 import ProductCard from '../components/ProductCard';
 import CategoryCard from '../components/CategoryCard';
 import HeroSection from '../components/HeroSection';
 import ProductDetailsModal from '../components/ProductDetailsModal';
+import ComboDetailsModal from '../components/ComboDetailsModal';
 import { Product, Category, HeroContent, Stat, Combo, Gender } from '../types';
 import { apiFetch } from '../config';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -26,6 +27,10 @@ const Home: React.FC = () => {
   const [selectedGender, setSelectedGender] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'products' | 'combos'>('products');
   
+  // Modal state
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [selectedCombo, setSelectedCombo] = useState<Combo | null>(null);
+  
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<Product[]>([]);
@@ -34,7 +39,6 @@ const Home: React.FC = () => {
   
   // UI state
   const [loading, setLoading] = useState(true);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showPopup, setShowPopup] = useState(false);
 
   const defaultStats = [
@@ -143,6 +147,15 @@ const Home: React.FC = () => {
     setSelectedGender('all');
   };
 
+  const handleProductClick = (product: Product) => {
+    setSelectedProduct(product);
+    setShowSearchResults(false);
+  };
+
+  const handleComboClick = (combo: Combo) => {
+    setSelectedCombo(combo);
+  };
+
   const handleSearch = async (searchText?: string) => {
     const query = searchText || searchTerm;
     
@@ -164,11 +177,6 @@ const Home: React.FC = () => {
     } finally {
       setSearchLoading(false);
     }
-  };
-
-  const handleProductClick = (product: Product) => {
-    setSelectedProduct(product);
-    setShowSearchResults(false);
   };
 
   const filteredProducts = getFilteredProducts();
@@ -438,6 +446,8 @@ const Home: React.FC = () => {
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.1 }}
+                      onClick={() => handleProductClick(product)}
+                      className="cursor-pointer"
                     >
                       <ProductCard product={product} />
                     </motion.div>
@@ -459,6 +469,8 @@ const Home: React.FC = () => {
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.1 }}
+                      onClick={() => handleComboClick(combo)}
+                      className="cursor-pointer"
                     >
                       <ComboCard combo={combo} />
                     </motion.div>
@@ -502,6 +514,8 @@ const Home: React.FC = () => {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.1 }}
+                    onClick={() => handleProductClick(product)}
+                    className="cursor-pointer"
                   >
                     <ProductCard product={product} />
                   </motion.div>
@@ -537,6 +551,8 @@ const Home: React.FC = () => {
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.1 }}
+                      onClick={() => handleComboClick(combo)}
+                      className="cursor-pointer"
                     >
                       <ComboCard combo={combo} />
                     </motion.div>
@@ -598,11 +614,18 @@ const Home: React.FC = () => {
         </div>
       </section>
 
-      {/* Product Details Modal */}
+      {/* Modals */}
       {selectedProduct && (
         <ProductDetailsModal
           product={selectedProduct}
           onClose={() => setSelectedProduct(null)}
+        />
+      )}
+
+      {selectedCombo && (
+        <ComboDetailsModal
+          combo={selectedCombo}
+          onClose={() => setSelectedCombo(null)}
         />
       )}
     </div>
