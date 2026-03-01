@@ -62,3 +62,22 @@
 ::-webkit-scrollbar-thumb:hover {
   @apply bg-premium-gold/50;
 }
+/* In your global CSS */
+.admin-nav-container {
+  max-width: calc(100vw - 300px);
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  padding-bottom: 4px;
+}
+
+.admin-nav-container::-webkit-scrollbar {
+  height: 4px;
+}
+
+.admin-nav-container::-webkit-scrollbar-thumb {
+  background: #D4AF37;
+  border-radius: 4px;
+}

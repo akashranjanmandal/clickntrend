@@ -17,6 +17,7 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
     name: '',
     description: '',
     category: '',
+    subcategory: '', // ADD THIS
     gender: 'unisex',
     price: '',
     original_price: '',
@@ -71,6 +72,7 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
         name: formData.name,
         description: formData.description,
         category: formData.category,
+        subcategory: formData.subcategory || null, // ADD THIS
         gender: formData.gender,
         price: parseFloat(formData.price),
         stock_quantity: parseInt(formData.stock_quantity),
@@ -180,6 +182,18 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
                     <option key={cat} value={cat}>{cat}</option>
                   ))}
                 </select>
+              </div>
+
+              {/* Subcategory Field - NEW */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Subcategory (Optional)</label>
+                <input
+                  type="text"
+                  value={formData.subcategory}
+                  onChange={(e) => setFormData({...formData, subcategory: e.target.value})}
+                  className="w-full px-4 py-3 border rounded-lg focus:border-premium-gold focus:outline-none"
+                  placeholder="e.g., Luxury, Classic, Premium"
+                />
               </div>
 
               <div>

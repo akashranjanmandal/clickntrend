@@ -13,6 +13,9 @@ const Products: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [priceRange, setPriceRange] = useState([0, 50000]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedGender, setSelectedGender] = useState<string>('all');
+  const [selectedSubcategory, setSelectedSubcategory] = useState<string>('all');
+  const [subcategories, setSubcategories] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [sortBy, setSortBy] = useState<'popular' | 'price-low' | 'price-high' | 'newest'>('popular');
 
@@ -22,7 +25,7 @@ const Products: React.FC = () => {
 
   useEffect(() => {
     filterAndSortProducts();
-  }, [products, priceRange, selectedCategories, sortBy]);
+  }, [products, priceRange, selectedCategories, selectedGender, selectedSubcategory, sortBy]);
 
   const fetchData = async () => {
     try {
@@ -34,6 +37,19 @@ const Products: React.FC = () => {
       setProducts(productsData || []);
       setFilteredProducts(productsData || []);
       setCategories(categoriesData || []);
+      
+      // Extract unique subcategories from products with proper typing
+      const uniqueSubcategories: string[] = ['all'];
+      
+      if (productsData && Array.isArray(productsData)) {
+        productsData.forEach((product: Product) => {
+          if (product.subcategory && !uniqueSubcategories.includes(product.subcategory)) {
+            uniqueSubcategories.push(product.subcategory);
+          }
+        });
+      }
+      
+      setSubcategories(uniqueSubcategories);
       
       // Set max price from products
       const maxPrice = productsData.length > 0 
@@ -59,6 +75,20 @@ const Products: React.FC = () => {
     if (selectedCategories.length > 0) {
       filtered = filtered.filter(product =>
         selectedCategories.includes(product.category)
+      );
+    }
+
+    // Filter by gender
+    if (selectedGender !== 'all') {
+      filtered = filtered.filter(product => 
+        product.gender === selectedGender
+      );
+    }
+
+    // Filter by subcategory
+    if (selectedSubcategory !== 'all') {
+      filtered = filtered.filter(product => 
+        product.subcategory === selectedSubcategory
       );
     }
 
@@ -88,6 +118,13 @@ const Products: React.FC = () => {
         ? prev.filter(c => c !== category)
         : [...prev, category]
     );
+  };
+
+  const clearFilters = () => {
+    setPriceRange([0, Math.max(...products.map(p => p.price), 50000)]);
+    setSelectedCategories([]);
+    setSelectedGender('all');
+    setSelectedSubcategory('all');
   };
 
   return (
@@ -135,7 +172,7 @@ const Products: React.FC = () => {
               exit={{ opacity: 0, x: -20 }}
               className={`${showFilters ? 'fixed inset-0 z-50 md:relative md:inset-auto' : ''} w-full md:w-80 flex-shrink-0`}
             >
-              <div className="bg-white rounded-2xl p-6 shadow-lg md:sticky md:top-24 h-full md:h-auto overflow-y-auto">
+              <div className="bg-white rounded-2xl p-6 shadow-lg md:sticky md:top-24 h-full md:h-auto overflow-y-auto max-h-[calc(100vh-120px)]">
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="font-serif text-lg font-semibold flex items-center gap-2">
                     <SlidersHorizontal className="h-5 w-5" />
@@ -194,12 +231,51 @@ const Products: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Gender Filter */}
+                <div className="mb-8">
+                  <h4 className="font-medium mb-4">For</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {['all', 'men', 'women', 'unisex', 'kids'].map(gender => (
+                      <button
+                        key={gender}
+                        onClick={() => setSelectedGender(gender)}
+                        className={`px-4 py-2 rounded-full text-sm capitalize transition-colors ${
+                          selectedGender === gender
+                            ? 'bg-premium-gold text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        {gender === 'all' ? 'All' : gender}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Subcategories */}
+                {subcategories.length > 1 && (
+                  <div className="mb-8">
+                    <h4 className="font-medium mb-4">Subcategory</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {subcategories.map((sub) => (
+                        <button
+                          key={sub}
+                          onClick={() => setSelectedSubcategory(sub)}
+                          className={`px-4 py-2 rounded-full text-sm capitalize transition-colors ${
+                            selectedSubcategory === sub
+                              ? 'bg-premium-gold text-white'
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
+                        >
+                          {sub === 'all' ? 'All' : sub}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Clear Filters */}
                 <button
-                  onClick={() => {
-                    setPriceRange([0, Math.max(...products.map(p => p.price), 50000)]);
-                    setSelectedCategories([]);
-                  }}
+                  onClick={clearFilters}
                   className="w-full mt-8 px-4 py-3 border border-premium-gold text-premium-gold rounded-lg hover:bg-premium-gold hover:text-white transition-colors font-medium"
                 >
                   Clear All Filters
@@ -243,10 +319,7 @@ const Products: React.FC = () => {
                     No products match your selected filters. Try adjusting your criteria.
                   </p>
                   <button
-                    onClick={() => {
-                      setPriceRange([0, Math.max(...products.map(p => p.price), 50000)]);
-                      setSelectedCategories([]);
-                    }}
+                    onClick={clearFilters}
                     className="px-6 py-3 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy transition-colors"
                   >
                     Clear Filters

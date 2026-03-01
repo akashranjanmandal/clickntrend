@@ -3,6 +3,7 @@ export interface Product {
   name: string;
   description: string;
   category: string;
+  subcategory?: string; // Add this line
   gender?: 'men' | 'women' | 'unisex' | 'kids';
   price: number;
   original_price?: number;

@@ -35,7 +35,35 @@ router.get('/:id', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+// Track order by ID and phone
+router.get('/track', async (req, res) => {
+  try {
+    const { orderId, phone } = req.query;
+    
+    if (!orderId || !phone) {
+      return res.status(400).json({ error: 'Order ID and phone number are required' });
+    }
 
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('id', orderId)
+      .eq('customer_phone', phone)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return res.status(404).json({ error: 'Order not found' });
+      }
+      throw error;
+    }
+
+    res.json(data);
+  } catch (error: any) {
+    console.error('Error tracking order:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
 // Get orders by email (customer)
 router.get('/customer/:email', async (req, res) => {
   try {

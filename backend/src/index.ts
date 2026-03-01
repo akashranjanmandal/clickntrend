@@ -2,7 +2,7 @@ import express from 'express';
 import 'dotenv/config';
 import cors from 'cors';
 import config from './config';
-
+import logoRoutes from './routes/logo';
 // ===== PUBLIC ROUTES =====
 import productRoutes from './routes/products';
 import categoryRoutes from './routes/categories';
@@ -48,6 +48,8 @@ console.log('✅ /api/categories');
 
 app.use('/api/hero', heroRoutes);
 console.log('✅ /api/hero');
+
+app.use("/api/logo", logoRoutes);
 
 app.use('/api/settings', settingsRoutes);
 console.log('✅ /api/settings');
