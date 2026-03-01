@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Search, Sparkles, TrendingUp, Shield, Gift,
-  ArrowRight, Loader2, X, ChevronRight, Grid,Package
+  ArrowRight, Loader2, X, ChevronRight, Grid, Users, Package
 } from 'lucide-react';
 import ProductCard from '../components/ProductCard';
 import CategoryCard from '../components/CategoryCard';
@@ -27,7 +27,11 @@ const Home: React.FC = () => {
   // Selection state
   const [selectedCategory, setSelectedCategory] = useState<CategoryWithSubcategories | null>(null);
   const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
+  const [selectedGender, setSelectedGender] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'products' | 'combos'>('products');
+  
+  // Available filters
+  const [availableGenders, setAvailableGenders] = useState<string[]>(['all']);
   
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
@@ -51,6 +55,11 @@ const Home: React.FC = () => {
   useEffect(() => {
     fetchAllData();
   }, []);
+
+  // Update available genders when selections change
+  useEffect(() => {
+    updateAvailableGenders();
+  }, [selectedCategory, selectedSubcategory, products]);
 
   // Check for popup
   useEffect(() => {
@@ -85,19 +94,22 @@ const Home: React.FC = () => {
 
       setProducts(productsData || []);
       
-// Process categories to extract subcategories from products
-const categoriesWithSubcats = (categoriesData || []).map((cat: Category) => {
-  const categoryProducts = (productsData || []).filter((p: Product) => p.category === cat.name);
-  const subcategories = [...new Set(categoryProducts
-    .map((p: Product) => p.subcategory)
-    .filter((sub: string | undefined): sub is string => !!sub))];
-  
-  return {
-    ...cat,
-    subcategories
-  };
-});
-    
+      // Process categories to extract subcategories from products - FIXED
+      const categoriesWithSubcats = (categoriesData || []).map((cat: Category) => {
+        const categoryProducts = (productsData || []).filter((p: Product) => p.category === cat.name);
+        // Explicitly type the filter callback
+        const subcategories = [...new Set(
+          categoryProducts
+            .map((p: Product) => p.subcategory)
+            .filter((sub: string | undefined): sub is string => sub !== undefined && sub !== null)
+        )];
+        
+        return {
+          ...cat,
+          subcategories
+        };
+      });
+      
       setCategories(categoriesWithSubcats);
       setHeroes(heroesData || []);
       setStats(statsData?.value || defaultStats);
@@ -110,6 +122,30 @@ const categoriesWithSubcats = (categoriesData || []).map((cat: Category) => {
     }
   };
 
+ // Update available genders based on current filters - FIXED
+const updateAvailableGenders = () => {
+  let filtered = [...products];
+  
+  if (selectedCategory) {
+    filtered = filtered.filter(p => p.category === selectedCategory.name);
+  }
+  
+  if (selectedSubcategory) {
+    filtered = filtered.filter(p => p.subcategory === selectedSubcategory);
+  }
+  
+  // Get unique genders and convert to string array without type predicate
+  const genderValues = filtered
+    .map(p => p.gender)
+    .filter((g): g is 'men' | 'women' | 'unisex' | 'kids' => g !== undefined && g !== null);
+  
+  // Convert the filtered values to strings
+  const genderStrings = genderValues.map(g => g as string);
+  
+  const genders = ['all', ...new Set(genderStrings)];
+  
+  setAvailableGenders(genders);
+};
   // Filter products based on selections
   const getFilteredProducts = () => {
     let filtered = [...products];
@@ -122,23 +158,28 @@ const categoriesWithSubcats = (categoriesData || []).map((cat: Category) => {
       filtered = filtered.filter(p => p.subcategory === selectedSubcategory);
     }
     
+    if (selectedGender !== 'all') {
+      filtered = filtered.filter(p => p.gender === selectedGender);
+    }
+    
     return filtered;
   };
 
   // Filter combos based on selections
   const getFilteredCombos = () => {
-    if (!selectedCategory && !selectedSubcategory) return combos;
+    if (!selectedCategory && !selectedSubcategory && selectedGender === 'all') return combos;
     
     return combos.filter(combo => {
       const comboProducts = combo.combo_products || [];
       
-      // Check if combo has any product matching the category/subcategory
+      // Check if combo has any product matching the filters
       return comboProducts.some(item => {
         const product = item.product;
         if (!product) return false;
         
         if (selectedCategory && product.category !== selectedCategory.name) return false;
         if (selectedSubcategory && product.subcategory !== selectedSubcategory) return false;
+        if (selectedGender !== 'all' && product.gender !== selectedGender) return false;
         
         return true;
       });
@@ -148,16 +189,28 @@ const categoriesWithSubcats = (categoriesData || []).map((cat: Category) => {
   const handleCategorySelect = (category: CategoryWithSubcategories) => {
     setSelectedCategory(category);
     setSelectedSubcategory(null);
+    setSelectedGender('all');
     setViewMode('products');
   };
 
   const handleSubcategorySelect = (subcategory: string) => {
     setSelectedSubcategory(subcategory);
+    setSelectedGender('all');
+  };
+
+  const handleGenderSelect = (gender: string) => {
+    setSelectedGender(gender);
   };
 
   const handleBackToCategories = () => {
     setSelectedCategory(null);
     setSelectedSubcategory(null);
+    setSelectedGender('all');
+  };
+
+  const handleBackToSubcategories = () => {
+    setSelectedSubcategory(null);
+    setSelectedGender('all');
   };
 
   const handleSearch = async (searchText?: string) => {
@@ -327,7 +380,7 @@ const categoriesWithSubcats = (categoriesData || []).map((cat: Category) => {
               <>
                 <ChevronRight className="h-4 w-4 text-gray-400" />
                 <button
-                  onClick={() => setSelectedSubcategory(null)}
+                  onClick={handleBackToSubcategories}
                   className={`px-4 py-2 rounded-full transition-colors ${
                     !selectedSubcategory
                       ? 'bg-premium-gold text-white'
@@ -343,6 +396,14 @@ const categoriesWithSubcats = (categoriesData || []).map((cat: Category) => {
                 <ChevronRight className="h-4 w-4 text-gray-400" />
                 <span className="px-4 py-2 bg-premium-gold text-white rounded-full">
                   {selectedSubcategory}
+                </span>
+              </>
+            )}
+            {selectedGender !== 'all' && (
+              <>
+                <ChevronRight className="h-4 w-4 text-gray-400" />
+                <span className="px-4 py-2 bg-premium-gold text-white rounded-full capitalize">
+                  {selectedGender}
                 </span>
               </>
             )}
@@ -426,13 +487,41 @@ const categoriesWithSubcats = (categoriesData || []).map((cat: Category) => {
         </section>
       )}
 
-      {/* Products/Combos Grid (Level 3) */}
+      {/* Gender Filter (Level 3) */}
+      {(selectedSubcategory || (selectedCategory && selectedCategory.subcategories.length === 0)) && availableGenders.length > 1 && (
+        <section className="py-6 bg-white border-b">
+          <div className="container mx-auto px-4">
+            <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+              <Users className="h-5 w-5 text-premium-gold" />
+              Filter by Gender
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {availableGenders.map((gender) => (
+                <button
+                  key={gender}
+                  onClick={() => handleGenderSelect(gender)}
+                  className={`px-6 py-3 rounded-full text-sm capitalize transition-all ${
+                    selectedGender === gender
+                      ? 'bg-premium-gold text-white shadow-lg'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {gender === 'all' ? 'All Genders' : gender}
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Products/Combos Grid (Level 4) */}
       {(selectedSubcategory || (selectedCategory && selectedCategory.subcategories.length === 0)) && (
         <section className="py-12 bg-white">
           <div className="container mx-auto px-4">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
               <h2 className="text-3xl font-serif font-bold">
                 {selectedSubcategory || selectedCategory?.name}
+                {selectedGender !== 'all' && ` - ${selectedGender}`}
               </h2>
               <div className="flex gap-2">
                 <button
@@ -474,7 +563,7 @@ const categoriesWithSubcats = (categoriesData || []).map((cat: Category) => {
                 </div>
               ) : (
                 <div className="text-center py-16">
-                  <p className="text-gray-500">No products found in this category.</p>
+                  <p className="text-gray-500">No products found matching your criteria.</p>
                 </div>
               )
             )}
@@ -495,7 +584,7 @@ const categoriesWithSubcats = (categoriesData || []).map((cat: Category) => {
                 </div>
               ) : (
                 <div className="text-center py-16">
-                  <p className="text-gray-500">No combos found in this category.</p>
+                  <p className="text-gray-500">No combos found matching your criteria.</p>
                 </div>
               )
             )}
