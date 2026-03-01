@@ -203,12 +203,11 @@ export default function Combos() {
         })}
       </motion.div>
 
-      {/* Combo Details Modal */}
+      {/* Combo Details Modal - FIXED: Removed onAddToCart prop */}
       {selectedCombo && (
         <ComboDetailsModal
           combo={selectedCombo}
           onClose={() => setSelectedCombo(null)}
-          onAddToCart={addToCart}
         />
       )}
     </div>
