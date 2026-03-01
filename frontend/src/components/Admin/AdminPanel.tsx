@@ -1117,7 +1117,7 @@ const AdminPanel: React.FC = () => {
                   icon={<CreditCard className="h-4 w-4 text-gray-400" />}
                   options={[
                     { value: 'paid', label: 'Paid' },
-                    { value: 'unpaid', label: 'Unpaid' },
+                    { value: 'Pending', label: 'Pending' },
                     { value: 'refunded', label: 'Refunded' },
                   ]}
                 />
@@ -1410,7 +1410,7 @@ const AdminPanel: React.FC = () => {
                   onChange={setProductGenderFilter}
                   icon={<Users className="h-4 w-4 text-gray-400" />}
                   options={[
-                    { value: 'male', label: 'Male' },
+                    { value: 'men', label: 'Men' },
                     { value: 'female', label: 'Female' },
                     { value: 'unisex', label: 'Unisex' },
                   ]}
