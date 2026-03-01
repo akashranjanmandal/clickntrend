@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X, Upload, Camera, Type, Image as ImageIcon } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Upload, Camera, Type, Image as ImageIcon, Minus, Plus } from 'lucide-react';
 import { Product, CustomizationData } from '../types';
 import { useCart } from '../context/CartContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -30,7 +30,6 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({ p
       const reader = new FileReader();
       reader.onloadend = () => {
         setCustomImage(reader.result as string);
-        // Create preview with text overlay
         createPreview(reader.result as string, customText);
       };
       reader.readAsDataURL(file);
@@ -38,7 +37,6 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({ p
   };
 
   const createPreview = (imageData: string, text: string) => {
-    // Simple preview - in real app, you'd use canvas to overlay text
     setPreviewUrl(imageData);
   };
 
@@ -54,7 +52,7 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({ p
       const response = await apiFetch('/api/upload/customization', {
         method: 'POST',
         body: formData,
-        headers: {} // Let browser set content-type for FormData
+        headers: {}
       });
       return response.image_url;
     } catch (error) {
@@ -95,8 +93,7 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({ p
     onClose();
   };
 
-  // Update preview when text changes
-  React.useEffect(() => {
+  useEffect(() => {
     if (customImage) {
       createPreview(customImage, customText);
     }
@@ -104,7 +101,7 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({ p
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -114,23 +111,24 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({ p
         />
 
         <motion.div
-          initial={{ opacity: 0, scale: 0.9, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.9, y: 20 }}
-          className="relative bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+          initial={{ opacity: 0, y: '100%' }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: '100%' }}
+          transition={{ type: 'tween' }}
+          className="relative bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
         >
-          <div className="p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-serif font-bold">Customize Your Gift</h2>
-              <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
+          <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex justify-between items-center z-10">
+            <h2 className="text-lg sm:text-xl font-serif font-bold">Customize Your Gift</h2>
+            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
 
-            <div className="grid md:grid-cols-2 gap-6">
+          <div className="p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
               {/* Left side - Preview */}
-              <div>
-                <h3 className="font-medium mb-3">Preview</h3>
+              <div className="sm:w-1/2">
+                <h3 className="font-medium text-sm mb-2">Preview</h3>
                 <div className="relative border rounded-lg overflow-hidden bg-gray-50 aspect-square">
                   <img
                     src={previewUrl || product.image_url}
@@ -138,8 +136,8 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({ p
                     className="w-full h-full object-cover"
                   />
                   {customText && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                      <p className="text-white text-lg font-bold text-center px-4 break-words">
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/30 p-4">
+                      <p className="text-white text-sm sm:text-base font-bold text-center break-words">
                         {customText}
                       </p>
                     </div>
@@ -148,10 +146,10 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({ p
               </div>
 
               {/* Right side - Customization options */}
-              <div className="space-y-4">
+              <div className="sm:w-1/2 space-y-4">
                 {/* Custom Text */}
                 <div>
-                  <label className="block text-sm font-medium mb-2 flex items-center gap-2">
+                  <label className="block text-sm font-medium mb-1.5 flex items-center gap-1.5">
                     <Type className="h-4 w-4" />
                     Add Custom Text
                   </label>
@@ -161,7 +159,7 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({ p
                     onChange={(e) => setCustomText(e.target.value)}
                     maxLength={product.max_customization_characters || 50}
                     placeholder="Enter your message..."
-                    className="w-full px-4 py-2 border rounded-lg focus:border-premium-gold focus:outline-none"
+                    className="w-full px-3 py-2 text-sm border rounded-lg focus:border-premium-gold focus:outline-none"
                   />
                   <p className="text-xs text-gray-500 mt-1">
                     Max {product.max_customization_characters || 50} characters
@@ -170,17 +168,17 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({ p
 
                 {/* Custom Image */}
                 <div>
-                  <label className="block text-sm font-medium mb-2 flex items-center gap-2">
+                  <label className="block text-sm font-medium mb-1.5 flex items-center gap-1.5">
                     <ImageIcon className="h-4 w-4" />
                     Add Custom Image
                   </label>
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-premium-gold transition-colors">
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-3 text-center hover:border-premium-gold transition-colors">
                     {customImage ? (
                       <div className="relative">
                         <img
                           src={customImage}
                           alt="Custom"
-                          className="max-h-32 mx-auto rounded"
+                          className="max-h-24 mx-auto rounded"
                         />
                         <button
                           onClick={() => {
@@ -188,16 +186,16 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({ p
                             setCustomImageFile(null);
                             setPreviewUrl(null);
                           }}
-                          className="absolute top-0 right-0 p-1 bg-red-100 text-red-600 rounded-full hover:bg-red-200"
+                          className="absolute -top-2 -right-2 p-1 bg-red-100 text-red-600 rounded-full hover:bg-red-200"
                         >
-                          <X className="h-4 w-4" />
+                          <X className="h-3 w-3" />
                         </button>
                       </div>
                     ) : (
-                      <label className="cursor-pointer">
-                        <Camera className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                        <p className="text-sm text-gray-600">Click to upload image</p>
-                        <p className="text-xs text-gray-500">PNG, JPG up to 2MB</p>
+                      <label className="cursor-pointer block">
+                        <Camera className="h-6 w-6 text-gray-400 mx-auto mb-1" />
+                        <p className="text-xs text-gray-600">Click to upload</p>
+                        <p className="text-[10px] text-gray-500">PNG, JPG up to 2MB</p>
                         <input
                           type="file"
                           accept="image/*"
@@ -210,18 +208,18 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({ p
                 </div>
 
                 {/* Price Breakdown */}
-                <div className="border-t pt-4 mt-4">
-                  <div className="flex justify-between items-center mb-2">
+                <div className="border-t pt-3 mt-3">
+                  <div className="flex justify-between items-center mb-1.5 text-sm">
                     <span className="text-gray-600">Base Price:</span>
                     <span className="font-medium">₹{product.price.toLocaleString()}</span>
                   </div>
                   {(product.customization_price || 0) > 0 && (
-                    <div className="flex justify-between items-center mb-2">
+                    <div className="flex justify-between items-center mb-1.5 text-sm">
                       <span className="text-gray-600">Customization Fee:</span>
                       <span className="font-medium">+₹{product.customization_price?.toLocaleString()}</span>
                     </div>
                   )}
-                  <div className="flex justify-between items-center text-lg font-bold">
+                  <div className="flex justify-between items-center text-base font-bold pt-1.5 border-t">
                     <span>Total per item:</span>
                     <span className="text-premium-gold">
                       ₹{(product.price + (product.customization_price || 0)).toLocaleString()}
@@ -231,20 +229,22 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({ p
 
                 {/* Quantity */}
                 <div className="flex items-center justify-between">
-                  <span className="font-medium">Quantity:</span>
+                  <span className="text-sm font-medium">Quantity:</span>
                   <div className="flex items-center border rounded-lg">
                     <button
                       onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                      className="px-3 py-1 hover:bg-gray-100"
+                      className="px-3 py-1.5 hover:bg-gray-100 text-sm"
                     >
-                      -
+                      <Minus className="h-3 w-3" />
                     </button>
-                    <span className="px-4 py-1 border-x">{quantity}</span>
+                    <span className="px-4 py-1.5 text-sm border-x min-w-[40px] text-center">
+                      {quantity}
+                    </span>
                     <button
                       onClick={() => setQuantity(quantity + 1)}
-                      className="px-3 py-1 hover:bg-gray-100"
+                      className="px-3 py-1.5 hover:bg-gray-100 text-sm"
                     >
-                      +
+                      <Plus className="h-3 w-3" />
                     </button>
                   </div>
                 </div>
@@ -253,11 +253,11 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({ p
                 <button
                   onClick={handleAddToCart}
                   disabled={uploading}
-                  className="w-full py-3 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy transition-colors font-medium mt-4 disabled:opacity-50"
+                  className="w-full py-3 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy transition-colors font-medium text-sm disabled:opacity-50 mt-4"
                 >
                   {uploading ? (
                     <span className="flex items-center justify-center gap-2">
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                       Uploading...
                     </span>
                   ) : (
