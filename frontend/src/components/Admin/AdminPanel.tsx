@@ -4,7 +4,7 @@ import {
   RefreshCw, Plus, Edit, Trash2, Download, Search,
   ShoppingBag, MapPin, Phone, Mail, Calendar,
   BarChart3, Shield, Printer, XCircle, Tag, Copy,
-  Image as ImageIcon, Star, Video, Gift
+  Image as ImageIcon, Star, Video, Gift, ChevronDown
 } from 'lucide-react';
 import { Order, Product, Combo, ComboProduct } from '../../types';
 import CategoryManager from './CategoryManager';
@@ -315,34 +315,141 @@ const AdminPanel: React.FC = () => {
                   <p className="text-sm text-gray-600">Premium Gift Shop Management</p>
                 </div>
               </div>
-              
-              <div className="hidden md:flex space-x-1 ml-8">
-                {[
-                  { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
-                  { id: 'orders', label: 'Orders', icon: Package },
-                  { id: 'products', label: 'Products', icon: ShoppingBag },
-                  { id: 'combos', label: 'Combos', icon: Package },
-                  { id: 'coupons', label: 'Coupons', icon: Tag },
-                  { id: 'categories', label: 'Categories', icon: Tag },
-                  { id: 'reviews', label: 'Reviews', icon: Star },
-                  { id: 'hero', label: 'Hero', icon: Video },
-                  { id: 'popups', label: 'Popups', icon: Gift },
-                  { id: 'logo', label: 'Logo', icon: ImageIcon },
-                ].map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id as any)}
-                    className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
-                      activeTab === tab.id
-                        ? 'bg-premium-gold text-white'
-                        : 'text-gray-600 hover:bg-gray-100'
-                    }`}
-                  >
-                    <tab.icon className="h-4 w-4" />
-                    <span>{tab.label}</span>
-                  </button>
-                ))}
-              </div>
+          <div className="hidden md:flex items-center space-x-1 ml-8">
+  {/* Dashboard - always visible */}
+  <button
+    onClick={() => setActiveTab('dashboard')}
+    className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+      activeTab === 'dashboard'
+        ? 'bg-premium-gold text-white'
+        : 'text-gray-600 hover:bg-gray-100'
+    }`}
+  >
+    <BarChart3 className="h-4 w-4" />
+    <span>Dashboard</span>
+  </button>
+
+  {/* Orders - always visible */}
+  <button
+    onClick={() => setActiveTab('orders')}
+    className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+      activeTab === 'orders'
+        ? 'bg-premium-gold text-white'
+        : 'text-gray-600 hover:bg-gray-100'
+    }`}
+  >
+    <Package className="h-4 w-4" />
+    <span>Orders</span>
+  </button>
+
+  {/* Products Dropdown */}
+  <div className="relative group">
+    <button
+      className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+        ['products', 'combos', 'categories'].includes(activeTab)
+          ? 'bg-premium-gold text-white'
+          : 'text-gray-600 hover:bg-gray-100'
+      }`}
+    >
+      <ShoppingBag className="h-4 w-4" />
+      <span>Products</span>
+      <ChevronDown className="h-4 w-4" />
+    </button>
+    
+    <div className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-xl border py-2 min-w-[180px] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+      <button
+        onClick={() => setActiveTab('products')}
+        className={`w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center space-x-2 ${
+          activeTab === 'products' ? 'bg-premium-cream text-premium-gold' : ''
+        }`}
+      >
+        <ShoppingBag className="h-4 w-4" />
+        <span>Products</span>
+      </button>
+      <button
+        onClick={() => setActiveTab('combos')}
+        className={`w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center space-x-2 ${
+          activeTab === 'combos' ? 'bg-premium-cream text-premium-gold' : ''
+        }`}
+      >
+        <Package className="h-4 w-4" />
+        <span>Combos</span>
+      </button>
+      <button
+        onClick={() => setActiveTab('categories')}
+        className={`w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center space-x-2 ${
+          activeTab === 'categories' ? 'bg-premium-cream text-premium-gold' : ''
+        }`}
+      >
+        <Tag className="h-4 w-4" />
+        <span>Categories</span>
+      </button>
+    </div>
+  </div>
+
+  {/* Marketing Dropdown */}
+  <div className="relative group">
+    <button
+      className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+        ['coupons', 'reviews', 'hero', 'popups', 'logo'].includes(activeTab)
+          ? 'bg-premium-gold text-white'
+          : 'text-gray-600 hover:bg-gray-100'
+      }`}
+    >
+      <Gift className="h-4 w-4" />
+      <span>Marketing</span>
+      <ChevronDown className="h-4 w-4" />
+    </button>
+    
+    <div className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-xl border py-2 min-w-[180px] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+      <button
+        onClick={() => setActiveTab('coupons')}
+        className={`w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center space-x-2 ${
+          activeTab === 'coupons' ? 'bg-premium-cream text-premium-gold' : ''
+        }`}
+      >
+        <Tag className="h-4 w-4" />
+        <span>Coupons</span>
+      </button>
+      <button
+        onClick={() => setActiveTab('reviews')}
+        className={`w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center space-x-2 ${
+          activeTab === 'reviews' ? 'bg-premium-cream text-premium-gold' : ''
+        }`}
+      >
+        <Star className="h-4 w-4" />
+        <span>Reviews</span>
+      </button>
+      <button
+        onClick={() => setActiveTab('hero')}
+        className={`w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center space-x-2 ${
+          activeTab === 'hero' ? 'bg-premium-cream text-premium-gold' : ''
+        }`}
+      >
+        <Video className="h-4 w-4" />
+        <span>Hero</span>
+      </button>
+      <button
+        onClick={() => setActiveTab('popups')}
+        className={`w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center space-x-2 ${
+          activeTab === 'popups' ? 'bg-premium-cream text-premium-gold' : ''
+        }`}
+      >
+        <Gift className="h-4 w-4" />
+        <span>Popups</span>
+      </button>
+      <button
+        onClick={() => setActiveTab('logo')}
+        className={`w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center space-x-2 ${
+          activeTab === 'logo' ? 'bg-premium-cream text-premium-gold' : ''
+        }`}
+      >
+        <ImageIcon className="h-4 w-4" />
+        <span>Logo</span>
+      </button>
+    </div>
+  </div>
+</div>
             </div>
 
             <div className="flex items-center space-x-4">
