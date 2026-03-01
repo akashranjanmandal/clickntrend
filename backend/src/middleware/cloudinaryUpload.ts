@@ -1,58 +1,34 @@
 import multer from 'multer';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import cloudinary from '../config/cloudinary';
-import config from '../config';
 
+// Simple storage configuration
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
-  params: async (req, file) => {
-    // Determine folder based on the route
-    let folder = 'giftshop';
-    const url = req.originalUrl || '';
-    
-    if (url.includes('product-images')) {
-      folder = 'giftshop/products';
-    } else if (url.includes('customization')) {
-      folder = 'giftshop/customizations';
-    } else if (url.includes('hero')) {
-      folder = 'giftshop/hero';
-    } else if (url.includes('logo')) {
-      folder = 'giftshop/logos';
-    } else if (url.includes('upload-image')) {
-      folder = 'giftshop/general';
-    }
-
-    return {
-      folder: folder,
-      format: file.mimetype.split('/')[1],
-      public_id: `${Date.now()}-${Math.random().toString(36).substring(7)}`,
-      transformation: [
-        { quality: 'auto' },
-        { fetch_format: 'auto' }
-      ],
-    };
-  },
+  params: {
+    folder: 'giftshop',
+    allowed_formats: ['jpg', 'png', 'jpeg', 'webp', 'gif', 'svg'],
+    transformation: [{ quality: 'auto' }]
+  } as any, // Use 'as any' to bypass type checking temporarily
 });
 
 const fileFilter = (req: any, file: any, cb: any) => {
-  if (config.allowedImageTypes.includes(file.mimetype)) {
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg', 'image/gif', 'image/svg+xml'];
+  if (allowedTypes.includes(file.mimetype)) {
     cb(null, true);
-  } else if (file.mimetype.startsWith('video/') && req.originalUrl.includes('hero')) {
-    cb(null, true); // Allow videos for hero section
   } else {
-    cb(new Error('Invalid file type. Only images are allowed.'), false);
+    cb(new Error('Invalid file type. Only images are allowed.'));
   }
 };
 
 export const upload = multer({
   storage: storage,
-  limits: { fileSize: config.maxFileSize },
+  limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: fileFilter,
 });
 
-// For multiple file uploads
 export const uploadMultiple = multer({
   storage: storage,
-  limits: { fileSize: config.maxFileSize, files: 5 },
+  limits: { fileSize: 5 * 1024 * 1024, files: 5 },
   fileFilter: fileFilter,
 });
