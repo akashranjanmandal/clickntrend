@@ -332,50 +332,50 @@ const Products: React.FC = () => {
           )}
         </AnimatePresence>
 
-        {/* Products Grid */}
-        <div className="flex-1">
-          {loading ? (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {[...Array(6)].map((_, i) => (
-                <div key={i} className="bg-white rounded-2xl p-6 animate-pulse">
-                  <div className="h-48 bg-gray-200 rounded-lg mb-4"></div>
-                  <div className="h-4 bg-gray-200 rounded mb-2"></div>
-                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <>
-              <div className="mb-6 text-gray-600">
-                Showing {filteredProducts.length} of {products.length} products
-              </div>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {filteredProducts.map((product) => (
-                  <ProductCard key={product.id} product={product} />
-                ))}
-              </div>
-              {filteredProducts.length === 0 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="text-center py-16"
-                >
-                  <div className="text-6xl mb-4">😕</div>
-                  <h3 className="text-2xl font-serif font-bold mb-2">No Products Found</h3>
-                  <p className="text-gray-600 mb-6">
-                    No products match your selected filters. Try adjusting your criteria.
-                  </p>
-                  <button
-                    onClick={clearFilters}
-                    className="px-6 py-3 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy transition-colors"
-                  >
-                    Clear Filters
-                  </button>
-                </motion.div>
-              )}
-            </>
-          )}
+      {/* Products Grid */}
+<div className="flex-1">
+  {loading ? (
+    <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
+      {[...Array(6)].map((_, i) => (
+        <div key={i} className="bg-white rounded-2xl p-4 md:p-6 animate-pulse">
+          <div className="h-32 md:h-48 bg-gray-200 rounded-lg mb-3 md:mb-4"></div>
+          <div className="h-3 md:h-4 bg-gray-200 rounded mb-2"></div>
+          <div className="h-3 md:h-4 bg-gray-200 rounded w-3/4"></div>
         </div>
+      ))}
+    </div>
+  ) : (
+    <>
+      <div className="mb-6 text-gray-600">
+        Showing {filteredProducts.length} of {products.length} products
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
+        {filteredProducts.map((product) => (
+          <ProductCard key={product.id} product={product} />
+        ))}
+      </div>
+      {filteredProducts.length === 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center py-16"
+        >
+          <div className="text-6xl mb-4">😕</div>
+          <h3 className="text-2xl font-serif font-bold mb-2">No Products Found</h3>
+          <p className="text-gray-600 mb-6">
+            No products match your selected filters. Try adjusting your criteria.
+          </p>
+          <button
+            onClick={clearFilters}
+            className="px-6 py-3 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy transition-colors"
+          >
+            Clear Filters
+          </button>
+        </motion.div>
+      )}
+    </>
+  )}
+</div>
       </div>
     </div>
   );

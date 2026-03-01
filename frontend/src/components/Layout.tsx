@@ -352,18 +352,18 @@ const Layout: React.FC = () => {
               <ul className="space-y-3 text-premium-cream/70">
                 <li className="flex items-start gap-3">
                   <MapPin className="h-5 w-5 flex-shrink-0 mt-0.5" />
-                  <span>123 Business Park, MG Road, Bangalore - 560001</span>
+                  <span>14 Satyen Roy Branch Road, Behala, Kolkata - 700034</span>
                 </li>
                 <li className="flex items-center gap-3">
                   <Phone className="h-5 w-5 flex-shrink-0" />
-                  <a href="tel:+919876543210" className="hover:text-premium-gold transition-colors">
-                    +91 98765 43210
+                  <a href="tel:+918240398515" className="hover:text-premium-gold transition-colors">
+                    +91 82 403 98515
                   </a>
                 </li>
                 <li className="flex items-center gap-3">
                   <Mail className="h-5 w-5 flex-shrink-0" />
-                  <a href="mailto:support@gftd.in" className="hover:text-premium-gold transition-colors">
-                    support@gftd.in
+                  <a href="mailto:care@gftd.in" className="hover:text-premium-gold transition-colors">
+                    care@gftd.in
                   </a>
                 </li>
               </ul>
@@ -374,7 +374,7 @@ const Layout: React.FC = () => {
           <div className="border-t border-premium-gold/20 mt-8 pt-8 text-center">
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
               <p className="text-sm text-premium-cream/50">
-                © {new Date().getFullYear()} GFTD. All rights reserved. The Art Of Gifting.
+                © {new Date().getFullYear()} GFTD. All rights reserved.
               </p>
             </div>
           </div>
