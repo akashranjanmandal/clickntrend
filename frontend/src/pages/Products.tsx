@@ -134,50 +134,50 @@ const Products: React.FC = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-12">
+    <div className="container mx-auto px-4 py-8 md:py-12">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-6 md:mb-8">
         <div>
-          <h1 className="text-4xl font-serif font-bold mb-2">
+          <h1 className="text-2xl md:text-3xl lg:text-4xl font-serif font-bold mb-1 md:mb-2">
             Our <span className="text-premium-gold">Collection</span>
           </h1>
-          <p className="text-gray-600">
+          <p className="text-sm md:text-base text-gray-600">
             Discover the perfect gift for every occasion
           </p>
         </div>
         <button
           onClick={() => setShowFilters(!showFilters)}
-          className="md:hidden flex items-center space-x-2 px-4 py-2 bg-premium-gold text-white rounded-lg"
+          className="md:hidden flex items-center space-x-2 px-3 py-1.5 md:px-4 md:py-2 bg-premium-gold text-white rounded-lg text-sm"
         >
-          <Filter className="h-5 w-5" />
+          <Filter className="h-4 w-4 md:h-5 md:w-5" />
           <span>Filters</span>
         </button>
       </div>
 
       {/* Active Filters Display */}
       {(selectedCategories.length > 0 || selectedGender !== 'all' || selectedSubcategory !== 'all') && (
-        <div className="flex flex-wrap gap-2 mb-4">
+        <div className="flex flex-wrap gap-1.5 md:gap-2 mb-4 md:mb-6">
           {selectedCategories.map(cat => (
-            <span key={cat} className="px-3 py-1 bg-premium-gold/10 text-premium-gold rounded-full text-sm flex items-center gap-1">
+            <span key={cat} className="px-2 py-0.5 md:px-3 md:py-1 bg-premium-gold/10 text-premium-gold rounded-full text-xs md:text-sm flex items-center gap-1">
               Category: {cat}
-              <button onClick={() => toggleCategory(cat)}>
-                <X className="h-3 w-3" />
+              <button onClick={() => toggleCategory(cat)} className="hover:bg-premium-gold/20 rounded-full p-0.5">
+                <X className="h-2.5 w-2.5 md:h-3 md:w-3" />
               </button>
             </span>
           ))}
           {selectedGender !== 'all' && (
-            <span className="px-3 py-1 bg-premium-gold/10 text-premium-gold rounded-full text-sm flex items-center gap-1 capitalize">
+            <span className="px-2 py-0.5 md:px-3 md:py-1 bg-premium-gold/10 text-premium-gold rounded-full text-xs md:text-sm flex items-center gap-1 capitalize">
               For: {selectedGender}
-              <button onClick={() => setSelectedGender('all')}>
-                <X className="h-3 w-3" />
+              <button onClick={() => setSelectedGender('all')} className="hover:bg-premium-gold/20 rounded-full p-0.5">
+                <X className="h-2.5 w-2.5 md:h-3 md:w-3" />
               </button>
             </span>
           )}
           {selectedSubcategory !== 'all' && (
-            <span className="px-3 py-1 bg-premium-gold/10 text-premium-gold rounded-full text-sm flex items-center gap-1">
+            <span className="px-2 py-0.5 md:px-3 md:py-1 bg-premium-gold/10 text-premium-gold rounded-full text-xs md:text-sm flex items-center gap-1">
               Subcategory: {selectedSubcategory}
-              <button onClick={() => setSelectedSubcategory('all')}>
-                <X className="h-3 w-3" />
+              <button onClick={() => setSelectedSubcategory('all')} className="hover:bg-premium-gold/20 rounded-full p-0.5">
+                <X className="h-2.5 w-2.5 md:h-3 md:w-3" />
               </button>
             </span>
           )}
@@ -185,11 +185,11 @@ const Products: React.FC = () => {
       )}
 
       {/* Sort Bar */}
-      <div className="flex justify-end mb-6">
+      <div className="flex justify-end mb-4 md:mb-6">
         <select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value as any)}
-          className="px-4 py-2 border rounded-lg focus:outline-none focus:border-premium-gold bg-white"
+          className="px-3 py-1.5 md:px-4 md:py-2 text-sm md:text-base border rounded-lg focus:outline-none focus:border-premium-gold bg-white"
         >
           <option value="popular">Most Popular</option>
           <option value="newest">Newest First</option>
@@ -198,7 +198,7 @@ const Products: React.FC = () => {
         </select>
       </div>
 
-      <div className="flex gap-8">
+      <div className="flex gap-4 md:gap-8">
         {/* Filters Sidebar */}
         <AnimatePresence>
           {(showFilters || window.innerWidth >= 768) && (
@@ -206,26 +206,26 @@ const Products: React.FC = () => {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              className={`${showFilters ? 'fixed inset-0 z-50 md:relative md:inset-auto' : ''} w-full md:w-80 flex-shrink-0`}
+              className={`${showFilters ? 'fixed inset-0 z-50 md:relative md:inset-auto' : ''} w-full md:w-72 lg:w-80 flex-shrink-0`}
             >
-              <div className="bg-white rounded-2xl p-6 shadow-lg md:sticky md:top-24 h-full md:h-auto overflow-y-auto max-h-[calc(100vh-120px)]">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="font-serif text-lg font-semibold flex items-center gap-2">
-                    <SlidersHorizontal className="h-5 w-5" />
+              <div className="bg-white rounded-xl md:rounded-2xl p-4 md:p-6 shadow-lg md:sticky md:top-24 h-full md:h-auto overflow-y-auto max-h-[calc(100vh-120px)]">
+                <div className="flex items-center justify-between mb-4 md:mb-6">
+                  <h3 className="font-serif text-base md:text-lg font-semibold flex items-center gap-1 md:gap-2">
+                    <SlidersHorizontal className="h-4 w-4 md:h-5 md:w-5" />
                     Filters
                   </h3>
                   <button
                     onClick={() => setShowFilters(false)}
-                    className="md:hidden"
+                    className="md:hidden p-1 hover:bg-gray-100 rounded-full"
                   >
                     <X className="h-5 w-5" />
                   </button>
                 </div>
 
                 {/* Price Range */}
-                <div className="mb-8">
-                  <h4 className="font-medium mb-4">Price Range</h4>
-                  <div className="space-y-4">
+                <div className="mb-6 md:mb-8">
+                  <h4 className="font-medium text-sm md:text-base mb-3 md:mb-4">Price Range</h4>
+                  <div className="space-y-3 md:space-y-4">
                     <input
                       type="range"
                       min="0"
@@ -235,7 +235,7 @@ const Products: React.FC = () => {
                       onChange={(e) => setPriceRange([priceRange[0], parseInt(e.target.value)])}
                       className="w-full accent-premium-gold"
                     />
-                    <div className="flex justify-between text-sm">
+                    <div className="flex justify-between text-xs md:text-sm">
                       <span>₹{priceRange[0].toLocaleString()}</span>
                       <span>₹{priceRange[1].toLocaleString()}</span>
                     </div>
@@ -243,23 +243,23 @@ const Products: React.FC = () => {
                 </div>
 
                 {/* Categories */}
-                <div className="mb-8">
-                  <h4 className="font-medium mb-4">Categories</h4>
+                <div className="mb-6 md:mb-8">
+                  <h4 className="font-medium text-sm md:text-base mb-3 md:mb-4">Categories</h4>
                   <div className="space-y-2">
                     {[...new Set(products.map(p => p.category))].map(category => (
-                      <label key={category} className="flex items-center justify-between cursor-pointer group">
-                        <div className="flex items-center space-x-3">
+                      <label key={category} className="flex items-center justify-between cursor-pointer group text-sm md:text-base">
+                        <div className="flex items-center space-x-2 md:space-x-3">
                           <input
                             type="checkbox"
                             checked={selectedCategories.includes(category)}
                             onChange={() => toggleCategory(category)}
-                            className="rounded border-premium-gold text-premium-gold focus:ring-premium-gold"
+                            className="rounded border-premium-gold text-premium-gold focus:ring-premium-gold h-3 w-3 md:h-4 md:w-4"
                           />
                           <span className="group-hover:text-premium-gold transition-colors">
                             {category}
                           </span>
                         </div>
-                        <span className="text-sm text-gray-500">
+                        <span className="text-xs md:text-sm text-gray-500">
                           {products.filter(p => p.category === category).length}
                         </span>
                       </label>
@@ -268,12 +268,12 @@ const Products: React.FC = () => {
                 </div>
 
                 {/* Gender Filter - Now Dynamic */}
-                <div className="mb-8">
-                  <h4 className="font-medium mb-4">For</h4>
-                  <div className="flex flex-wrap gap-2">
+                <div className="mb-6 md:mb-8">
+                  <h4 className="font-medium text-sm md:text-base mb-3 md:mb-4">For</h4>
+                  <div className="flex flex-wrap gap-1.5 md:gap-2">
                     <button
                       onClick={() => setSelectedGender('all')}
-                      className={`px-4 py-2 rounded-full text-sm capitalize transition-colors ${
+                      className={`px-3 py-1 md:px-4 md:py-2 rounded-full text-xs md:text-sm capitalize transition-colors ${
                         selectedGender === 'all'
                           ? 'bg-premium-gold text-white'
                           : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -285,7 +285,7 @@ const Products: React.FC = () => {
                       <button
                         key={gender.name}
                         onClick={() => setSelectedGender(gender.name)}
-                        className={`px-4 py-2 rounded-full text-sm capitalize transition-colors flex items-center gap-1 ${
+                        className={`px-3 py-1 md:px-4 md:py-2 rounded-full text-xs md:text-sm capitalize transition-colors flex items-center gap-1 ${
                           selectedGender === gender.name
                             ? 'bg-premium-gold text-white'
                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -300,14 +300,14 @@ const Products: React.FC = () => {
 
                 {/* Subcategories */}
                 {subcategories.length > 1 && (
-                  <div className="mb-8">
-                    <h4 className="font-medium mb-4">Subcategory</h4>
-                    <div className="flex flex-wrap gap-2">
+                  <div className="mb-6 md:mb-8">
+                    <h4 className="font-medium text-sm md:text-base mb-3 md:mb-4">Subcategory</h4>
+                    <div className="flex flex-wrap gap-1.5 md:gap-2">
                       {subcategories.map((sub) => (
                         <button
                           key={sub}
                           onClick={() => setSelectedSubcategory(sub)}
-                          className={`px-4 py-2 rounded-full text-sm capitalize transition-colors ${
+                          className={`px-3 py-1 md:px-4 md:py-2 rounded-full text-xs md:text-sm capitalize transition-colors ${
                             selectedSubcategory === sub
                               ? 'bg-premium-gold text-white'
                               : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -323,7 +323,7 @@ const Products: React.FC = () => {
                 {/* Clear Filters */}
                 <button
                   onClick={clearFilters}
-                  className="w-full mt-8 px-4 py-3 border border-premium-gold text-premium-gold rounded-lg hover:bg-premium-gold hover:text-white transition-colors font-medium"
+                  className="w-full mt-4 md:mt-8 px-3 py-2 md:px-4 md:py-3 text-sm md:text-base border border-premium-gold text-premium-gold rounded-lg hover:bg-premium-gold hover:text-white transition-colors font-medium"
                 >
                   Clear All Filters
                 </button>
@@ -332,50 +332,51 @@ const Products: React.FC = () => {
           )}
         </AnimatePresence>
 
-      {/* Products Grid */}
-<div className="flex-1">
-  {loading ? (
-    <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
-      {[...Array(6)].map((_, i) => (
-        <div key={i} className="bg-white rounded-2xl p-4 md:p-6 animate-pulse">
-          <div className="h-32 md:h-48 bg-gray-200 rounded-lg mb-3 md:mb-4"></div>
-          <div className="h-3 md:h-4 bg-gray-200 rounded mb-2"></div>
-          <div className="h-3 md:h-4 bg-gray-200 rounded w-3/4"></div>
+        {/* Products Grid */}
+        <div className="flex-1 min-w-0">
+          {loading ? (
+            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 lg:gap-6">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="bg-white rounded-lg md:rounded-xl lg:rounded-2xl p-2 md:p-3 lg:p-4 animate-pulse">
+                  <div className="aspect-square bg-gray-200 rounded-lg mb-2 md:mb-3"></div>
+                  <div className="h-2 md:h-3 lg:h-4 bg-gray-200 rounded mb-1.5 md:mb-2"></div>
+                  <div className="h-2 md:h-3 lg:h-4 bg-gray-200 rounded w-2/3 mb-2 md:mb-3"></div>
+                  <div className="h-3 md:h-4 lg:h-5 bg-gray-200 rounded w-1/2"></div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <>
+              <div className="mb-3 md:mb-4 lg:mb-6 text-xs md:text-sm lg:text-base text-gray-600">
+                Showing {filteredProducts.length} of {products.length} products
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 lg:gap-6">
+                {filteredProducts.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </div>
+              {filteredProducts.length === 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-center py-8 md:py-12 lg:py-16"
+                >
+                  <div className="text-4xl md:text-5xl lg:text-6xl mb-3 md:mb-4">😕</div>
+                  <h3 className="text-xl md:text-2xl lg:text-3xl font-serif font-bold mb-2">No Products Found</h3>
+                  <p className="text-sm md:text-base text-gray-600 mb-4 md:mb-6">
+                    No products match your selected filters. Try adjusting your criteria.
+                  </p>
+                  <button
+                    onClick={clearFilters}
+                    className="px-4 py-2 md:px-6 md:py-3 text-sm md:text-base bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy transition-colors"
+                  >
+                    Clear Filters
+                  </button>
+                </motion.div>
+              )}
+            </>
+          )}
         </div>
-      ))}
-    </div>
-  ) : (
-    <>
-      <div className="mb-6 text-gray-600">
-        Showing {filteredProducts.length} of {products.length} products
-      </div>
-      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
-        {filteredProducts.map((product) => (
-          <ProductCard key={product.id} product={product} />
-        ))}
-      </div>
-      {filteredProducts.length === 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center py-16"
-        >
-          <div className="text-6xl mb-4">😕</div>
-          <h3 className="text-2xl font-serif font-bold mb-2">No Products Found</h3>
-          <p className="text-gray-600 mb-6">
-            No products match your selected filters. Try adjusting your criteria.
-          </p>
-          <button
-            onClick={clearFilters}
-            className="px-6 py-3 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy transition-colors"
-          >
-            Clear Filters
-          </button>
-        </motion.div>
-      )}
-    </>
-  )}
-</div>
       </div>
     </div>
   );
