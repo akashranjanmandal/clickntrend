@@ -369,7 +369,86 @@ router.post('/combos', requireAuth, async (req: Request, res: Response) => {
     res.status(500).json({ error: error.message });
   }
 });
+// In the POST /combos route
+router.post('/combos', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { 
+      name, description, category, discount_percentage, discount_price,
+      image_url, is_active 
+    } = req.body;
 
+    console.log('Creating combo:', { name, category });
+
+    // Create combo
+    const { data: combo, error: comboError } = await supabase
+      .from('combos')
+      .insert({
+        name,
+        description,
+        category, // Add category
+        discount_percentage: discount_percentage || null,
+        discount_price: discount_price || null,
+        image_url,
+        is_active: is_active !== undefined ? is_active : true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (comboError) {
+      console.error('Error creating combo:', comboError);
+      throw comboError;
+    }
+
+    console.log('Combo created:', combo.id);
+    res.json({ success: true, combo });
+  } catch (error: any) {
+    console.error('Create combo error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// In the PUT /combos/:id route
+router.put('/combos/:id', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { 
+      name, description, category, discount_percentage, discount_price,
+      image_url, is_active 
+    } = req.body;
+
+    console.log('Updating combo:', { id, name, category });
+
+    // Update the combo
+    const { data: combo, error: comboError } = await supabase
+      .from('combos')
+      .update({
+        name,
+        description,
+        category, // Add category
+        discount_percentage: discount_percentage || null,
+        discount_price: discount_price || null,
+        image_url,
+        is_active: is_active !== undefined ? is_active : true,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (comboError) {
+      console.error('Error updating combo:', comboError);
+      throw comboError;
+    }
+
+    console.log('Combo updated:', id);
+    res.json({ success: true, combo });
+  } catch (error: any) {
+    console.error('Update combo error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
 // Update combo (without products)
 router.put('/combos/:id', requireAuth, async (req: Request, res: Response) => {
   try {

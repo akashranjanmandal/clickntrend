@@ -40,6 +40,7 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
   const [comboData, setComboData] = useState({
     name: '',
     description: '',
+    category: '', // Add category for the combo itself
     discount_percentage: '',
     discount_price: '',
     image_url: '',
@@ -111,6 +112,7 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
     setComboData({
       name: combo.name || '',
       description: combo.description || '',
+      category: combo.category || '', // Load combo's category - this was causing the error
       discount_percentage: combo.discount_percentage?.toString() || '',
       discount_price: combo.discount_price?.toString() || '',
       image_url: combo.image_url || '',
@@ -242,6 +244,11 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
       return;
     }
 
+    if (!comboData.category) {
+      alert('Please select a category for this combo');
+      return;
+    }
+
     setLoading(true);
     try {
       const token = localStorage.getItem('admin_token');
@@ -256,10 +263,11 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
         }
       }
 
-      // Create combo payload WITHOUT products
+      // Create combo payload WITH category
       const comboPayload = {
         name: comboData.name,
         description: comboData.description,
+        category: comboData.category, // Include category
         discount_percentage: comboData.discount_percentage ? parseInt(comboData.discount_percentage) : null,
         discount_price: comboData.discount_price ? parseFloat(comboData.discount_price) : null,
         image_url: imageUrl || '',
@@ -423,6 +431,21 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
                     className="w-full px-4 py-3 border rounded-lg focus:border-premium-gold focus:outline-none"
                     placeholder="Premium Anniversary Combo"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2">Category *</label>
+                  <select
+                    value={comboData.category}
+                    onChange={(e) => setComboData({...comboData, category: e.target.value})}
+                    required
+                    className="w-full px-4 py-3 border rounded-lg focus:border-premium-gold focus:outline-none"
+                  >
+                    <option value="">Select a category</option>
+                    {categories.map(cat => (
+                      <option key={cat.id} value={cat.name}>{cat.name}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
@@ -682,7 +705,7 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
               </button>
               <button
                 type="submit"
-                disabled={loading || selectedProducts.length === 0}
+                disabled={loading || selectedProducts.length === 0 || !comboData.category}
                 className="px-6 py-3 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
               >
                 {loading ? (

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Search, Sparkles, TrendingUp, Shield, Gift,
   ArrowRight, Loader2, X, ChevronRight, Users, Package,
@@ -15,6 +15,76 @@ import { apiFetch } from '../config';
 import { motion, AnimatePresence } from 'framer-motion';
 import ComboCard from '../components/ComboCard';
 import Popup from '../components/Popup';
+
+// Custom hook for handling back button with double press to exit
+const useBackNavigation = (
+  selectedCategory: Category | null,
+  selectedGender: string,
+  handleBackToCategories: () => void
+) => {
+  const [backPressCount, setBackPressCount] = useState(0);
+  const [showExitToast, setShowExitToast] = useState(false);
+  const timerRef = useRef<NodeJS.Timeout>();
+
+  useEffect(() => {
+    const handleBackPress = () => {
+      if (selectedCategory) {
+        // If category is selected, go back to categories
+        handleBackToCategories();
+        return true; // Prevent default back behavior
+      } else {
+        // If on home page, handle double press to exit
+        if (backPressCount === 0) {
+          // First back press
+          setBackPressCount(1);
+          setShowExitToast(true);
+          
+          // Clear previous timer
+          if (timerRef.current) {
+            clearTimeout(timerRef.current);
+          }
+          
+          // Reset after 2 seconds
+          timerRef.current = setTimeout(() => {
+            setBackPressCount(0);
+            setShowExitToast(false);
+          }, 2000);
+          
+          return true; // Prevent default
+        } else {
+          // Second back press within time - exit app
+          setShowExitToast(false);
+          // Allow default behavior (exit app)
+          return false;
+        }
+      }
+    };
+
+    const handlePopState = (event: PopStateEvent) => {
+      event.preventDefault();
+      const shouldPrevent = handleBackPress();
+      if (shouldPrevent) {
+        // Push state to prevent actual back navigation
+        window.history.pushState(null, '', window.location.pathname);
+      }
+    };
+
+    // Push initial state
+    window.history.pushState(null, '', window.location.pathname);
+    
+    // Add event listener
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+    };
+  }, [selectedCategory, backPressCount, handleBackToCategories]);
+
+  return { showExitToast };
+};
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
@@ -172,6 +242,13 @@ const Home: React.FC = () => {
   const filteredProducts = getFilteredProducts();
   const filteredCombos = getFilteredCombos();
 
+  // Use the custom hook for back navigation
+  const { showExitToast } = useBackNavigation(
+    selectedCategory,
+    selectedGender,
+    handleBackToCategories
+  );
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
@@ -187,6 +264,23 @@ const Home: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-gray-50">
       {showPopup && <Popup onClose={() => setShowPopup(false)} />}
+
+      {/* Exit Toast */}
+      <AnimatePresence>
+        {showExitToast && (
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50"
+          >
+            <div className="bg-gray-900 text-white px-4 py-3 rounded-full shadow-lg text-sm sm:text-base flex items-center gap-2">
+              <span className="text-premium-gold">←</span>
+              Press back again to exit
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Hero Section */}
       {heroes.length > 0 ? (
@@ -431,7 +525,7 @@ const Home: React.FC = () => {
                     }`}
                   >
                     <span className="text-sm sm:text-base">{gender.icon}</span>
-                    <span className="hidden xs:inline">{gender.display_name}</span>
+                    <span className="text-xs sm:text-sm">{gender.display_name}</span>
                   </button>
                 ))}
               </div>
@@ -550,7 +644,8 @@ const Home: React.FC = () => {
           </div>
         </section>
       )}
-    {/* CTA Section */}
+
+      {/* CTA Section */}
       <section className="py-12 sm:py-16 md:py-20 bg-gradient-to-r from-premium-gold to-yellow-500 relative overflow-hidden">
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-0 left-0 w-48 sm:w-96 h-48 sm:h-96 bg-white rounded-full filter blur-3xl animate-pulse" />
@@ -583,13 +678,13 @@ const Home: React.FC = () => {
               className="inline-flex items-center px-4 sm:px-6 md:px-8 py-2 sm:py-3 md:py-4 bg-white text-premium-gold rounded-full hover:shadow-2xl transition-all duration-300 text-sm sm:text-base md:text-lg font-medium group"
             >
               <Sparkles className="mr-1 sm:mr-2 h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6" />
-              <span className="hidden xs:inline">Design Custom Combo</span>
-              <span className="xs:hidden">Custom Combo</span>
+              <span className="sm:inline">Design Custom Combo</span>
               <ArrowRight className="ml-1 sm:ml-2 h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5 group-hover:translate-x-1 transition-transform" />
             </motion.button>
           </motion.div>
         </div>
       </section>
+
       {/* Featured Products */}
       {!selectedCategory && (
         <>

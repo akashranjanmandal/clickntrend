@@ -28,6 +28,7 @@ export interface Combo {
   discount_percentage?: number;
   discount_price?: number;
   image_url?: string;
+  category?: string;
   is_active: boolean;
   combo_products?: ComboProduct[];
   products?: ComboProduct[];
