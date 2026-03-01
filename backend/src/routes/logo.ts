@@ -1,24 +1,9 @@
 import express from 'express';
 import { supabase, supabasePublic } from '../utils/supabase';
 import { requireAuth } from '../middleware/auth';
-import multer from 'multer';
+import { upload } from '../middleware/cloudinaryUpload';
 
 const router = express.Router();
-
-// Configure multer for file upload
-const storage = multer.memoryStorage();
-const upload = multer({
-  storage,
-  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg', 'image/svg+xml', 'image/x-icon'];
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Invalid file type. Only images are allowed.'));
-    }
-  },
-});
 
 // ========== PUBLIC ROUTES ==========
 
@@ -62,40 +47,19 @@ router.get('/admin', requireAuth, async (req, res) => {
   }
 });
 
-// Upload logo
+// Upload logo to Cloudinary (kept for backward compatibility)
 router.post('/admin/upload-logo', requireAuth, upload.single('image'), async (req, res) => {
   try {
-    if (!req.file) {
+    const file = req.file as any;
+    
+    if (!file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    const file = req.file;
-    const type = req.body.type || 'logo';
-    
-    // Generate unique filename
-    const fileExtension = file.originalname.split('.').pop();
-    const fileName = `${type}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExtension}`;
-    
-    // Upload to Supabase Storage
-    const { data, error } = await supabase.storage
-      .from('giftshop')
-      .upload(fileName, file.buffer, {
-        contentType: file.mimetype,
-        cacheControl: '3600',
-        upsert: false
-      });
-
-    if (error) throw error;
-
-    // Get public URL
-    const { data: { publicUrl } } = supabase.storage
-      .from('giftshop')
-      .getPublicUrl(fileName);
-
     res.json({
       success: true,
-      url: publicUrl,
-      file_name: fileName
+      url: file.path,
+      public_id: file.filename
     });
   } catch (error: any) {
     console.error('Upload error:', error);

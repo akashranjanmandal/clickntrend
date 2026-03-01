@@ -4,8 +4,6 @@ import { requireAuth } from '../middleware/auth';
 
 const router = express.Router();
 
-// IMPORTANT: Place specific routes BEFORE parameterized routes
-
 // Track order by ID and phone - MOVED UP (before /:id)
 router.get('/track', async (req: Request, res: Response) => {
   try {

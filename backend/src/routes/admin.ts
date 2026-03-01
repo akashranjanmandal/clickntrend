@@ -1,87 +1,34 @@
 import express, { Request, Response } from "express";
-import multer from 'multer';
 import { supabase } from '../utils/supabase';
 import { requireAuth } from '../middleware/auth';
+import { upload, uploadMultiple } from '../middleware/cloudinaryUpload';
 
 const router = express.Router();
-const storage = multer.memoryStorage();
-const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (
-    req: Request,
-    file: Express.Multer.File,
-    cb: multer.FileFilterCallback
-  ) => {
-    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/jpg"];
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error("Invalid file type"));
-    }
-  },
-});
 
-// ========== IMAGE UPLOAD ========== //
-
-// Upload product/combo image
+// ========== CLOUDINARY IMAGE UPLOAD (Replaces Supabase storage) ==========
 router.post('/upload-image', requireAuth, upload.single('image'), async (req: Request, res: Response) => {
   try {
-    console.log('Upload request received');
+    const file = req.file as any;
     
-    if (!req.file) {
-      console.log('No file in request');
+    if (!file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    const file = req.file;
-    console.log('File received:', file.originalname, file.size, file.mimetype);
-
-    // Generate unique filename
-    const fileExtension = file.originalname.split('.').pop();
-    const fileName = `product-${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExtension}`;
-    
-    console.log('Uploading to Supabase:', fileName);
-
-    // Upload to Supabase Storage
-    const { data, error } = await supabase.storage
-      .from('giftshop')
-      .upload(fileName, file.buffer, {
-        contentType: file.mimetype,
-        cacheControl: '3600',
-        upsert: false
-      });
-
-    if (error) {
-      console.error('Supabase upload error:', error);
-      throw error;
-    }
-
-    console.log('Upload successful, getting public URL');
-
-    // Get public URL
-    const { data: { publicUrl } } = supabase.storage
-      .from('giftshop')
-      .getPublicUrl(fileName);
-
-    console.log('Public URL:', publicUrl);
-
     res.json({
       success: true,
-      image_url: publicUrl,
-      file_name: fileName,
-      message: 'Image uploaded successfully'
+      image_url: file.path,
+      public_id: file.filename,
+      message: 'Image uploaded successfully to Cloudinary'
     });
   } catch (error: any) {
     console.error('Upload error:', error);
     res.status(500).json({ 
       error: error.message || 'Failed to upload image',
-      details: error.toString()
     });
   }
 });
 
-// ========== PRODUCTS ========== //
+// ========== PRODUCTS ==========
 
 // Get all products for admin
 router.get('/products', requireAuth, async (req: Request, res: Response) => {
@@ -102,10 +49,11 @@ router.get('/products', requireAuth, async (req: Request, res: Response) => {
 router.post('/products', requireAuth, async (req: Request, res: Response) => {
   try {
     const { 
-      name, description, category, price, original_price, 
+      name, description, category, gender, subcategory, price, original_price, 
       discount_percentage, image_url, stock_quantity,
       is_customizable, customization_price, max_customization_characters,
-      additional_images
+      additional_images, social_proof_enabled, social_proof_text, social_proof_count,
+      is_active
     } = req.body;
 
     console.log('Creating product:', { name, category, price, image_url });
@@ -116,6 +64,8 @@ router.post('/products', requireAuth, async (req: Request, res: Response) => {
         name,
         description,
         category,
+        gender: gender || 'unisex',
+        subcategory: subcategory || null,
         price: parseFloat(price),
         original_price: original_price ? parseFloat(original_price) : null,
         discount_percentage: discount_percentage ? parseInt(discount_percentage) : null,
@@ -125,7 +75,10 @@ router.post('/products', requireAuth, async (req: Request, res: Response) => {
         customization_price: customization_price ? parseFloat(customization_price) : 0,
         max_customization_characters: max_customization_characters ? parseInt(max_customization_characters) : 50,
         additional_images: additional_images || [],
-        is_active: true,
+        social_proof_enabled: social_proof_enabled !== false,
+        social_proof_text: social_proof_text || '🔺{count} People are Purchasing Right Now',
+        social_proof_count: social_proof_count ? parseInt(social_proof_count) : 9,
+        is_active: is_active !== undefined ? is_active : true,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
@@ -182,7 +135,7 @@ router.delete('/products/:id', requireAuth, async (req: Request, res: Response) 
   }
 });
 
-// ========== CATEGORIES ========== //
+// ========== CATEGORIES ==========
 
 // Get all categories for admin
 router.get('/categories', requireAuth, async (req: Request, res: Response) => {
@@ -250,7 +203,7 @@ router.delete('/categories/:id', requireAuth, async (req: Request, res: Response
   }
 });
 
-// ========== ORDERS ========== //
+// ========== ORDERS ==========
 
 // Get all orders for admin
 router.get('/orders', requireAuth, async (req: Request, res: Response) => {
@@ -308,7 +261,7 @@ router.put('/orders/:id', requireAuth, async (req: Request, res: Response) => {
   }
 });
 
-// ========== COMBOS ========== //
+// ========== COMBOS ==========
 
 // Get all combos for admin
 router.get('/combos', requireAuth, async (req: Request, res: Response) => {
@@ -550,7 +503,7 @@ router.delete('/combos/:comboId/products', requireAuth, async (req: Request, res
 
 // ========== TEST ENDPOINT ========== //
 router.get('/test', (req: Request, res: Response) => {
-  res.json({ message: 'Admin API is working!' });
+  res.json({ message: 'Admin API is working with Cloudinary!' });
 });
 
 export default router;
