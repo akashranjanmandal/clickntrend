@@ -56,7 +56,7 @@ const Layout: React.FC = () => {
   };
 
   const navItems = [
-    { name: 'Products', path: '/products', icon: Gift },
+    { name: 'Categories', path: '/products', icon: Gift },
     { name: 'Combos', path: '/combos', icon: Package },
     { name: 'Custom Combo', path: '/custom-combo', icon: Sparkles },
   ];
