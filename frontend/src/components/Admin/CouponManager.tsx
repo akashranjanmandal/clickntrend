@@ -72,7 +72,7 @@ const CouponManager: React.FC = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('admin_token');
-      const response = await fetch('/api/coupons', {
+      const response = await fetch('/api/admin/coupons', {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -95,7 +95,7 @@ const CouponManager: React.FC = () => {
     try {
       setLoadingUsage(true);
       const token = localStorage.getItem('admin_token');
-      const response = await fetch(`/api/coupons/${couponId}/usage`, {
+      const response = await fetch(`/api/admin/coupons/${couponId}/usage`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -178,8 +178,8 @@ const CouponManager: React.FC = () => {
       };
 
       const url = editingCoupon 
-        ? `/api/coupons/${editingCoupon.id}`
-        : '/api/coupons';
+        ? `/api/admin/coupons/${editingCoupon.id}`
+        : '/api/admin/coupons';
 
       const response = await fetch(url, {
         method: editingCoupon ? 'PUT' : 'POST',
@@ -206,7 +206,7 @@ const CouponManager: React.FC = () => {
 
     try {
       const token = localStorage.getItem('admin_token');
-      const response = await fetch(`/api/coupons/${id}`, {
+      const response = await fetch(`/api/admin/coupons/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -224,7 +224,7 @@ const CouponManager: React.FC = () => {
   const toggleCouponStatus = async (coupon: Coupon) => {
     try {
       const token = localStorage.getItem('admin_token');
-      const response = await fetch(`/api/coupons/${coupon.id}`, {
+      const response = await fetch(`/api/admin/coupons/${coupon.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

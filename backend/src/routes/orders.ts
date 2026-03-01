@@ -35,8 +35,8 @@ router.get('/:id', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-// Track order by ID and phone
-router.get('/track', async (req, res) => {
+// Add to orders.ts - Track order by ID and phone
+router.get('/track', async (req: Request, res: Response) => {
   try {
     const { orderId, phone } = req.query;
     

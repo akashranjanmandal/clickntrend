@@ -8,14 +8,17 @@ import {
 import { useCart } from '../context/CartContext';
 import CartDrawer from './CartDrawer';
 import FAQModal from './FAQModal';
+import ShippingInfoModal from './ShippingInfoModal';
+import ReturnPolicyModal from './ReturnPolicyModal';
 import { apiFetch } from '../config';
 
 const Layout: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [showFAQ, setShowFAQ] = useState(false);
+  const [showShipping, setShowShipping] = useState(false);
+  const [showReturns, setShowReturns] = useState(false);
   const [logo, setLogo] = useState<string | null>(null);
-  const [showTopBar, setShowTopBar] = useState(true);
   const { itemCount } = useCart();
   const location = useLocation();
 
@@ -56,12 +59,6 @@ const Layout: React.FC = () => {
     { name: 'Products', path: '/products', icon: Gift },
     { name: 'Combos', path: '/combos', icon: Package },
     { name: 'Custom Combo', path: '/custom-combo', icon: Sparkles },
-  ];
-
-  const shippingInfo = [
-    { icon: Truck, text: 'Free shipping over ₹499' },
-    { icon: Clock, text: '24/7 Customer Support' },
-    { icon: Shield, text: 'Secure Payments' },
   ];
 
   return (
@@ -205,7 +202,6 @@ const Layout: React.FC = () => {
 
       {/* Footer */}
       <footer className="bg-premium-charcoal text-white mt-20">
-      
         {/* Main Footer */}
         <div className="container mx-auto px-4 py-12">
           <div className="grid md:grid-cols-4 gap-8">
@@ -291,22 +287,22 @@ const Layout: React.FC = () => {
                   </button>
                 </li>
                 <li>
-                  <Link to="/contact" className="text-premium-cream/70 hover:text-premium-gold transition-colors flex items-center gap-2">
-                    <ChevronRight className="h-4 w-4" />
-                    Contact Us
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/shipping" className="text-premium-cream/70 hover:text-premium-gold transition-colors flex items-center gap-2">
+                  <button
+                    onClick={() => setShowShipping(true)}
+                    className="text-premium-cream/70 hover:text-premium-gold transition-colors flex items-center gap-2 w-full text-left"
+                  >
                     <ChevronRight className="h-4 w-4" />
                     Shipping Info
-                  </Link>
+                  </button>
                 </li>
                 <li>
-                  <Link to="/returns" className="text-premium-cream/70 hover:text-premium-gold transition-colors flex items-center gap-2">
+                  <button
+                    onClick={() => setShowReturns(true)}
+                    className="text-premium-cream/70 hover:text-premium-gold transition-colors flex items-center gap-2 w-full text-left"
+                  >
                     <ChevronRight className="h-4 w-4" />
                     Returns Policy
-                  </Link>
+                  </button>
                 </li>
               </ul>
             </div>
@@ -335,7 +331,6 @@ const Layout: React.FC = () => {
                   </a>
                 </li>
               </ul>
-
             </div>
           </div>
           
@@ -345,24 +340,15 @@ const Layout: React.FC = () => {
               <p className="text-sm text-premium-cream/50">
                 © {new Date().getFullYear()} GFTD. All rights reserved. The Art Of Gifting.
               </p>
-              <div className="flex gap-6 text-sm">
-                <Link to="/privacy" className="text-premium-cream/50 hover:text-premium-gold transition-colors">
-                  Privacy Policy
-                </Link>
-                <Link to="/terms" className="text-premium-cream/50 hover:text-premium-gold transition-colors">
-                  Terms of Service
-                </Link>
-                <Link to="/sitemap" className="text-premium-cream/50 hover:text-premium-gold transition-colors">
-                  Sitemap
-                </Link>
-              </div>
             </div>
           </div>
         </div>
       </footer>
 
-      {/* FAQ Modal */}
+      {/* Modals */}
       <FAQModal isOpen={showFAQ} onClose={() => setShowFAQ(false)} />
+      <ShippingInfoModal isOpen={showShipping} onClose={() => setShowShipping(false)} />
+      <ReturnPolicyModal isOpen={showReturns} onClose={() => setShowReturns(false)} />
 
       {/* Cart Drawer */}
       <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
