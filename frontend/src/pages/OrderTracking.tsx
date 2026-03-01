@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Package, Truck, CheckCircle, Clock, XCircle, 
-  Search, Mail, Phone, MapPin, Calendar 
+  Search, Mail, Phone, MapPin, Calendar, Copy 
 } from 'lucide-react';
 import { apiFetch } from '../config';
 import { Order } from '../types';
@@ -14,6 +14,7 @@ const OrderTracking: React.FC = () => {
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [copySuccess, setCopySuccess] = useState('');
 
   const trackOrder = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,6 +35,12 @@ const OrderTracking: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopySuccess(text);
+    setTimeout(() => setCopySuccess(''), 2000);
   };
 
   const getStatusIcon = (status: string) => {
@@ -83,10 +90,13 @@ const OrderTracking: React.FC = () => {
                   type="text"
                   value={orderId}
                   onChange={(e) => setOrderId(e.target.value)}
-                  placeholder="e.g., ORD-12345"
+                  placeholder="e.g., GFTD#101"
                   className="w-full px-4 py-3 border rounded-lg focus:border-premium-gold focus:outline-none"
                   required
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  Enter your order ID (e.g., GFTD#101)
+                </p>
               </div>
               <div>
                 <label className="block text-sm font-medium mb-2">Phone Number *</label>
@@ -136,7 +146,25 @@ const OrderTracking: React.FC = () => {
             className="bg-white rounded-2xl shadow-lg p-6"
           >
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-serif font-semibold">Order Details</h2>
+              <div>
+                <h2 className="text-2xl font-serif font-semibold">Order Details</h2>
+                <div className="flex items-center gap-2 mt-1">
+                  <p className="text-sm text-gray-600">Order ID:</p>
+                  <code className="bg-gray-100 px-3 py-1 rounded text-sm font-mono">
+                    {order.custom_order_id || order.id}
+                  </code>
+                  <button
+                    onClick={() => copyToClipboard(order.custom_order_id || order.id)}
+                    className="p-1 hover:bg-gray-100 rounded transition-colors"
+                    title="Copy Order ID"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </button>
+                  {copySuccess === (order.custom_order_id || order.id) && (
+                    <span className="text-xs text-green-600">Copied!</span>
+                  )}
+                </div>
+              </div>
               <div className="flex items-center gap-2">
                 {getStatusIcon(order.status)}
                 <span className={`font-semibold capitalize ${getStatusColor(order.status)}`}>

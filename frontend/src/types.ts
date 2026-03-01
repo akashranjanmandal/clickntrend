@@ -121,28 +121,26 @@ export interface CustomizationData {
 
 export interface Order {
   id: string;
-  razorpay_order_id: string;
-  razorpay_payment_id: string;
-  razorpay_signature: string;
-  items: CartItem[];
+  custom_order_id?: string; // Add this line
+  razorpay_order_id?: string;
+  razorpay_payment_id?: string;
+  razorpay_signature?: string;
+  items: any[];
   total_amount: number;
   customer_name: string;
   customer_email: string;
   customer_phone?: string;
-  special_requests?: string;
-  status: string;
-  tracking_number?: string;
-  admin_notes?: string;
-  paid_at?: string;
-  created_at: string;
   shipping_address?: string;
   shipping_city?: string;
   shipping_state?: string;
   shipping_pincode?: string;
   shipping_country?: string;
-  shipping_method?: string;
-  shipping_cost?: number;
-  estimated_delivery?: string;
+  status: string;
+  tracking_number?: string;
+  admin_notes?: string;
+  paid_at?: string;
+  created_at: string;
+  updated_at: string;
   payment_method?: string;
   coupon_code?: string;
   coupon_discount?: number;

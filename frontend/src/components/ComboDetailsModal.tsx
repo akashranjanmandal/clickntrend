@@ -82,10 +82,6 @@ const ComboDetailsModal: React.FC<ComboDetailsModalProps> = ({ combo, onClose })
                   <h2 className="text-3xl font-serif font-bold text-premium-charcoal mb-2">
                     {combo.name}
                   </h2>
-                  <div className="flex items-center gap-2">
-                    <Star className="h-5 w-5 text-yellow-400 fill-current" />
-                    <span className="text-gray-600">4.9 (128 reviews)</span>
-                  </div>
                 </div>
 
                 <p className="text-gray-600 leading-relaxed">

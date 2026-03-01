@@ -23,22 +23,26 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({ p
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Check file type
+      if (!file.type.startsWith('image/')) {
+        toast.error('Please upload an image file');
+        return;
+      }
+      
+      // Check file size (2MB limit)
       if (file.size > 2 * 1024 * 1024) {
         toast.error('Image size should be less than 2MB');
         return;
       }
+      
       setCustomImageFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
         setCustomImage(reader.result as string);
-        createPreview(reader.result as string, customText);
+        setPreviewUrl(reader.result as string);
       };
       reader.readAsDataURL(file);
     }
-  };
-
-  const createPreview = (imageData: string, text: string) => {
-    setPreviewUrl(imageData);
   };
 
   const uploadCustomImage = async (): Promise<string | null> => {
@@ -49,16 +53,65 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({ p
     formData.append('image', customImageFile);
     formData.append('product_id', product.id);
 
+    // Log FormData contents for debugging
+    console.log('Uploading file:', {
+      name: customImageFile.name,
+      type: customImageFile.type,
+      size: customImageFile.size,
+      product_id: product.id
+    });
+
     try {
-      const response = await apiFetch('/api/upload/customization', {
-        method: 'POST',
-        body: formData,
-        headers: {}
-      });
-      return response.image_url;
-    } catch (error) {
+      // Try different endpoint paths
+      const endpoints = [
+        '/api/upload/customization',
+        '/upload/customization',
+        '/api/customization/upload'
+      ];
+      
+      let response = null;
+      let lastError = null;
+      
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`Trying endpoint: ${endpoint}`);
+          response = await apiFetch(endpoint, {
+            method: 'POST',
+            body: formData,
+            headers: {} // Important: Let browser set content-type for FormData
+          });
+          console.log(`Success with endpoint: ${endpoint}`, response);
+          break; // Exit loop if successful
+        } catch (error) {
+          console.log(`Failed with endpoint: ${endpoint}`, error);
+          lastError = error;
+        }
+      }
+      
+      if (!response) {
+        throw lastError || new Error('All endpoints failed');
+      }
+      
+      if (!response.image_url && !response.url) {
+        console.error('Unexpected response format:', response);
+        throw new Error('Server returned invalid response format');
+      }
+      
+      return response.image_url || response.url;
+    } catch (error: any) {
       console.error('Error uploading image:', error);
-      toast.error('Failed to upload image');
+      
+      // Show more specific error message
+      if (error.message?.includes('400')) {
+        toast.error('Server rejected the upload. Please check file format.');
+      } else if (error.message?.includes('413')) {
+        toast.error('File too large. Please upload a smaller image.');
+      } else if (error.message?.includes('500')) {
+        toast.error('Server error. Please try again later.');
+      } else {
+        toast.error(error.message || 'Failed to upload image');
+      }
+      
       return null;
     } finally {
       setUploading(false);
@@ -68,7 +121,10 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({ p
   const handleAddToCart = async () => {
     let imageUrl = null;
     if (customImageFile) {
+      toast.loading('Uploading image...', { id: 'upload' });
       imageUrl = await uploadCustomImage();
+      toast.dismiss('upload');
+      
       if (!imageUrl) {
         return; // Stop if upload failed
       }
@@ -96,14 +152,15 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({ p
     }
 
     toast.success(`Added ${quantity} customized item${quantity > 1 ? 's' : ''} to cart!`);
-    onClose(); // Close only the customization modal
+    onClose();
   };
 
+  // Update preview when text changes
   useEffect(() => {
     if (customImage) {
-      createPreview(customImage, customText);
+      setPreviewUrl(customImage);
     }
-  }, [customText]);
+  }, [customText, customImage]);
 
   return (
     <AnimatePresence>
@@ -140,6 +197,9 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({ p
                     src={previewUrl || product.image_url}
                     alt="Preview"
                     className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.src = product.image_url;
+                    }}
                   />
                   {customText && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/30 p-4">
@@ -204,7 +264,7 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({ p
                         <p className="text-[10px] text-gray-500">PNG, JPG up to 2MB</p>
                         <input
                           type="file"
-                          accept="image/*"
+                          accept="image/jpeg,image/png,image/webp,image/jpg"
                           onChange={handleImageUpload}
                           className="hidden"
                         />

@@ -108,6 +108,7 @@ const AdminPanel: React.FC = () => {
       filtered = filtered.filter(order => 
         order.customer_name.toLowerCase().includes(query) ||
         order.customer_email.toLowerCase().includes(query) ||
+        (order.custom_order_id && order.custom_order_id.toLowerCase().includes(query)) ||
         order.id.toLowerCase().includes(query) ||
         (order.customer_phone && order.customer_phone.includes(query))
       );
@@ -517,7 +518,8 @@ const AdminPanel: React.FC = () => {
 
   const exportOrdersCSV = () => {
     const csvData = filteredOrders.map(order => ({
-      'Order ID': order.id,
+      'Order ID': order.custom_order_id || order.id,
+      'Internal ID': order.id,
       'Date': new Date(order.created_at).toLocaleDateString(),
       'Customer Name': order.customer_name,
       'Customer Email': order.customer_email,
@@ -1021,7 +1023,12 @@ const AdminPanel: React.FC = () => {
                       return (
                         <tr key={order.id} className="border-b hover:bg-gray-50">
                           <td className="p-4">
-                            <div className="font-mono text-sm font-medium">{order.id.slice(0, 8)}...</div>
+                            <div className="font-mono text-sm font-medium">
+                              {order.custom_order_id || order.id.slice(0, 8)}
+                              {order.custom_order_id && (
+                                <span className="ml-2 text-xs text-gray-500">({order.id.slice(0, 8)}...)</span>
+                              )}
+                            </div>
                           </td>
                           <td className="p-4">
                             <div>
@@ -1117,7 +1124,7 @@ const AdminPanel: React.FC = () => {
                   icon={<CreditCard className="h-4 w-4 text-gray-400" />}
                   options={[
                     { value: 'paid', label: 'Paid' },
-                    { value: 'Pending', label: 'Pending' },
+                    { value: 'pending', label: 'Pending' },
                     { value: 'refunded', label: 'Refunded' },
                   ]}
                 />
@@ -1281,7 +1288,12 @@ const AdminPanel: React.FC = () => {
                         return (
                           <tr key={order.id} className="border-b hover:bg-gray-50">
                             <td className="p-4">
-                              <div className="font-mono text-sm">{order.id.slice(0, 8)}...</div>
+                              <div className="font-mono text-sm font-medium">
+                                {order.custom_order_id || order.id.slice(0, 8)}
+                                {order.custom_order_id && (
+                                  <span className="ml-2 text-xs text-gray-500">({order.id.slice(0, 8)}...)</span>
+                                )}
+                              </div>
                             </td>
                             <td className="p-4">
                               <div>
@@ -1340,10 +1352,11 @@ const AdminPanel: React.FC = () => {
                                   View
                                 </button>
                                 <button
-                                  onClick={() => updateOrderStatus(order.id, 'shipped', `TRK${Date.now()}`)}
-                                  className="px-3 py-1 bg-green-100 text-green-700 rounded text-sm hover:bg-green-200 transition-colors"
+                                  onClick={() => copyToClipboard(order.custom_order_id || order.id)}
+                                  className="p-1 hover:bg-gray-100 rounded"
+                                  title="Copy Order ID"
                                 >
-                                  Ship
+                                  <Copy className="h-4 w-4" />
                                 </button>
                               </div>
                             </td>
@@ -2028,8 +2041,23 @@ const AdminPanel: React.FC = () => {
                   <h3 className="text-lg font-semibold mb-4">Order Information</h3>
                   <div className="space-y-4">
                     <div>
-                      <label className="text-sm text-gray-600">Order ID</label>
-                      <p className="font-mono font-medium">{selectedOrder.id}</p>
+                      <label className="text-sm text-gray-600">Order ID (Customer)</label>
+                      <div className="flex items-center gap-2">
+                        <p className="font-mono font-medium text-lg">{selectedOrder.custom_order_id || selectedOrder.id}</p>
+                        <button
+                          onClick={() => copyToClipboard(selectedOrder.custom_order_id || selectedOrder.id)}
+                          className="p-1.5 hover:bg-gray-100 rounded transition-colors"
+                          title="Copy Order ID"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </button>
+                        {copySuccess === (selectedOrder.custom_order_id || selectedOrder.id) && (
+                          <span className="text-xs text-green-600">Copied!</span>
+                        )}
+                      </div>
+                      {selectedOrder.custom_order_id && (
+                        <p className="text-xs text-gray-500 mt-1">Internal ID: {selectedOrder.id}</p>
+                      )}
                     </div>
                     <div>
                       <label className="text-sm text-gray-600">Payment ID</label>

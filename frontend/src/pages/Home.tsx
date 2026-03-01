@@ -404,7 +404,9 @@ const Home: React.FC = () => {
                       </div>
                     ) : (
                       <div className="p-6 sm:p-8 text-center text-sm sm:text-base text-gray-500">
-                        No products found for "{searchTerm}"
+                        We are currently out of stock for this category, 
+
+We will bring surprises for you soon.🩷 "{searchTerm}"
                       </div>
                     )}
                   </motion.div>
@@ -605,7 +607,9 @@ const Home: React.FC = () => {
                   <div className="inline-block p-4 sm:p-6 md:p-8 bg-gray-100 rounded-full mb-3 sm:mb-4">
                     <Package className="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 text-gray-400" />
                   </div>
-                  <p className="text-base sm:text-lg md:text-xl text-gray-500">No products found</p>
+                  <p className="text-base sm:text-lg md:text-xl text-gray-500">We are currently out of stock for this category, 
+
+We will bring surprises for you soon.🩷</p>
                 </motion.div>
               )
             )}

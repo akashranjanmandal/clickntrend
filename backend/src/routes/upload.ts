@@ -10,8 +10,7 @@ const storage = multer.memoryStorage();
 const upload = multer({
   storage,
   limits: { 
-    fileSize: 5 * 1024 * 1024, // 5MB per file
-    files: 5 // Max 5 files
+    fileSize: 5 * 1024 * 1024, // 5MB
   },
   fileFilter: (req, file, cb) => {
     const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
@@ -33,28 +32,19 @@ router.post('/product-images', requireAuth, upload.array('images', 5), async (re
       return res.status(400).json({ error: 'No files uploaded' });
     }
 
-    console.log(`📤 Uploading ${files.length} images`);
-
     const uploadPromises = files.map(async (file, index) => {
-      // Generate unique filename
       const fileExtension = file.originalname.split('.').pop();
       const fileName = `products/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExtension}`;
       
-      // Upload to Supabase Storage
-      const { data, error } = await supabase.storage
+      const { error } = await supabase.storage
         .from('giftshop')
         .upload(fileName, file.buffer, {
           contentType: file.mimetype,
           cacheControl: '3600',
-          upsert: false
         });
 
-      if (error) {
-        console.error('Supabase upload error:', error);
-        throw error;
-      }
+      if (error) throw error;
 
-      // Get public URL
       const { data: { publicUrl } } = supabase.storage
         .from('giftshop')
         .getPublicUrl(fileName);
@@ -62,24 +52,15 @@ router.post('/product-images', requireAuth, upload.array('images', 5), async (re
       return {
         url: publicUrl,
         filename: fileName,
-        is_primary: index === 0 // First image is primary by default
+        is_primary: index === 0
       };
     });
 
     const uploadedImages = await Promise.all(uploadPromises);
-
-    console.log(`✅ Successfully uploaded ${uploadedImages.length} images`);
-
-    res.json({
-      success: true,
-      images: uploadedImages
-    });
+    res.json({ success: true, images: uploadedImages });
   } catch (error: any) {
     console.error('❌ Upload error:', error);
-    res.status(500).json({ 
-      error: error.message || 'Failed to upload images',
-      details: error.toString()
-    });
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -94,33 +75,24 @@ router.post('/customization', upload.single('image'), async (req, res) => {
     const file = req.file;
     const productId = req.body.product_id || 'temp';
     
-    // Generate unique filename
     const fileExtension = file.originalname.split('.').pop();
     const fileName = `customizations/${productId}/${Date.now()}.${fileExtension}`;
     
-    // Upload to Supabase Storage
-    const { data, error } = await supabase.storage
+    const { error } = await supabase.storage
       .from('giftshop')
       .upload(fileName, file.buffer, {
         contentType: file.mimetype,
         cacheControl: '3600',
-        upsert: false
       });
 
     if (error) throw error;
 
-    // Get public URL
     const { data: { publicUrl } } = supabase.storage
       .from('giftshop')
       .getPublicUrl(fileName);
 
     console.log('✅ Customization image uploaded:', publicUrl);
-
-    res.json({
-      success: true,
-      image_url: publicUrl,
-      file_name: fileName
-    });
+    res.json({ success: true, image_url: publicUrl });
   } catch (error: any) {
     console.error('❌ Upload error:', error);
     res.status(500).json({ error: error.message });
@@ -140,30 +112,20 @@ router.post('/hero', requireAuth, upload.single('media'), async (req, res) => {
     const fileExtension = file.originalname.split('.').pop();
     const fileName = `hero/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExtension}`;
     
-    // Upload to Supabase Storage
-    const { data, error } = await supabase.storage
+    const { error } = await supabase.storage
       .from('giftshop')
       .upload(fileName, file.buffer, {
         contentType: file.mimetype,
         cacheControl: '3600',
-        upsert: false
       });
 
     if (error) throw error;
 
-    // Get public URL
     const { data: { publicUrl } } = supabase.storage
       .from('giftshop')
       .getPublicUrl(fileName);
 
-    console.log('✅ Hero media uploaded:', publicUrl);
-
-    res.json({
-      success: true,
-      media_url: publicUrl,
-      media_type: isVideo ? 'video' : 'image',
-      file_name: fileName
-    });
+    res.json({ success: true, media_url: publicUrl, media_type: isVideo ? 'video' : 'image' });
   } catch (error: any) {
     console.error('❌ Upload error:', error);
     res.status(500).json({ error: error.message });

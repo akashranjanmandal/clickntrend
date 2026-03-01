@@ -292,7 +292,7 @@ const Checkout: React.FC = () => {
 
         <div className="grid lg:grid-cols-2 gap-6 md:gap-8">
           {/* Order Summary - Mobile First */}
-          <div className="order-2 lg:order-1">
+          <div className="order-1 lg:order-1">
             <div className="bg-white rounded-xl md:rounded-2xl shadow-lg p-4 md:p-6 sticky top-20">
               <h2 className="text-xl md:text-2xl font-serif font-semibold mb-4 md:mb-6">Order Summary</h2>
               
@@ -403,7 +403,7 @@ const Checkout: React.FC = () => {
           </div>
 
           {/* Customer Details Form - Mobile First */}
-          <div className="order-1 lg:order-2">
+          <div className="order-2 lg:order-2">
             <div className="bg-white rounded-xl md:rounded-2xl shadow-lg p-4 md:p-6">
               <h2 className="text-xl md:text-2xl font-serif font-semibold mb-4 md:mb-6">Shipping Details</h2>
               

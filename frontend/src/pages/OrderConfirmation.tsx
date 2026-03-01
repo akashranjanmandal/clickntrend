@@ -166,12 +166,6 @@ export default function OrderConfirmation() {
                   <p className="font-semibold">{order.customer_phone}</p>
                 </div>
               )}
-              {order.special_requests && (
-                <div>
-                  <label className="text-sm text-gray-500">Special Requests</label>
-                  <p className="italic text-gray-700">{order.special_requests}</p>
-                </div>
-              )}
             </div>
           </div>
         </div>
