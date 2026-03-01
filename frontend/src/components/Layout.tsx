@@ -3,7 +3,7 @@ import { Link, Outlet, useLocation } from 'react-router-dom';
 import { 
   Search, ShoppingBag, Menu, X, Gift, Package, Sparkles, 
   HelpCircle, Phone, Mail, MapPin, Clock, Truck, Shield,
-  Facebook, Instagram, Twitter, Youtube, ChevronRight
+  Facebook, Instagram, Youtube, ChevronRight
 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import CartDrawer from './CartDrawer';
@@ -11,6 +11,18 @@ import FAQModal from './FAQModal';
 import ShippingInfoModal from './ShippingInfoModal';
 import ReturnPolicyModal from './ReturnPolicyModal';
 import { apiFetch } from '../config';
+
+// X (Twitter) icon component since it's not in lucide-react
+const XIcon = ({ className }: { className?: string }) => (
+  <svg 
+    viewBox="0 0 24 24" 
+    className={className}
+    fill="currentColor"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+  </svg>
+);
 
 const Layout: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -221,16 +233,40 @@ const Layout: React.FC = () => {
                 The Art Of Gifting - Premium gifts for unforgettable moments. Curated with love, delivered with care.
               </p>
               <div className="flex gap-3">
-                <a href="#" className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center hover:bg-premium-gold transition-colors">
+                <a 
+                  href="#" 
+                  className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center hover:bg-premium-gold transition-colors"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Facebook"
+                >
                   <Facebook className="h-5 w-5" />
                 </a>
-                <a href="#" className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center hover:bg-premium-gold transition-colors">
+                <a 
+                  href="#" 
+                  className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center hover:bg-premium-gold transition-colors"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Instagram"
+                >
                   <Instagram className="h-5 w-5" />
                 </a>
-                <a href="#" className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center hover:bg-premium-gold transition-colors">
-                  <Twitter className="h-5 w-5" />
+                <a 
+                  href="#" 
+                  className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center hover:bg-premium-gold transition-colors"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="X (formerly Twitter)"
+                >
+                  <XIcon className="h-5 w-5" />
                 </a>
-                <a href="#" className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center hover:bg-premium-gold transition-colors">
+                <a 
+                  href="#" 
+                  className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center hover:bg-premium-gold transition-colors"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="YouTube"
+                >
                   <Youtube className="h-5 w-5" />
                 </a>
               </div>
