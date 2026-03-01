@@ -11,16 +11,16 @@ router.get('/:productId', async (req, res) => {
   try {
     const { productId } = req.params;
     
-    // Get product settings
-    const { data: settings, error: settingsError } = await supabasePublic
-      .from('social_proof_settings')
-      .select('*')
-      .eq('product_id', productId)
+    // Get product settings from products table directly (since we added fields to products)
+    const { data: product, error: productError } = await supabasePublic
+      .from('products')
+      .select('social_proof_enabled, social_proof_text, social_proof_initial_count, social_proof_end_count')
+      .eq('id', productId)
       .maybeSingle();
 
-    if (settingsError) throw settingsError;
+    if (productError) throw productError;
 
-    // Get stats
+    // Get stats from social_proof_stats
     const { data: stats, error: statsError } = await supabasePublic
       .from('social_proof_stats')
       .select('*')
@@ -29,10 +29,21 @@ router.get('/:productId', async (req, res) => {
 
     if (statsError) throw statsError;
 
+    // Generate a random count between initial and end
+    const initialCount = product?.social_proof_initial_count || 5;
+    const endCount = product?.social_proof_end_count || 15;
+    const randomCount = Math.floor(Math.random() * (endCount - initialCount + 1)) + initialCount;
+
     res.json({
-      text_template: settings?.text_template || '🔺{count} People are Purchasing Right Now',
-      count: stats?.purchase_count || settings?.count || 9,
-      is_enabled: settings?.is_enabled !== false
+      text_template: product?.social_proof_text || '🔺{count} People are Purchasing Right Now',
+      count: randomCount,
+      initial_count: initialCount,
+      end_count: endCount,
+      is_enabled: product?.social_proof_enabled !== false,
+      stats: {
+        views: stats?.view_count || 0,
+        purchases: stats?.purchase_count || 0
+      }
     });
   } catch (error: any) {
     console.error('Error fetching social proof:', error);
@@ -125,7 +136,11 @@ router.get('/admin/stats', requireAuth, async (req, res) => {
         *,
         products:product_id (
           name,
-          price
+          price,
+          social_proof_initial_count,
+          social_proof_end_count,
+          social_proof_text,
+          social_proof_enabled
         )
       `)
       .order('last_updated', { ascending: false });
@@ -139,7 +154,13 @@ router.get('/admin/stats', requireAuth, async (req, res) => {
       purchase_count: stat.purchase_count || 0,
       conversion_rate: stat.view_count > 0 
         ? ((stat.purchase_count / stat.view_count) * 100).toFixed(1)
-        : 0
+        : 0,
+      social_proof: {
+        enabled: stat.products?.[0]?.social_proof_enabled || false,
+        text: stat.products?.[0]?.social_proof_text || '🔺{count} People are Purchasing Right Now',
+        initial_count: stat.products?.[0]?.social_proof_initial_count || 5,
+        end_count: stat.products?.[0]?.social_proof_end_count || 15
+      }
     })) || [];
 
     res.json(formattedData);
@@ -153,17 +174,19 @@ router.get('/admin/stats', requireAuth, async (req, res) => {
 router.put('/admin/settings/:productId', requireAuth, async (req, res) => {
   try {
     const { productId } = req.params;
-    const { text_template, count, is_enabled } = req.body;
+    const { text_template, initial_count, end_count, is_enabled } = req.body;
 
+    // Update the products table directly
     const { data, error } = await supabase
-      .from('social_proof_settings')
-      .upsert({
-        product_id: productId,
-        text_template,
-        count,
-        is_enabled,
+      .from('products')
+      .update({
+        social_proof_text: text_template,
+        social_proof_initial_count: initial_count,
+        social_proof_end_count: end_count,
+        social_proof_enabled: is_enabled,
         updated_at: new Date().toISOString()
       })
+      .eq('id', productId)
       .select()
       .single();
 
@@ -171,6 +194,31 @@ router.put('/admin/settings/:productId', requireAuth, async (req, res) => {
     res.json(data);
   } catch (error: any) {
     console.error('Error updating social proof settings:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get social proof settings for a product
+router.get('/admin/settings/:productId', requireAuth, async (req, res) => {
+  try {
+    const { productId } = req.params;
+
+    const { data, error } = await supabase
+      .from('products')
+      .select('social_proof_enabled, social_proof_text, social_proof_initial_count, social_proof_end_count')
+      .eq('id', productId)
+      .single();
+
+    if (error) throw error;
+
+    res.json({
+      is_enabled: data.social_proof_enabled !== false,
+      text_template: data.social_proof_text || '🔺{count} People are Purchasing Right Now',
+      initial_count: data.social_proof_initial_count || 5,
+      end_count: data.social_proof_end_count || 15
+    });
+  } catch (error: any) {
+    console.error('Error fetching social proof settings:', error);
     res.status(500).json({ error: error.message });
   }
 });
