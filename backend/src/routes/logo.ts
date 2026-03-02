@@ -9,13 +9,22 @@ const router = express.Router();
 const storage = multer.memoryStorage();
 const upload = multer({
   storage,
-  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
+  limits: { fileSize: 5 * 1024 * 1024 }, // Increased to 5MB for GIFs
   fileFilter: (req, file, cb) => {
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg', 'image/svg+xml', 'image/x-icon'];
+    // Added 'image/gif' to allowed types
+    const allowedTypes = [
+      'image/jpeg', 
+      'image/png', 
+      'image/webp', 
+      'image/jpg', 
+      'image/svg+xml', 
+      'image/x-icon',
+      'image/gif'  // Added GIF support
+    ];
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Invalid file type. Only images are allowed.'));
+      cb(new Error('Invalid file type. Only images and GIFs are allowed.'));
     }
   },
 });
@@ -76,6 +85,14 @@ router.post('/admin/upload-logo', requireAuth, upload.single('image'), async (re
     const fileExtension = file.originalname.split('.').pop();
     const fileName = `${type}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExtension}`;
     
+    // Log file info for debugging
+    console.log('Uploading file:', {
+      name: file.originalname,
+      size: file.size,
+      type: file.mimetype,
+      extension: fileExtension
+    });
+    
     // Upload to Supabase Storage
     const { data, error } = await supabase.storage
       .from('giftshop')
@@ -95,7 +112,8 @@ router.post('/admin/upload-logo', requireAuth, upload.single('image'), async (re
     res.json({
       success: true,
       url: publicUrl,
-      file_name: fileName
+      file_name: fileName,
+      file_type: file.mimetype
     });
   } catch (error: any) {
     console.error('Upload error:', error);

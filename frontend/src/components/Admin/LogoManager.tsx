@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Upload, Camera, RefreshCw, Calendar, Edit, Trash2, Download } from 'lucide-react';
+import { X, Save, Upload, Camera, RefreshCw, Calendar, Edit, Trash2, Download, Film } from 'lucide-react';
 import { useApi } from '../../hooks/useApi';
 
 interface LogoConfig {
@@ -41,7 +41,6 @@ const LogoManager: React.FC = () => {
   const fetchLogos = async () => {
     try {
       setLoading(true);
-      // FIXED: Use correct endpoint
       const data = await fetchWithAuth('/api/logo/admin');
       setLogos(data || []);
     } catch (error) {
@@ -54,9 +53,15 @@ const LogoManager: React.FC = () => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'logo' | 'favicon') => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 2 * 1024 * 1024) {
-        alert('File size should be less than 2MB');
+      // Check file size - increased to 5MB for GIFs
+      if (file.size > 5 * 1024 * 1024) {
+        alert('File size should be less than 5MB');
         return;
+      }
+      
+      // Check if it's a GIF
+      if (file.type === 'image/gif') {
+        console.log('GIF file detected:', file.name);
       }
       
       const reader = new FileReader();
@@ -83,7 +88,6 @@ const LogoManager: React.FC = () => {
       const token = localStorage.getItem('admin_token');
       const baseUrl = import.meta.env.VITE_API_URL || '';
       
-      // FIXED: Use correct endpoint
       const response = await fetch(`${baseUrl}/api/logo/admin/upload-logo`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
@@ -128,13 +132,11 @@ const LogoManager: React.FC = () => {
       };
 
       if (editingLogo) {
-        // FIXED: Use correct endpoint
         await fetchWithAuth(`/api/logo/admin/${editingLogo.id}`, {
           method: 'PUT',
           body: JSON.stringify(payload),
         });
       } else {
-        // FIXED: Use correct endpoint
         await fetchWithAuth('/api/logo/admin', {
           method: 'POST',
           body: JSON.stringify(payload),
@@ -153,7 +155,6 @@ const LogoManager: React.FC = () => {
 
   const toggleStatus = async (logo: LogoConfig) => {
     try {
-      // FIXED: Use correct endpoint
       await fetchWithAuth(`/api/logo/admin/${logo.id}`, {
         method: 'PUT',
         body: JSON.stringify({ is_active: !logo.is_active }),
@@ -167,7 +168,6 @@ const LogoManager: React.FC = () => {
   const deleteLogo = async (id: string) => {
     if (!confirm('Delete this logo configuration?')) return;
     try {
-      // FIXED: Use correct endpoint
       await fetchWithAuth(`/api/logo/admin/${id}`, { method: 'DELETE' });
       await fetchLogos();
     } catch (error) {
@@ -198,6 +198,11 @@ const LogoManager: React.FC = () => {
     if (logo.end_date && new Date(logo.end_date) < now) return false;
     
     return true;
+  };
+
+  // Helper to check if file is GIF
+  const isGif = (url: string) => {
+    return url.toLowerCase().endsWith('.gif');
   };
 
   if (loading) {
@@ -235,6 +240,7 @@ const LogoManager: React.FC = () => {
             <thead className="bg-gray-50">
               <tr>
                 <th className="text-left p-4">Preview</th>
+                <th className="text-left p-4">Type</th>
                 <th className="text-left p-4">Logo</th>
                 <th className="text-left p-4">Favicon</th>
                 <th className="text-left p-4">Valid Period</th>
@@ -244,31 +250,44 @@ const LogoManager: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {logos.map((logo) => (
-                <tr key={logo.id} className="border-b hover:bg-gray-50">
-                  <td className="p-4">
-                    <img
-                      src={logo.logo_url}
-                      alt="Logo"
-                      className="h-12 w-auto object-contain"
-                    />
-                  </td>
-                  <td className="p-4">
-                    <a
-                      href={logo.logo_url}
-                      download
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-800 flex items-center gap-1"
-                    >
-                      <Download className="h-4 w-4" />
-                      Download
-                    </a>
-                  </td>
-                  <td className="p-4">
-                    {logo.favicon_url ? (
+              {logos.map((logo) => {
+                const isGifLogo = isGif(logo.logo_url);
+                
+                return (
+                  <tr key={logo.id} className="border-b hover:bg-gray-50">
+                    <td className="p-4">
+                      {isGifLogo ? (
+                        <div className="relative">
+                          <img
+                            src={logo.logo_url}
+                            alt="Logo"
+                            className="h-12 w-auto object-contain"
+                          />
+                          <span className="absolute -top-1 -right-1 bg-purple-600 text-white text-xs px-1 rounded">
+                            GIF
+                          </span>
+                        </div>
+                      ) : (
+                        <img
+                          src={logo.logo_url}
+                          alt="Logo"
+                          className="h-12 w-auto object-contain"
+                        />
+                      )}
+                    </td>
+                    <td className="p-4">
+                      {isGifLogo ? (
+                        <span className="flex items-center gap-1 text-purple-600">
+                          <Film className="h-4 w-4" />
+                          <span className="text-xs">Animated</span>
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-500">Static</span>
+                      )}
+                    </td>
+                    <td className="p-4">
                       <a
-                        href={logo.favicon_url}
+                        href={logo.logo_url}
                         download
                         target="_blank"
                         rel="noopener noreferrer"
@@ -277,78 +296,92 @@ const LogoManager: React.FC = () => {
                         <Download className="h-4 w-4" />
                         Download
                       </a>
-                    ) : (
-                      <span className="text-gray-400">None</span>
-                    )}
-                  </td>
-                  <td className="p-4">
-                    {logo.start_date || logo.end_date ? (
-                      <div className="flex items-center gap-1 text-sm">
-                        <Calendar className="h-4 w-4 text-gray-400" />
-                        <span>
-                          {logo.start_date ? new Date(logo.start_date).toLocaleDateString() : 'Any'} 
-                          {' - '}
-                          {logo.end_date ? new Date(logo.end_date).toLocaleDateString() : 'Any'}
+                    </td>
+                    <td className="p-4">
+                      {logo.favicon_url ? (
+                        <a
+                          href={logo.favicon_url}
+                          download
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                        >
+                          <Download className="h-4 w-4" />
+                          Download
+                        </a>
+                      ) : (
+                        <span className="text-gray-400">None</span>
+                      )}
+                    </td>
+                    <td className="p-4">
+                      {logo.start_date || logo.end_date ? (
+                        <div className="flex items-center gap-1 text-sm">
+                          <Calendar className="h-4 w-4 text-gray-400" />
+                          <span>
+                            {logo.start_date ? new Date(logo.start_date).toLocaleDateString() : 'Any'} 
+                            {' - '}
+                            {logo.end_date ? new Date(logo.end_date).toLocaleDateString() : 'Any'}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400">Always active</span>
+                      )}
+                    </td>
+                    <td className="p-4">
+                      <button
+                        onClick={() => toggleStatus(logo)}
+                        className={`px-3 py-1 rounded-full text-xs font-medium ${
+                          logo.is_active
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}
+                      >
+                        {logo.is_active ? 'Active' : 'Inactive'}
+                      </button>
+                    </td>
+                    <td className="p-4">
+                      {isActiveNow(logo) ? (
+                        <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                          Yes
                         </span>
+                      ) : (
+                        <span className="text-gray-400 text-xs">No</span>
+                      )}
+                    </td>
+                    <td className="p-4">
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            setEditingLogo(logo);
+                            setFormData({
+                              logo_file: null,
+                              favicon_file: null,
+                              logo_url: logo.logo_url,
+                              favicon_url: logo.favicon_url || '',
+                              start_date: logo.start_date || '',
+                              end_date: logo.end_date || '',
+                              is_active: logo.is_active,
+                              notes: logo.notes || '',
+                            });
+                            setLogoPreview(logo.logo_url);
+                            setFaviconPreview(logo.favicon_url || null);
+                            setShowAddModal(true);
+                          }}
+                          className="p-2 hover:bg-gray-100 rounded"
+                        >
+                          <Edit className="h-4 w-4 text-blue-600" />
+                        </button>
+                        <button
+                          onClick={() => deleteLogo(logo.id)}
+                          className="p-2 hover:bg-gray-100 rounded"
+                        >
+                          <Trash2 className="h-4 w-4 text-red-600" />
+                        </button>
                       </div>
-                    ) : (
-                      <span className="text-gray-400">Always active</span>
-                    )}
-                  </td>
-                  <td className="p-4">
-                    <button
-                      onClick={() => toggleStatus(logo)}
-                      className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        logo.is_active
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}
-                    >
-                      {logo.is_active ? 'Active' : 'Inactive'}
-                    </button>
-                  </td>
-                  <td className="p-4">
-                    {isActiveNow(logo) ? (
-                      <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
-                        Yes
-                      </span>
-                    ) : (
-                      <span className="text-gray-400 text-xs">No</span>
-                    )}
-                  </td>
-                  <td className="p-4">
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => {
-                          setEditingLogo(logo);
-                          setFormData({
-                            logo_file: null,
-                            favicon_file: null,
-                            logo_url: logo.logo_url,
-                            favicon_url: logo.favicon_url || '',
-                            start_date: logo.start_date || '',
-                            end_date: logo.end_date || '',
-                            is_active: logo.is_active,
-                            notes: logo.notes || '',
-                          });
-                          setLogoPreview(logo.logo_url);
-                          setFaviconPreview(logo.favicon_url || null);
-                          setShowAddModal(true);
-                        }}
-                        className="p-2 hover:bg-gray-100 rounded"
-                      >
-                        <Edit className="h-4 w-4 text-blue-600" />
-                      </button>
-                      <button
-                        onClick={() => deleteLogo(logo.id)}
-                        className="p-2 hover:bg-gray-100 rounded"
-                      >
-                        <Trash2 className="h-4 w-4 text-red-600" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -371,15 +404,30 @@ const LogoManager: React.FC = () => {
               <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Logo Upload */}
                 <div>
-                  <label className="block text-sm font-medium mb-2">Logo (PNG, SVG, JPG)</label>
+                  <label className="block text-sm font-medium mb-2">
+                    Logo (PNG, SVG, JPG, GIF) {formData.logo_file?.type === 'image/gif' && '✓ GIF Selected'}
+                  </label>
                   <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
                     {logoPreview ? (
                       <div className="relative">
-                        <img
-                          src={logoPreview}
-                          alt="Logo preview"
-                          className="max-h-32 mx-auto object-contain"
-                        />
+                        {formData.logo_file?.type === 'image/gif' ? (
+                          <div className="relative">
+                            <img
+                              src={logoPreview}
+                              alt="Logo preview"
+                              className="max-h-32 mx-auto object-contain"
+                            />
+                            <span className="absolute top-0 right-0 bg-purple-600 text-white text-xs px-2 py-1 rounded-bl-lg">
+                              GIF
+                            </span>
+                          </div>
+                        ) : (
+                          <img
+                            src={logoPreview}
+                            alt="Logo preview"
+                            className="max-h-32 mx-auto object-contain"
+                          />
+                        )}
                         <button
                           type="button"
                           onClick={() => {
@@ -395,10 +443,10 @@ const LogoManager: React.FC = () => {
                       <label className="cursor-pointer">
                         <Camera className="h-12 w-12 text-gray-400 mx-auto mb-2" />
                         <p className="text-sm text-gray-600">Click to upload logo</p>
-                        <p className="text-xs text-gray-500">PNG, SVG, JPG up to 2MB</p>
+                        <p className="text-xs text-gray-500">PNG, SVG, JPG, GIF up to 5MB</p>
                         <input
                           type="file"
-                          accept="image/*"
+                          accept="image/*,.gif"
                           onChange={(e) => handleFileChange(e, 'logo')}
                           className="hidden"
                         />

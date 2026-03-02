@@ -7,12 +7,14 @@ export const apiFetch = async (
       ? ''
       : import.meta.env.VITE_API_URL;
 
+  const isFormData = options.body instanceof FormData;
+
   const response = await fetch(`${BASE_URL}${path}`, {
+    ...options,
     headers: {
-      'Content-Type': 'application/json',
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       ...(options.headers || {}),
     },
-    ...options,
   });
 
   if (!response.ok) {
