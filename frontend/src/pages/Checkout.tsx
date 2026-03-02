@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useCart } from '../context/CartContext';
 import { formatCurrency } from '../utils/helpers';
 import { CONFIG } from '../config';
-import { Wallet, Truck, Tag, CheckCircle, XCircle, ArrowLeft, ShoppingBag, Gift, AlertCircle, Sparkles } from 'lucide-react';
+import { Wallet, Truck, Tag, CheckCircle, XCircle, ArrowLeft, ShoppingBag, Gift } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../utils/apiFetch';
 
@@ -23,22 +23,18 @@ const Checkout: React.FC = () => {
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [couponError, setCouponError] = useState('');
-  const [couponSuccess, setCouponSuccess] = useState('');
   const [couponLoading, setCouponLoading] = useState(false);
 
-  // Updated form field names to match backend expectations
   const [formData, setFormData] = useState({
-    customer_name: '',        // Changed from 'name'
-    customer_email: '',       // Changed from 'email'
-    customer_phone: '',       // Changed from 'phone'
-    customer_address: '',     // Changed from 'address' - using full address
+    name: '',
+    email: '',
+    phone: '',
+    address: '',
     city: '',
     state: '',
     pincode: '',
-    special_requests: '',     // Changed from 'specialRequests'
+    specialRequests: '',
   });
-
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   /* ---------------- CALCULATIONS ---------------- */
   const subtotal = total;
@@ -50,6 +46,7 @@ const Checkout: React.FC = () => {
     0
   );
 
+  // Calculate how much more to get free shipping
   const amountToFreeShipping = Math.max(FREE_SHIPPING_THRESHOLD - subtotal, 0);
   const shippingProgress = Math.min((subtotal / FREE_SHIPPING_THRESHOLD) * 100, 100);
 
@@ -59,50 +56,29 @@ const Checkout: React.FC = () => {
   ) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    // Clear field error when user starts typing
-    if (fieldErrors[name]) {
-      setFieldErrors(prev => ({ ...prev, [name]: '' }));
-    }
   };
 
   const validateForm = () => {
-    const errors: Record<string, string> = {};
-    
-    if (!formData.customer_name?.trim()) {
-      errors.customer_name = "Please enter your full name";
+    const required = ['name', 'email', 'phone', 'address', 'city', 'state', 'pincode'];
+    for (const field of required) {
+      if (!(formData as any)[field]) {
+        alert(`Please fill in ${field}`);
+        return false;
+      }
     }
-    if (!formData.customer_email?.trim()) {
-      errors.customer_email = "Please enter your email";
-    } else if (!/^\S+@\S+\.\S+$/.test(formData.customer_email)) {
-      errors.customer_email = "Please enter a valid email address";
+    if (!/^\d{10}$/.test(formData.phone)) {
+      alert('Please enter a valid 10-digit phone number');
+      return false;
     }
-    if (!formData.customer_phone?.trim()) {
-      errors.customer_phone = "Please enter your phone number";
-    } else if (!/^\d{10}$/.test(formData.customer_phone)) {
-      errors.customer_phone = "Please enter a valid 10-digit phone number";
+    if (!/^\S+@\S+\.\S+$/.test(formData.email)) {
+      alert('Please enter a valid email address');
+      return false;
     }
-    if (!formData.customer_address?.trim()) {
-      errors.customer_address = "Please enter your address";
+    if (!/^\d{6}$/.test(formData.pincode)) {
+      alert('Please enter a valid 6-digit pincode');
+      return false;
     }
-    if (!formData.city?.trim()) {
-      errors.city = "Please enter your city";
-    }
-    if (!formData.state?.trim()) {
-      errors.state = "Please enter your state";
-    }
-    if (!formData.pincode?.trim()) {
-      errors.pincode = "Please enter your pincode";
-    } else if (!/^\d{6}$/.test(formData.pincode)) {
-      errors.pincode = "Please enter a valid 6-digit pincode";
-    }
-
-    setFieldErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  // Build complete address
-  const getFullAddress = () => {
-    return `${formData.customer_address}, ${formData.city}, ${formData.state} - ${formData.pincode}`;
+    return true;
   };
 
   /* ---------------- COUPON ---------------- */
@@ -114,7 +90,6 @@ const Checkout: React.FC = () => {
 
     setCouponLoading(true);
     setCouponError('');
-    setCouponSuccess('');
 
     try {
       const data = await apiFetch('/api/coupons/validate', {
@@ -122,14 +97,13 @@ const Checkout: React.FC = () => {
         body: JSON.stringify({
           code: couponCode,
           subtotal,
-          email: formData.customer_email || undefined,
+          email: formData.email || undefined,
         }),
       });
 
       if (data.valid) {
         setAppliedCoupon(data.coupon);
         setCouponDiscount(data.coupon.discount_amount);
-        setCouponSuccess(`✨ Coupon applied! You saved ₹${data.coupon.discount_amount}`);
       } else {
         throw new Error(data.message || 'Invalid coupon');
       }
@@ -147,29 +121,6 @@ const Checkout: React.FC = () => {
     setCouponDiscount(0);
     setCouponCode('');
     setCouponError('');
-    setCouponSuccess('');
-  };
-
-  /* ---------------- EXTRACT ORDER ID ---------------- */
-  const extractOrderId = (response: any): string | null => {
-    if (!response) return null;
-    
-    // Common patterns for order ID
-    const patterns = [
-      response.order_id,
-      response.orderId,
-      response.id,
-      response.data?.order_id,
-      response.data?.id,
-    ];
-    
-    for (const pattern of patterns) {
-      if (pattern && typeof pattern === 'string') {
-        return pattern;
-      }
-    }
-    
-    return null;
   };
 
   /* ---------------- COD ---------------- */
@@ -178,62 +129,26 @@ const Checkout: React.FC = () => {
     setLoading(true);
 
     try {
-      const fullAddress = getFullAddress();
-      
-      const requestBody = {
-        items,
-        subtotal,
-        shipping_charge: shippingCharge,
-        cod_charge: codCharge,
-        coupon_code: appliedCoupon?.code || null,
-        coupon_discount: couponDiscount,
-        total_amount: grandTotal,
-        payment_method: 'cod',
-        // Match backend expected field names
-        customer_name: formData.customer_name,
-        customer_email: formData.customer_email,
-        customer_phone: formData.customer_phone,
-        shipping_address: fullAddress,
-        special_requests: formData.special_requests || '',
-      };
-
-      console.log('Sending COD request:', requestBody);
-
-      const response = await apiFetch('/api/orders/cod', {
+      await apiFetch('/api/orders/cod', {
         method: 'POST',
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify({
+          items,
+          subtotal,
+          shipping_charge: shippingCharge,
+          cod_charge: codCharge,
+          coupon_code: appliedCoupon?.code,
+          coupon_discount: couponDiscount,
+          total_amount: grandTotal,
+          payment_method: 'cod',
+          ...formData,
+        }),
       });
 
-      console.log('COD Response:', response);
-
-      // Extract order ID from response
-      const orderId = extractOrderId(response);
-      
-      if (orderId) {
-        clearCart();
-        navigate(`/order-confirmation?orderId=${orderId}`);
-      } else {
-        // If no order ID, still show success but go to home
-        alert('Order placed successfully!');
-        clearCart();
-        navigate('/');
-      }
-    } catch (error: any) {
-      console.error('COD Error:', error);
-      
-      // Show user-friendly error message
-      let errorMessage = 'Failed to place order. Please try again.';
-      if (error.message) {
-        try {
-          const parsedError = JSON.parse(error.message);
-          if (parsedError.error) {
-            errorMessage = parsedError.error;
-          }
-        } catch {
-          errorMessage = error.message;
-        }
-      }
-      alert(errorMessage);
+      alert('Order placed successfully!');
+      clearCart();
+      navigate('/');
+    } catch {
+      alert('Failed to place order. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -256,16 +171,13 @@ const Checkout: React.FC = () => {
 
     try {
       if (!(await loadRazorpayScript())) {
-        throw new Error('Failed to load payment gateway');
+        throw new Error('Razorpay SDK failed to load');
       }
 
-      const fullAddress = getFullAddress();
-
-      // Create Razorpay order
       const orderData = await apiFetch('/api/payment/create-order', {
         method: 'POST',
         body: JSON.stringify({
-          amount: Math.round(grandTotal * 100), // Razorpay expects amount in paise
+          amount: grandTotal,
           currency: 'INR',
           receipt: `receipt_${Date.now()}`,
         }),
@@ -280,7 +192,7 @@ const Checkout: React.FC = () => {
         description: 'Premium Gift Purchase',
         handler: async (res: any) => {
           try {
-            const verifyResponse = await apiFetch('/api/payment/verify-payment', {
+            const verify = await apiFetch('/api/payment/verify-payment', {
               method: 'POST',
               body: JSON.stringify({
                 razorpay_order_id: res.razorpay_order_id,
@@ -294,38 +206,29 @@ const Checkout: React.FC = () => {
                   coupon_discount: couponDiscount,
                   total_amount: grandTotal,
                   payment_method: 'online',
-                  customer_name: formData.customer_name,
-                  customer_email: formData.customer_email,
-                  customer_phone: formData.customer_phone,
-                  shipping_address: fullAddress,
-                  special_requests: formData.special_requests,
+                  ...formData,
                 },
               }),
             });
 
-            console.log('Verification response:', verifyResponse);
-
-            // Extract order ID from verification response
-            const orderId = extractOrderId(verifyResponse);
-            
-            if (verifyResponse.success && orderId) {
+            if (verify.success) {
+              alert('🎉 Payment successful! Order confirmed.');
               clearCart();
-              navigate(`/order-confirmation?orderId=${orderId}`);
+              navigate('/');
             } else {
-              alert('Payment verification failed. Please contact support.');
+              alert('Payment verification failed.');
             }
-          } catch (error) {
-            console.error('Verification error:', error);
+          } catch {
             alert('Payment verification failed.');
           }
         },
         prefill: {
-          name: formData.customer_name,
-          email: formData.customer_email,
-          contact: formData.customer_phone,
+          name: formData.name,
+          email: formData.email,
+          contact: formData.phone,
         },
         notes: {
-          address: fullAddress,
+          address: `${formData.address}, ${formData.city}, ${formData.state} - ${formData.pincode}`,
         },
         theme: { color: '#D4AF37' },
         modal: {
@@ -335,8 +238,7 @@ const Checkout: React.FC = () => {
 
       razorpay.open();
     } catch (e: any) {
-      console.error('Payment error:', e);
-      alert(e.message || 'Payment failed. Please try again.');
+      alert(e.message || 'Payment failed');
     } finally {
       setLoading(false);
     }
@@ -371,13 +273,14 @@ const Checkout: React.FC = () => {
     );
   }
 
+  /* ---------------- UI (UPDATED WITH SHOP MORE) ---------------- */
   return (
     <div className="container mx-auto px-4 py-6 md:py-12">
       <div className="max-w-6xl mx-auto">
-        {/* Back Button */}
+        {/* Back Button - Mobile Only */}
         <button
           onClick={() => navigate('/cart')}
-          className="flex items-center text-gray-600 mb-4 md:hidden hover:text-premium-gold transition-colors"
+          className="flex items-center text-gray-600 mb-4 md:hidden"
         >
           <ArrowLeft className="h-5 w-5 mr-1" />
           Back to Cart
@@ -388,12 +291,12 @@ const Checkout: React.FC = () => {
         </h1>
 
         <div className="grid lg:grid-cols-2 gap-6 md:gap-8">
-          {/* Order Summary */}
+          {/* Order Summary - Mobile First */}
           <div className="order-1 lg:order-1">
             <div className="bg-white rounded-xl md:rounded-2xl shadow-lg p-4 md:p-6 sticky top-20">
               <h2 className="text-xl md:text-2xl font-serif font-semibold mb-4 md:mb-6">Order Summary</h2>
               
-              {/* Free Shipping Progress Bar */}
+              {/* Free Shipping Progress Bar - NEW */}
               <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-green-50 rounded-xl border border-blue-100">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
@@ -403,7 +306,7 @@ const Checkout: React.FC = () => {
                   {shippingCharge === 0 ? (
                     <span className="text-green-600 font-semibold flex items-center gap-1">
                       <CheckCircle className="h-4 w-4" />
-                      You're eligible! 🎉
+                      Eligible
                     </span>
                   ) : (
                     <span className="text-blue-600 font-medium">
@@ -412,6 +315,7 @@ const Checkout: React.FC = () => {
                   )}
                 </div>
                 
+                {/* Progress Bar */}
                 <div className="h-2 bg-gray-200 rounded-full overflow-hidden mb-2">
                   <div 
                     className="h-full bg-green-500 transition-all duration-500"
@@ -419,23 +323,24 @@ const Checkout: React.FC = () => {
                   />
                 </div>
                 
+                {/* Shop More Button - NEW */}
                 {shippingCharge > 0 && (
                   <div className="mt-3">
-                    <p className="text-sm text-gray-600 mb-2">
-                      Just ₹{amountToFreeShipping} more for FREE shipping!
-                    </p>
                     <button
                       onClick={() => navigate('/products')}
                       className="w-full py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 text-sm font-medium"
                     >
                       <ShoppingBag className="h-4 w-4" />
-                      Shop ₹{amountToFreeShipping.toLocaleString()} more
+                      Shop ₹{amountToFreeShipping.toLocaleString()} more for FREE Shipping
                     </button>
+                    <p className="text-xs text-gray-500 text-center mt-2">
+                      Add more items to your cart and save ₹79 on shipping!
+                    </p>
                   </div>
                 )}
               </div>
               
-              {/* Items List */}
+              {/* Items List - Mobile Optimized */}
               <div className="space-y-3 md:space-y-4 mb-4 md:mb-6 max-h-[300px] md:max-h-96 overflow-y-auto">
                 {items.map((item, index) => (
                   <div key={item.id} className="flex items-center justify-between py-2 border-b">
@@ -452,7 +357,7 @@ const Checkout: React.FC = () => {
                 ))}
               </div>
 
-              {/* Price Breakdown */}
+              {/* Price Breakdown - Mobile Optimized */}
               <div className="space-y-2 md:space-y-3 pt-3 md:pt-4 border-t">
                 <div className="flex justify-between text-sm md:text-base">
                   <span className="text-gray-600">Subtotal:</span>
@@ -461,12 +366,7 @@ const Checkout: React.FC = () => {
                 <div className="flex justify-between text-sm md:text-base">
                   <span className="text-gray-600">Shipping:</span>
                   <span className={shippingCharge === 0 ? 'text-green-600 font-medium' : ''}>
-                    {shippingCharge === 0 ? (
-                      <span className="flex items-center gap-1">
-                        <Gift className="h-4 w-4" />
-                        FREE
-                      </span>
-                    ) : formatCurrency(shippingCharge)}
+                    {shippingCharge === 0 ? 'FREE' : formatCurrency(shippingCharge)}
                   </span>
                 </div>
                 {paymentMethod === 'cod' && (
@@ -486,109 +386,87 @@ const Checkout: React.FC = () => {
                   <span className="text-premium-gold">{formatCurrency(grandTotal)}</span>
                 </div>
               </div>
+
+              {/* Shop More Link - Alternative */}
+              {shippingCharge > 0 && (
+                <div className="mt-4 pt-4 border-t text-center">
+                  <button
+                    onClick={() => navigate('/products')}
+                    className="text-premium-gold hover:text-premium-burgundy font-medium inline-flex items-center gap-2"
+                  >
+                    <ShoppingBag className="h-4 w-4" />
+                    Continue Shopping
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Customer Details Form */}
+          {/* Customer Details Form - Mobile First */}
           <div className="order-2 lg:order-2">
             <div className="bg-white rounded-xl md:rounded-2xl shadow-lg p-4 md:p-6">
               <h2 className="text-xl md:text-2xl font-serif font-semibold mb-4 md:mb-6">Shipping Details</h2>
               
               <div className="space-y-3 md:space-y-4">
-                {/* Name */}
-                <div>
-                  <label className="block text-xs md:text-sm font-medium mb-1 md:mb-2">
-                    Full Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="customer_name"
-                    value={formData.customer_name}
-                    onChange={handleInputChange}
-                    className={`w-full px-3 md:px-4 py-2 md:py-3 text-sm md:text-base border rounded-lg focus:border-premium-gold focus:outline-none transition-colors ${
-                      fieldErrors.customer_name ? 'border-red-300 bg-red-50' : ''
-                    }`}
-                    placeholder="Enter your full name"
-                  />
-                  {fieldErrors.customer_name && (
-                    <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3" />
-                      {fieldErrors.customer_name}
-                    </p>
-                  )}
-                </div>
+                {/* Name & Email - Stack on Mobile */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+                  <div>
+                    <label className="block text-xs md:text-sm font-medium mb-1 md:mb-2">Full Name *</label>
+                    <input
+                      type="text"
+                      name="name"
+                      value={formData.name}
+                      onChange={handleInputChange}
+                      required
+                      className="w-full px-3 md:px-4 py-2 md:py-3 text-sm md:text-base border rounded-lg focus:border-premium-gold focus:outline-none"
+                      placeholder="Enter your full name"
+                    />
+                  </div>
 
-                {/* Email */}
-                <div>
-                  <label className="block text-xs md:text-sm font-medium mb-1 md:mb-2">
-                    Email <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="email"
-                    name="customer_email"
-                    value={formData.customer_email}
-                    onChange={handleInputChange}
-                    className={`w-full px-3 md:px-4 py-2 md:py-3 text-sm md:text-base border rounded-lg focus:border-premium-gold focus:outline-none transition-colors ${
-                      fieldErrors.customer_email ? 'border-red-300 bg-red-50' : ''
-                    }`}
-                    placeholder="Enter your email"
-                  />
-                  {fieldErrors.customer_email && (
-                    <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3" />
-                      {fieldErrors.customer_email}
-                    </p>
-                  )}
+                  <div>
+                    <label className="block text-xs md:text-sm font-medium mb-1 md:mb-2">Email *</label>
+                    <input
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      required
+                      className="w-full px-3 md:px-4 py-2 md:py-3 text-sm md:text-base border rounded-lg focus:border-premium-gold focus:outline-none"
+                      placeholder="Enter your email"
+                    />
+                  </div>
                 </div>
 
                 {/* Phone */}
                 <div>
-                  <label className="block text-xs md:text-sm font-medium mb-1 md:mb-2">
-                    Phone Number <span className="text-red-500">*</span>
-                  </label>
+                  <label className="block text-xs md:text-sm font-medium mb-1 md:mb-2">Phone Number *</label>
                   <input
                     type="tel"
-                    name="customer_phone"
-                    value={formData.customer_phone}
+                    name="phone"
+                    value={formData.phone}
                     onChange={handleInputChange}
+                    required
                     maxLength={10}
-                    className={`w-full px-3 md:px-4 py-2 md:py-3 text-sm md:text-base border rounded-lg focus:border-premium-gold focus:outline-none transition-colors ${
-                      fieldErrors.customer_phone ? 'border-red-300 bg-red-50' : ''
-                    }`}
+                    className="w-full px-3 md:px-4 py-2 md:py-3 text-sm md:text-base border rounded-lg focus:border-premium-gold focus:outline-none"
                     placeholder="10-digit mobile number"
                   />
-                  {fieldErrors.customer_phone && (
-                    <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3" />
-                      {fieldErrors.customer_phone}
-                    </p>
-                  )}
                 </div>
 
                 {/* Address */}
                 <div>
-                  <label className="block text-xs md:text-sm font-medium mb-1 md:mb-2">
-                    Address <span className="text-red-500">*</span>
-                  </label>
+                  <label className="block text-xs md:text-sm font-medium mb-1 md:mb-2">Address *</label>
                   <textarea
-                    name="customer_address"
-                    value={formData.customer_address}
+                    name="address"
+                    value={formData.address}
                     onChange={handleInputChange}
+                    required
                     rows={2}
-                    className={`w-full px-3 md:px-4 py-2 text-sm md:text-base border rounded-lg focus:border-premium-gold focus:outline-none transition-colors ${
-                      fieldErrors.customer_address ? 'border-red-300 bg-red-50' : ''
-                    }`}
+                    className="w-full px-3 md:px-4 py-2 text-sm md:text-base border rounded-lg focus:border-premium-gold focus:outline-none"
                     placeholder="House no, Street, Area"
                   />
-                  {fieldErrors.customer_address && (
-                    <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3" />
-                      {fieldErrors.customer_address}
-                    </p>
-                  )}
                 </div>
 
-                {/* City, State, Pincode */}
+                {/* City, State, Pincode - Stack on Mobile */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-xs md:text-sm font-medium mb-1 md:mb-2">City *</label>
@@ -597,14 +475,10 @@ const Checkout: React.FC = () => {
                       name="city"
                       value={formData.city}
                       onChange={handleInputChange}
-                      className={`w-full px-3 md:px-4 py-2 text-sm md:text-base border rounded-lg focus:border-premium-gold focus:outline-none ${
-                        fieldErrors.city ? 'border-red-300 bg-red-50' : ''
-                      }`}
+                      required
+                      className="w-full px-3 md:px-4 py-2 text-sm md:text-base border rounded-lg focus:border-premium-gold focus:outline-none"
                       placeholder="City"
                     />
-                    {fieldErrors.city && (
-                      <p className="text-red-500 text-xs mt-1">{fieldErrors.city}</p>
-                    )}
                   </div>
 
                   <div>
@@ -614,14 +488,10 @@ const Checkout: React.FC = () => {
                       name="state"
                       value={formData.state}
                       onChange={handleInputChange}
-                      className={`w-full px-3 md:px-4 py-2 text-sm md:text-base border rounded-lg focus:border-premium-gold focus:outline-none ${
-                        fieldErrors.state ? 'border-red-300 bg-red-50' : ''
-                      }`}
+                      required
+                      className="w-full px-3 md:px-4 py-2 text-sm md:text-base border rounded-lg focus:border-premium-gold focus:outline-none"
                       placeholder="State"
                     />
-                    {fieldErrors.state && (
-                      <p className="text-red-500 text-xs mt-1">{fieldErrors.state}</p>
-                    )}
                   </div>
 
                   <div>
@@ -631,19 +501,15 @@ const Checkout: React.FC = () => {
                       name="pincode"
                       value={formData.pincode}
                       onChange={handleInputChange}
+                      required
                       maxLength={6}
-                      className={`w-full px-3 md:px-4 py-2 text-sm md:text-base border rounded-lg focus:border-premium-gold focus:outline-none ${
-                        fieldErrors.pincode ? 'border-red-300 bg-red-50' : ''
-                      }`}
+                      className="w-full px-3 md:px-4 py-2 text-sm md:text-base border rounded-lg focus:border-premium-gold focus:outline-none"
                       placeholder="6-digit pincode"
                     />
-                    {fieldErrors.pincode && (
-                      <p className="text-red-500 text-xs mt-1">{fieldErrors.pincode}</p>
-                    )}
                   </div>
                 </div>
 
-                {/* Coupon Section */}
+                {/* Coupon Section - Mobile Optimized */}
                 <div className="border-t pt-3 md:pt-4 mt-3 md:mt-4">
                   <h3 className="font-medium mb-2 md:mb-3 flex items-center text-sm md:text-base">
                     <Tag className="h-4 w-4 mr-2" />
@@ -651,59 +517,49 @@ const Checkout: React.FC = () => {
                   </h3>
                   
                   {appliedCoupon ? (
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center min-w-0">
-                          <CheckCircle className="h-5 w-5 text-green-600 mr-2 flex-shrink-0" />
-                          <div className="min-w-0">
-                            <p className="font-medium text-green-800 text-sm md:text-base truncate">{appliedCoupon.code}</p>
-                            <p className="text-xs md:text-sm text-green-600">
-                              {appliedCoupon.discount_type === 'percentage' 
-                                ? `${appliedCoupon.discount_value}% off`
-                                : `₹${appliedCoupon.discount_value} off`}
-                            </p>
-                          </div>
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center justify-between">
+                      <div className="flex items-center min-w-0">
+                        <CheckCircle className="h-5 w-5 text-green-600 mr-2 flex-shrink-0" />
+                        <div className="min-w-0">
+                          <p className="font-medium text-green-800 text-sm md:text-base truncate">{appliedCoupon.code}</p>
+                          <p className="text-xs md:text-sm text-green-600">
+                            {appliedCoupon.discount_type === 'percentage' 
+                              ? `${appliedCoupon.discount_value}% off`
+                              : `₹${appliedCoupon.discount_value} off`}
+                          </p>
                         </div>
-                        <button
-                          onClick={removeCoupon}
-                          className="text-red-600 hover:text-red-800 flex-shrink-0 ml-2"
-                        >
-                          <XCircle className="h-5 w-5" />
-                        </button>
                       </div>
-                      {couponSuccess && (
-                        <p className="text-green-600 text-xs mt-2 flex items-center gap-1">
-                          <Sparkles className="h-3 w-3" />
-                          {couponSuccess}
-                        </p>
-                      )}
+                      <button
+                        onClick={removeCoupon}
+                        className="text-red-600 hover:text-red-800 flex-shrink-0 ml-2"
+                      >
+                        <XCircle className="h-5 w-5" />
+                      </button>
                     </div>
                   ) : (
-                    <>
-                      <div className="flex flex-col sm:flex-row gap-2">
-                        <input
-                          type="text"
-                          value={couponCode}
-                          onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                          placeholder="Enter coupon code"
-                          className="flex-1 px-3 md:px-4 py-2 text-sm md:text-base border rounded-lg focus:border-premium-gold focus:outline-none"
-                        />
-                        <button
-                          onClick={validateCoupon}
-                          disabled={couponLoading}
-                          className="px-4 py-2 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy disabled:opacity-50 text-sm md:text-base whitespace-nowrap"
-                        >
-                          {couponLoading ? '...' : 'Apply'}
-                        </button>
-                      </div>
-                      {couponError && (
-                        <p className="text-red-600 text-xs mt-2">{couponError}</p>
-                      )}
-                    </>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <input
+                        type="text"
+                        value={couponCode}
+                        onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                        placeholder="Enter coupon code"
+                        className="flex-1 px-3 md:px-4 py-2 text-sm md:text-base border rounded-lg focus:border-premium-gold focus:outline-none"
+                      />
+                      <button
+                        onClick={validateCoupon}
+                        disabled={couponLoading}
+                        className="px-4 py-2 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy disabled:opacity-50 text-sm md:text-base whitespace-nowrap"
+                      >
+                        {couponLoading ? '...' : 'Apply'}
+                      </button>
+                    </div>
+                  )}
+                  {couponError && (
+                    <p className="text-red-600 text-xs mt-2">{couponError}</p>
                   )}
                 </div>
 
-                {/* Payment Method */}
+                {/* Payment Method - Mobile Optimized */}
                 <div className="border-t pt-3 md:pt-4 mt-3 md:mt-4">
                   <h3 className="font-medium mb-2 md:mb-3 flex items-center text-sm md:text-base">
                     <Wallet className="h-4 w-4 mr-2" />
@@ -743,8 +599,8 @@ const Checkout: React.FC = () => {
                 <div>
                   <label className="block text-xs md:text-sm font-medium mb-1 md:mb-2">Special Requests</label>
                   <textarea
-                    name="special_requests"
-                    value={formData.special_requests}
+                    name="specialRequests"
+                    value={formData.specialRequests}
                     onChange={handleInputChange}
                     rows={2}
                     className="w-full px-3 md:px-4 py-2 text-sm md:text-base border rounded-lg focus:border-premium-gold focus:outline-none"
@@ -759,7 +615,7 @@ const Checkout: React.FC = () => {
                   className={`w-full py-3 md:py-4 rounded-lg font-medium text-base md:text-lg transition-all mt-4 ${
                     loading 
                       ? 'bg-gray-300 cursor-not-allowed' 
-                      : 'bg-gradient-to-r from-premium-gold to-premium-burgundy text-white hover:scale-[1.02] shadow-lg'
+                      : 'bg-premium-gold hover:bg-premium-burgundy text-white hover:scale-[1.02]'
                   }`}
                 >
                   {loading ? (
@@ -774,11 +630,11 @@ const Checkout: React.FC = () => {
 
                 {/* Shipping Info */}
                 <div className="space-y-2 mt-4 text-xs md:text-sm text-gray-600">
-                  <p className="flex items-center gap-2">
-                    <Truck className="h-4 w-4 text-green-600" />
+                  <p className="flex items-center">
+                    <Truck className="h-4 w-4 mr-2 flex-shrink-0" />
                     <span>Free shipping on orders above ₹499</span>
                   </p>
-                  <p className="text-xs text-gray-500 mt-3">
+                  <p className="text-xs text-gray-500">
                     By placing this order, you agree to our terms and conditions
                   </p>
                 </div>
