@@ -63,7 +63,7 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({ p
 
     try {
       // Use publicFetch instead of apiFetch
-      const endpoint = '/api/customization';
+      const endpoint = '/api/upload/customization';
       
       console.log(`Trying endpoint: ${endpoint}`);
       const response = await publicFetch(endpoint, {  // Changed to publicFetch
