@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingCart, Star, PenTool, X, Eye } from 'lucide-react';
+import { ShoppingCart, Star, PenTool, X } from 'lucide-react';
 import { Product } from '../types';
 import { formatCurrency, getImageUrl } from '../utils/helpers';
 import { useCart } from '../context/CartContext';
@@ -85,11 +85,6 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     });
   };
 
-  const handleCustomize = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setShowCustomization(true);
-  };
-
   const handleShowMore = (e: React.MouseEvent) => {
     e.stopPropagation();
     setShowDetails(true);
@@ -123,7 +118,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             </div>
           )}
           
-          {/* Customizable Badge */}
+          {/* Customizable Badge - Moved to top right */}
           {product.is_customizable && (
             <div className="absolute top-2 right-2 sm:top-3 sm:right-3 bg-purple-600 text-white px-2 py-0.5 sm:px-3 sm:py-1 rounded-full text-[10px] sm:text-xs font-semibold shadow-lg flex items-center gap-0.5 z-10">
               <PenTool className="h-2.5 w-2.5" />
@@ -172,35 +167,14 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
               )}
             </div>
             
-            {/* Action Buttons */}
+            {/* Two Buttons: Cart and Show More */}
             <div className="flex gap-1 sm:gap-2">
-              {/* Quick Add Button - Always visible */}
               <button
                 onClick={handleQuickAdd}
                 className="p-1.5 sm:p-2 bg-premium-gold/10 text-premium-gold rounded-lg hover:bg-premium-gold hover:text-white transition-colors"
                 title="Add to cart"
               >
                 <ShoppingCart className="h-3 w-3 sm:h-4 sm:w-4" />
-              </button>
-              
-              {/* Customize Button - Only for customizable products */}
-              {product.is_customizable && (
-                <button
-                  onClick={handleCustomize}
-                  className="p-1.5 sm:p-2 bg-purple-100 text-purple-600 rounded-lg hover:bg-purple-600 hover:text-white transition-colors"
-                  title="Customize this product"
-                >
-                  <PenTool className="h-3 w-3 sm:h-4 sm:w-4" />
-                </button>
-              )}
-              
-              {/* View Details Button */}
-              <button
-                onClick={handleShowMore}
-                className="p-1.5 sm:p-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-premium-gold hover:text-white transition-colors"
-                title="View details"
-              >
-                <Eye className="h-3 w-3 sm:h-4 sm:w-4" />
               </button>
             </div>
           </div>
