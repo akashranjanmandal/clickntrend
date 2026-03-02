@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useCart } from '../context/CartContext';
 import { formatCurrency } from '../utils/helpers';
 import { CONFIG } from '../config';
-import { Wallet, Truck, Tag, CheckCircle, XCircle, ArrowLeft, ShoppingBag, Gift, AlertCircle, Sparkles, Smile, Frown } from 'lucide-react';
+import { Wallet, Truck, Tag, CheckCircle, XCircle, ArrowLeft, ShoppingBag, Gift, AlertCircle, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../utils/apiFetch';
 
@@ -26,16 +26,19 @@ const Checkout: React.FC = () => {
   const [couponSuccess, setCouponSuccess] = useState('');
   const [couponLoading, setCouponLoading] = useState(false);
 
+  // Updated form field names to match backend expectations
   const [formData, setFormData] = useState({
-    customer_name: '', // Changed from 'name' to match backend
-    customer_email: '', // Changed from 'email' to match backend
-    customer_phone: '', // Changed from 'phone' to match backend
-    shipping_address: '', // New field for full address
+    customer_name: '',        // Changed from 'name'
+    customer_email: '',       // Changed from 'email'
+    customer_phone: '',       // Changed from 'phone'
+    customer_address: '',     // Changed from 'address' - using full address
     city: '',
     state: '',
     pincode: '',
-    special_requests: '', // Changed from 'specialRequests' to match backend
+    special_requests: '',     // Changed from 'specialRequests'
   });
+
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   /* ---------------- CALCULATIONS ---------------- */
   const subtotal = total;
@@ -56,59 +59,56 @@ const Checkout: React.FC = () => {
   ) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    
-    // Clear field-specific errors when user starts typing
+    // Clear field error when user starts typing
     if (fieldErrors[name]) {
       setFieldErrors(prev => ({ ...prev, [name]: '' }));
     }
   };
 
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-
   const validateForm = () => {
     const errors: Record<string, string> = {};
     
-    // Build full shipping address
-    const fullAddress = `${formData.shipping_address}, ${formData.city}, ${formData.state} - ${formData.pincode}`;
-    setFormData(prev => ({ ...prev, shipping_address: fullAddress }));
-
-    // Validate each field
     if (!formData.customer_name?.trim()) {
-      errors.customer_name = "Oops! We need your name to personalize your gift box 🎁";
+      errors.customer_name = "Please enter your full name";
     }
     if (!formData.customer_email?.trim()) {
-      errors.customer_email = "Email is required for order updates 📧";
+      errors.customer_email = "Please enter your email";
     } else if (!/^\S+@\S+\.\S+$/.test(formData.customer_email)) {
-      errors.customer_email = "That email doesn't look quite right 🤔";
+      errors.customer_email = "Please enter a valid email address";
     }
     if (!formData.customer_phone?.trim()) {
-      errors.customer_phone = "Phone number needed for delivery updates 📱";
+      errors.customer_phone = "Please enter your phone number";
     } else if (!/^\d{10}$/.test(formData.customer_phone)) {
-      errors.customer_phone = "Please enter a valid 10-digit mobile number 📞";
+      errors.customer_phone = "Please enter a valid 10-digit phone number";
     }
-    if (!formData.shipping_address?.trim()) {
-      errors.shipping_address = "Where should we send your goodies? 🏠";
+    if (!formData.customer_address?.trim()) {
+      errors.customer_address = "Please enter your address";
     }
     if (!formData.city?.trim()) {
-      errors.city = "City name is missing 🌆";
+      errors.city = "Please enter your city";
     }
     if (!formData.state?.trim()) {
-      errors.state = "Which state are we shipping to? 🗺️";
+      errors.state = "Please enter your state";
     }
     if (!formData.pincode?.trim()) {
-      errors.pincode = "Pincode helps us deliver faster 📮";
+      errors.pincode = "Please enter your pincode";
     } else if (!/^\d{6}$/.test(formData.pincode)) {
-      errors.pincode = "Pincode should be 6 digits 🔢";
+      errors.pincode = "Please enter a valid 6-digit pincode";
     }
 
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
+  // Build complete address
+  const getFullAddress = () => {
+    return `${formData.customer_address}, ${formData.city}, ${formData.state} - ${formData.pincode}`;
+  };
+
   /* ---------------- COUPON ---------------- */
   const validateCoupon = async () => {
     if (!couponCode.trim()) {
-      setCouponError('Hey! Don\'t forget to enter a coupon code ✨');
+      setCouponError('Please enter a coupon code');
       return;
     }
 
@@ -129,23 +129,12 @@ const Checkout: React.FC = () => {
       if (data.valid) {
         setAppliedCoupon(data.coupon);
         setCouponDiscount(data.coupon.discount_amount);
-        setCouponSuccess(`🎉 Yay! ${data.coupon.code} applied successfully! You saved ₹${data.coupon.discount_amount}`);
-        setCouponError('');
+        setCouponSuccess(`✨ Coupon applied! You saved ₹${data.coupon.discount_amount}`);
       } else {
-        throw new Error(data.message || 'Hmm, this coupon doesn\'t seem to work 🤔');
+        throw new Error(data.message || 'Invalid coupon');
       }
     } catch (e: any) {
-      // Parse error message if it's from the API
-      let errorMessage = e.message || 'Something went wrong. Please try again!';
-      
-      // Make error messages friendly
-      if (errorMessage.includes('expired')) {
-        errorMessage = 'This coupon has expired 😢 But don\'t worry, we have more coming!';
-      } else if (errorMessage.includes('Invalid')) {
-        errorMessage = 'Oops! That coupon code doesn\'t exist. Want to try another? ✨';
-      }
-      
-      setCouponError(errorMessage);
+      setCouponError(e.message || 'Error validating coupon');
       setAppliedCoupon(null);
       setCouponDiscount(0);
     } finally {
@@ -165,60 +154,22 @@ const Checkout: React.FC = () => {
   const extractOrderId = (response: any): string | null => {
     if (!response) return null;
     
-    console.log('Extracting order ID from:', response);
-    
+    // Common patterns for order ID
     const patterns = [
       response.order_id,
       response.orderId,
       response.id,
-      response.ID,
       response.data?.order_id,
-      response.data?.orderId,
       response.data?.id,
-      response.data?.order?.id,
-      response.order?.id,
-      response.result?.order_id,
-      response.result?.id,
-      response.data?.data?.order_id,
-      response.body?.order_id
     ];
     
     for (const pattern of patterns) {
       if (pattern && typeof pattern === 'string') {
-        console.log('Found order ID:', pattern);
         return pattern;
       }
     }
     
-    if (typeof response === 'string') {
-      const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      if (uuidPattern.test(response)) {
-        return response;
-      }
-    }
-    
     return null;
-  };
-
-  /* ---------------- SUCCESS HANDLER ---------------- */
-  const handleOrderSuccess = (response: any) => {
-    console.log('Processing order success with response:', response);
-    
-    const orderId = extractOrderId(response);
-    
-    if (orderId) {
-      console.log('✅ Order placed successfully! Order ID:', orderId);
-      clearCart();
-      
-      setTimeout(() => {
-        navigate(`/order-confirmation?orderId=${orderId}`);
-      }, 100);
-    } else {
-      console.error('❌ No order ID found in response:', response);
-      alert('Order placed but we couldn\'t get the order ID. Please check your email for confirmation! 📧');
-      clearCart();
-      navigate('/');
-    }
   };
 
   /* ---------------- COD ---------------- */
@@ -227,9 +178,8 @@ const Checkout: React.FC = () => {
     setLoading(true);
 
     try {
-      // Build the full address
-      const fullAddress = `${formData.shipping_address}, ${formData.city}, ${formData.state} - ${formData.pincode}`;
-
+      const fullAddress = getFullAddress();
+      
       const requestBody = {
         items,
         subtotal,
@@ -239,6 +189,7 @@ const Checkout: React.FC = () => {
         coupon_discount: couponDiscount,
         total_amount: grandTotal,
         payment_method: 'cod',
+        // Match backend expected field names
         customer_name: formData.customer_name,
         customer_email: formData.customer_email,
         customer_phone: formData.customer_phone,
@@ -253,30 +204,35 @@ const Checkout: React.FC = () => {
         body: JSON.stringify(requestBody),
       });
 
-      console.log('COD API Response:', response);
-      handleOrderSuccess(response);
+      console.log('COD Response:', response);
+
+      // Extract order ID from response
+      const orderId = extractOrderId(response);
       
+      if (orderId) {
+        clearCart();
+        navigate(`/order-confirmation?orderId=${orderId}`);
+      } else {
+        // If no order ID, still show success but go to home
+        alert('Order placed successfully!');
+        clearCart();
+        navigate('/');
+      }
     } catch (error: any) {
       console.error('COD Error:', error);
       
-      // Parse error message
-      let errorMessage = 'Something went wrong. Please try again! 😅';
-      
+      // Show user-friendly error message
+      let errorMessage = 'Failed to place order. Please try again.';
       if (error.message) {
         try {
           const parsedError = JSON.parse(error.message);
           if (parsedError.error) {
-            if (parsedError.error.includes('customer information')) {
-              errorMessage = 'Hey! We need your details to process the order. Please fill all fields 📝';
-            } else {
-              errorMessage = parsedError.error;
-            }
+            errorMessage = parsedError.error;
           }
         } catch {
           errorMessage = error.message;
         }
       }
-      
       alert(errorMessage);
     } finally {
       setLoading(false);
@@ -300,27 +256,20 @@ const Checkout: React.FC = () => {
 
     try {
       if (!(await loadRazorpayScript())) {
-        throw new Error('Razorpay SDK failed to load. Please check your internet connection! 🌐');
+        throw new Error('Failed to load payment gateway');
       }
 
-      const fullAddress = `${formData.shipping_address}, ${formData.city}, ${formData.state} - ${formData.pincode}`;
+      const fullAddress = getFullAddress();
 
       // Create Razorpay order
       const orderData = await apiFetch('/api/payment/create-order', {
         method: 'POST',
         body: JSON.stringify({
-          amount: Math.round(grandTotal * 100),
+          amount: Math.round(grandTotal * 100), // Razorpay expects amount in paise
           currency: 'INR',
           receipt: `receipt_${Date.now()}`,
-          notes: {
-            customer_name: formData.customer_name,
-            customer_email: formData.customer_email,
-            customer_phone: formData.customer_phone,
-          }
         }),
       });
-
-      console.log('Razorpay order created:', orderData);
 
       const razorpay = new window.Razorpay({
         key: CONFIG.RAZORPAY_KEY_ID,
@@ -329,11 +278,8 @@ const Checkout: React.FC = () => {
         order_id: orderData.id,
         name: 'GFTD',
         description: 'Premium Gift Purchase',
-        image: '/gift-logo.png',
         handler: async (res: any) => {
           try {
-            console.log('Razorpay payment response:', res);
-            
             const verifyResponse = await apiFetch('/api/payment/verify-payment', {
               method: 'POST',
               body: JSON.stringify({
@@ -357,16 +303,20 @@ const Checkout: React.FC = () => {
               }),
             });
 
-            console.log('Payment verification response:', verifyResponse);
+            console.log('Verification response:', verifyResponse);
+
+            // Extract order ID from verification response
+            const orderId = extractOrderId(verifyResponse);
             
-            if (verifyResponse.success) {
-              handleOrderSuccess(verifyResponse);
+            if (verifyResponse.success && orderId) {
+              clearCart();
+              navigate(`/order-confirmation?orderId=${orderId}`);
             } else {
-              throw new Error(verifyResponse.message || 'Payment verification failed');
+              alert('Payment verification failed. Please contact support.');
             }
-          } catch (error: any) {
-            console.error('Payment verification error:', error);
-            alert(error.message || 'Payment verification failed. Please contact support! 📞');
+          } catch (error) {
+            console.error('Verification error:', error);
+            alert('Payment verification failed.');
           }
         },
         prefill: {
@@ -377,22 +327,17 @@ const Checkout: React.FC = () => {
         notes: {
           address: fullAddress,
         },
-        theme: { 
-          color: '#D4AF37'
-        },
+        theme: { color: '#D4AF37' },
         modal: {
-          ondismiss: () => {
-            console.log('Payment modal dismissed');
-            setLoading(false);
-          },
-          confirm_close: true,
+          ondismiss: () => setLoading(false),
         },
       });
 
       razorpay.open();
-    } catch (error: any) {
-      console.error('Payment error:', error);
-      alert(error.message || 'Failed to initialize payment. Please try again! 😅');
+    } catch (e: any) {
+      console.error('Payment error:', e);
+      alert(e.message || 'Payment failed. Please try again.');
+    } finally {
       setLoading(false);
     }
   };
@@ -413,8 +358,8 @@ const Checkout: React.FC = () => {
           <div className="inline-flex items-center justify-center w-24 h-24 bg-premium-cream rounded-full mb-6">
             <ShoppingBag className="h-12 w-12 text-premium-gold" />
           </div>
-          <h1 className="text-3xl font-serif font-bold mb-4">Your cart is feeling lonely! 🛒</h1>
-          <p className="text-gray-600 mb-8">Add some beautiful gifts to make someone's day special ✨</p>
+          <h1 className="text-3xl font-serif font-bold mb-4">Your cart is empty</h1>
+          <p className="text-gray-600 mb-8">Add some beautiful gifts to make someone's day special</p>
           <button
             onClick={() => navigate('/products')}
             className="px-6 py-3 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy transition-colors"
@@ -448,7 +393,7 @@ const Checkout: React.FC = () => {
             <div className="bg-white rounded-xl md:rounded-2xl shadow-lg p-4 md:p-6 sticky top-20">
               <h2 className="text-xl md:text-2xl font-serif font-semibold mb-4 md:mb-6">Order Summary</h2>
               
-              {/* Free Shipping Progress Bar - with friendly messages */}
+              {/* Free Shipping Progress Bar */}
               <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-green-50 rounded-xl border border-blue-100">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
@@ -476,15 +421,14 @@ const Checkout: React.FC = () => {
                 
                 {shippingCharge > 0 && (
                   <div className="mt-3">
-                    <p className="text-sm text-gray-600 mb-2 flex items-center gap-1">
-                      <Smile className="h-4 w-4 text-blue-500" />
-                      Just ₹{amountToFreeShipping} more for FREE shipping! 
+                    <p className="text-sm text-gray-600 mb-2">
+                      Just ₹{amountToFreeShipping} more for FREE shipping!
                     </p>
                     <button
                       onClick={() => navigate('/products')}
-                      className="w-full py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 text-sm font-medium group"
+                      className="w-full py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 text-sm font-medium"
                     >
-                      <ShoppingBag className="h-4 w-4 group-hover:animate-bounce" />
+                      <ShoppingBag className="h-4 w-4" />
                       Shop ₹{amountToFreeShipping.toLocaleString()} more
                     </button>
                   </div>
@@ -627,19 +571,19 @@ const Checkout: React.FC = () => {
                     Address <span className="text-red-500">*</span>
                   </label>
                   <textarea
-                    name="shipping_address"
-                    value={formData.shipping_address}
+                    name="customer_address"
+                    value={formData.customer_address}
                     onChange={handleInputChange}
                     rows={2}
                     className={`w-full px-3 md:px-4 py-2 text-sm md:text-base border rounded-lg focus:border-premium-gold focus:outline-none transition-colors ${
-                      fieldErrors.shipping_address ? 'border-red-300 bg-red-50' : ''
+                      fieldErrors.customer_address ? 'border-red-300 bg-red-50' : ''
                     }`}
                     placeholder="House no, Street, Area"
                   />
-                  {fieldErrors.shipping_address && (
+                  {fieldErrors.customer_address && (
                     <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
                       <AlertCircle className="h-3 w-3" />
-                      {fieldErrors.shipping_address}
+                      {fieldErrors.customer_address}
                     </p>
                   )}
                 </div>
@@ -653,7 +597,7 @@ const Checkout: React.FC = () => {
                       name="city"
                       value={formData.city}
                       onChange={handleInputChange}
-                      className={`w-full px-3 md:px-4 py-2 text-sm md:text-base border rounded-lg focus:border-premium-gold focus:outline-none transition-colors ${
+                      className={`w-full px-3 md:px-4 py-2 text-sm md:text-base border rounded-lg focus:border-premium-gold focus:outline-none ${
                         fieldErrors.city ? 'border-red-300 bg-red-50' : ''
                       }`}
                       placeholder="City"
@@ -670,7 +614,7 @@ const Checkout: React.FC = () => {
                       name="state"
                       value={formData.state}
                       onChange={handleInputChange}
-                      className={`w-full px-3 md:px-4 py-2 text-sm md:text-base border rounded-lg focus:border-premium-gold focus:outline-none transition-colors ${
+                      className={`w-full px-3 md:px-4 py-2 text-sm md:text-base border rounded-lg focus:border-premium-gold focus:outline-none ${
                         fieldErrors.state ? 'border-red-300 bg-red-50' : ''
                       }`}
                       placeholder="State"
@@ -688,7 +632,7 @@ const Checkout: React.FC = () => {
                       value={formData.pincode}
                       onChange={handleInputChange}
                       maxLength={6}
-                      className={`w-full px-3 md:px-4 py-2 text-sm md:text-base border rounded-lg focus:border-premium-gold focus:outline-none transition-colors ${
+                      className={`w-full px-3 md:px-4 py-2 text-sm md:text-base border rounded-lg focus:border-premium-gold focus:outline-none ${
                         fieldErrors.pincode ? 'border-red-300 bg-red-50' : ''
                       }`}
                       placeholder="6-digit pincode"
@@ -703,7 +647,7 @@ const Checkout: React.FC = () => {
                 <div className="border-t pt-3 md:pt-4 mt-3 md:mt-4">
                   <h3 className="font-medium mb-2 md:mb-3 flex items-center text-sm md:text-base">
                     <Tag className="h-4 w-4 mr-2" />
-                    Got a coupon? 🏷️
+                    Apply Coupon
                   </h3>
                   
                   {appliedCoupon ? (
@@ -747,16 +691,13 @@ const Checkout: React.FC = () => {
                         <button
                           onClick={validateCoupon}
                           disabled={couponLoading}
-                          className="px-4 py-2 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy disabled:opacity-50 text-sm md:text-base whitespace-nowrap transition-colors"
+                          className="px-4 py-2 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy disabled:opacity-50 text-sm md:text-base whitespace-nowrap"
                         >
-                          {couponLoading ? 'Checking...' : 'Apply'}
+                          {couponLoading ? '...' : 'Apply'}
                         </button>
                       </div>
                       {couponError && (
-                        <p className="text-red-600 text-xs mt-2 flex items-center gap-1">
-                          <Frown className="h-3 w-3" />
-                          {couponError}
-                        </p>
+                        <p className="text-red-600 text-xs mt-2">{couponError}</p>
                       )}
                     </>
                   )}
@@ -776,7 +717,7 @@ const Checkout: React.FC = () => {
                       className={`p-3 border rounded-lg text-left transition-all ${
                         paymentMethod === 'online'
                           ? 'border-premium-gold bg-premium-gold/5 ring-2 ring-premium-gold/20'
-                          : 'border-gray-200 hover:border-premium-gold hover:bg-gray-50'
+                          : 'border-gray-200 hover:border-premium-gold'
                       }`}
                     >
                       <p className="font-medium text-sm md:text-base">Pay Online</p>
@@ -789,7 +730,7 @@ const Checkout: React.FC = () => {
                       className={`p-3 border rounded-lg text-left transition-all ${
                         paymentMethod === 'cod'
                           ? 'border-premium-gold bg-premium-gold/5 ring-2 ring-premium-gold/20'
-                          : 'border-gray-200 hover:border-premium-gold hover:bg-gray-50'
+                          : 'border-gray-200 hover:border-premium-gold'
                       }`}
                     >
                       <p className="font-medium text-sm md:text-base">Cash on Delivery</p>
@@ -800,16 +741,14 @@ const Checkout: React.FC = () => {
 
                 {/* Special Requests */}
                 <div>
-                  <label className="block text-xs md:text-sm font-medium mb-1 md:mb-2">
-                    Special Requests <span className="text-gray-400">(optional)</span>
-                  </label>
+                  <label className="block text-xs md:text-sm font-medium mb-1 md:mb-2">Special Requests</label>
                   <textarea
                     name="special_requests"
                     value={formData.special_requests}
                     onChange={handleInputChange}
                     rows={2}
                     className="w-full px-3 md:px-4 py-2 text-sm md:text-base border rounded-lg focus:border-premium-gold focus:outline-none"
-                    placeholder="Gift wrapping, delivery instructions, birthday message, etc. 🎁"
+                    placeholder="Gift wrapping, delivery instructions, etc."
                   />
                 </div>
 
@@ -820,19 +759,16 @@ const Checkout: React.FC = () => {
                   className={`w-full py-3 md:py-4 rounded-lg font-medium text-base md:text-lg transition-all mt-4 ${
                     loading 
                       ? 'bg-gray-300 cursor-not-allowed' 
-                      : 'bg-gradient-to-r from-premium-gold to-premium-burgundy text-white hover:scale-[1.02] shadow-lg hover:shadow-xl'
+                      : 'bg-gradient-to-r from-premium-gold to-premium-burgundy text-white hover:scale-[1.02] shadow-lg'
                   }`}
                 >
                   {loading ? (
                     <div className="flex items-center justify-center">
                       <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
-                      Processing your order...
+                      Processing...
                     </div>
                   ) : (
-                    <span className="flex items-center justify-center gap-2">
-                      Place Order • {formatCurrency(grandTotal)}
-                      <Sparkles className="h-5 w-5" />
-                    </span>
+                    `Place Order • ${formatCurrency(grandTotal)}`
                   )}
                 </button>
 
@@ -842,12 +778,8 @@ const Checkout: React.FC = () => {
                     <Truck className="h-4 w-4 text-green-600" />
                     <span>Free shipping on orders above ₹499</span>
                   </p>
-                  <p className="flex items-center gap-2">
-                    <Gift className="h-4 w-4 text-premium-gold" />
-                    <span>Secure checkout • 100% safe payment</span>
-                  </p>
                   <p className="text-xs text-gray-500 mt-3">
-                    By placing this order, you agree to our terms and conditions 📋
+                    By placing this order, you agree to our terms and conditions
                   </p>
                 </div>
               </div>
