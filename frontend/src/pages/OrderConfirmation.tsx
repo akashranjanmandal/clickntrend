@@ -14,7 +14,6 @@ import {
   CreditCard,
   Download,
   Share2,
-  Printer,
   Heart,
   Star,
   Sparkles,
@@ -24,8 +23,7 @@ import {
   Hash,
   IndianRupee,
   Copy,
-  FileText,
-  AlertCircle
+  FileText
 } from 'lucide-react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { apiFetch } from '../utils/apiFetch'
@@ -124,30 +122,24 @@ export default function OrderConfirmation() {
     const displayOrderId = getDisplayOrderId()
     const pageWidth = doc.internal.pageSize.getWidth()
     
-    // Brand Colors
-    const goldColor = [212, 175, 55] // #D4AF37
-    const burgundyColor = [128, 0, 32] // #800020
-    
-    // Header
-    doc.setFillColor(245, 245, 250)
-    doc.rect(0, 0, pageWidth, 40, 'F')
-    
+    // Header - Only GFTD
     doc.setFontSize(28)
-    doc.setTextColor(goldColor[0], goldColor[1], goldColor[2])
+    doc.setTextColor(212, 175, 55) // Gold color
     doc.setFont('helvetica', 'bold')
     doc.text('GFTD', 20, 25)
     
     doc.setFontSize(10)
     doc.setTextColor(100, 100, 100)
     doc.setFont('helvetica', 'normal')
-    doc.text('Premium Gifts & Curated Experiences', 20, 32)
+    doc.text('Premium Gifts', 20, 32)
     
+    // Invoice Title
     doc.setFontSize(20)
-    doc.setTextColor(burgundyColor[0], burgundyColor[1], burgundyColor[2])
+    doc.setTextColor(128, 0, 32) // Burgundy
     doc.setFont('helvetica', 'bold')
     doc.text('ORDER INVOICE', pageWidth - 20, 25, { align: 'right' })
     
-    // Order Details Box
+    // Order Details
     doc.setFillColor(250, 250, 250)
     doc.roundedRect(20, 50, pageWidth - 40, 35, 3, 3, 'F')
     
@@ -164,15 +156,13 @@ export default function OrderConfirmation() {
     doc.text(order.created_at ? new Date(order.created_at).toLocaleDateString('en-IN', { 
       day: 'numeric', 
       month: 'long', 
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+      year: 'numeric'
     }) : new Date().toLocaleDateString(), 65, 72)
     doc.text((order.payment_method || 'Online').toUpperCase(), 65, 82)
     
     // Customer Information
     doc.setFontSize(14)
-    doc.setTextColor(burgundyColor[0], burgundyColor[1], burgundyColor[2])
+    doc.setTextColor(128, 0, 32)
     doc.setFont('helvetica', 'bold')
     doc.text('Customer Information', 20, 105)
     
@@ -191,7 +181,7 @@ export default function OrderConfirmation() {
     
     // Shipping Address
     doc.setFontSize(14)
-    doc.setTextColor(burgundyColor[0], burgundyColor[1], burgundyColor[2])
+    doc.setTextColor(128, 0, 32)
     doc.setFont('helvetica', 'bold')
     doc.text('Shipping Address', pageWidth / 2 + 10, 105)
     
@@ -212,7 +202,7 @@ export default function OrderConfirmation() {
     
     // Order Items Table
     doc.setFontSize(14)
-    doc.setTextColor(burgundyColor[0], burgundyColor[1], burgundyColor[2])
+    doc.setTextColor(128, 0, 32)
     doc.setFont('helvetica', 'bold')
     doc.text('Order Summary', 20, 155)
     
@@ -237,7 +227,7 @@ export default function OrderConfirmation() {
       body: tableRows,
       theme: 'grid',
       headStyles: {
-        fillColor: burgundyColor,
+        fillColor: [128, 0, 32],
         textColor: [255, 255, 255],
         fontStyle: 'bold',
       },
@@ -253,40 +243,29 @@ export default function OrderConfirmation() {
       margin: { left: 20, right: 20 },
     })
     
-    const subtotal = order.total_amount
-    const tax = subtotal * 0.18
-    const grandTotal = subtotal + tax
-    
     const finalY = (doc as any).lastAutoTable.finalY + 10
     
-    // Summary Box
+    // Total Amount
     doc.setFillColor(250, 250, 250)
-    doc.roundedRect(pageWidth - 80, finalY, 60, 45, 3, 3, 'F')
+    doc.roundedRect(pageWidth - 80, finalY, 60, 20, 3, 3, 'F')
     
     doc.setFontSize(10)
     doc.setFont('helvetica', 'normal')
     doc.setTextColor(80, 80, 80)
-    doc.text('Subtotal:', pageWidth - 75, finalY + 8)
-    doc.text('Tax (18%):', pageWidth - 75, finalY + 16)
-    doc.text('Shipping:', pageWidth - 75, finalY + 24)
-    doc.text('Total:', pageWidth - 75, finalY + 37)
-    
-    doc.setFont('helvetica', 'bold')
-    doc.setTextColor(0, 0, 0)
-    doc.text(`₹${subtotal.toLocaleString()}`, pageWidth - 25, finalY + 8, { align: 'right' })
-    doc.text(`₹${tax.toLocaleString()}`, pageWidth - 25, finalY + 16, { align: 'right' })
-    doc.text('FREE', pageWidth - 25, finalY + 24, { align: 'right' })
+    doc.text('Total Amount:', pageWidth - 75, finalY + 8)
     
     doc.setFontSize(12)
-    doc.setTextColor(goldColor[0], goldColor[1], goldColor[2])
-    doc.text(`₹${grandTotal.toLocaleString()}`, pageWidth - 25, finalY + 37, { align: 'right' })
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(212, 175, 55)
+    doc.text(`₹${order.total_amount.toLocaleString()}`, pageWidth - 25, finalY + 13, { align: 'right' })
     
-    // Footer
+    // GFTD Contact Information
     doc.setFontSize(9)
     doc.setTextColor(150, 150, 150)
-    doc.setFont('helvetica', 'italic')
-    doc.text('Thank you for shopping with GFTD!', pageWidth / 2, finalY + 60, { align: 'center' })
-    doc.text('For any queries, contact support@gftd.com', pageWidth / 2, finalY + 67, { align: 'center' })
+    doc.setFont('helvetica', 'normal')
+    doc.text('GFTD - Premium Gifts', pageWidth / 2, finalY + 40, { align: 'center' })
+    doc.text('contact@gftd.com | +91 1234567890', pageWidth / 2, finalY + 45, { align: 'center' })
+    doc.text('123 Gift Street, Mumbai - 400001', pageWidth / 2, finalY + 50, { align: 'center' })
     
     doc.save(`GFTD_Invoice_${displayOrderId.replace('#', '_')}.pdf`)
   }
@@ -489,13 +468,11 @@ export default function OrderConfirmation() {
             {order.created_at ? new Date(order.created_at).toLocaleDateString('en-IN', { 
               day: 'numeric', 
               month: 'long', 
-              year: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit'
+              year: 'numeric'
             }) : new Date().toLocaleDateString()}
           </motion.p>
 
-          {/* Action Buttons */}
+          {/* Action Buttons - Only Download and Share */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -507,21 +484,14 @@ export default function OrderConfirmation() {
               className="inline-flex items-center gap-2 px-4 py-2 bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 text-gray-700 hover:text-primary-600 border border-gray-200"
             >
               <FileText className="w-4 h-4" />
-              Download PDF Invoice
+              Download Invoice
             </button>
             <button
               onClick={handleShare}
               className="inline-flex items-center gap-2 px-4 py-2 bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 text-gray-700 hover:text-primary-600 border border-gray-200"
             >
               <Share2 className="w-4 h-4" />
-              Share Order
-            </button>
-            <button
-              onClick={() => window.print()}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 text-gray-700 hover:text-primary-600 border border-gray-200"
-            >
-              <Printer className="w-4 h-4" />
-              Print
+              Share
             </button>
           </motion.div>
         </motion.div>
@@ -548,7 +518,7 @@ export default function OrderConfirmation() {
               </div>
               
               <div className="p-6">
-                {/* Items List */}
+                {/* Items List - No Images */}
                 <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
                   {Array.isArray(order.items) && order.items.map((item: any, index: number) => (
                     <motion.div
@@ -556,71 +526,28 @@ export default function OrderConfirmation() {
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.1 }}
-                      className="flex items-center gap-4 p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors group"
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-xl"
                     >
-                      <div className="relative">
-                        <img
-                          src={item.image_url || 'https://via.placeholder.com/80'}
-                          alt={item.name}
-                          className="w-20 h-20 object-cover rounded-lg shadow-md group-hover:shadow-lg transition-shadow"
-                        />
-                        <div className="absolute -top-2 -right-2 w-6 h-6 bg-primary-600 text-white rounded-full flex items-center justify-center text-xs font-bold">
-                          {item.quantity}
-                        </div>
-                      </div>
                       <div className="flex-1">
-                        <h4 className="font-semibold text-gray-800 group-hover:text-primary-600 transition-colors">
-                          {item.name}
-                        </h4>
-                        <p className="text-sm text-gray-500 mt-1">
-                          {item.category || 'Gift Item'}
-                        </p>
-                        <div className="flex items-center justify-between mt-2">
-                          <span className="text-sm text-gray-600">
-                            ₹{item.price.toLocaleString()} each
-                          </span>
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-semibold text-gray-800">{item.name}</h4>
                           <span className="font-bold text-primary-700">
                             ₹{(item.price * item.quantity).toLocaleString()}
                           </span>
                         </div>
+                        <p className="text-sm text-gray-500 mt-1">
+                          Qty: {item.quantity} × ₹{item.price.toLocaleString()}
+                        </p>
                       </div>
                     </motion.div>
                   ))}
                 </div>
 
-                {/* Price Breakdown */}
+                {/* Total Amount */}
                 <div className="mt-6 pt-6 border-t border-gray-200">
-                  <div className="space-y-3">
-                    <div className="flex justify-between text-gray-600">
-                      <span>Subtotal</span>
-                      <span>₹{order.total_amount.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between text-gray-600">
-                      <span>Shipping</span>
-                      <span className="text-green-600 font-medium flex items-center gap-1">
-                        <Gift className="w-4 h-4" />
-                        FREE
-                      </span>
-                    </div>
-                    {order.coupon_discount ? (
-                      <div className="flex justify-between text-green-600">
-                        <span>Coupon Discount</span>
-                        <span>-₹{order.coupon_discount.toLocaleString()}</span>
-                      </div>
-                    ) : null}
-                    <div className="flex justify-between text-gray-600">
-                      <span>Tax (GST 18%)</span>
-                      <span>₹{(order.total_amount * 0.18).toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between text-lg font-bold pt-4 border-t border-gray-200">
-                      <span className="flex items-center gap-2">
-                        <IndianRupee className="w-5 h-5" />
-                        Total Paid
-                      </span>
-                      <span className="text-2xl text-primary-600">
-                        ₹{(order.total_amount * 1.18).toLocaleString()}
-                      </span>
-                    </div>
+                  <div className="flex justify-between text-xl font-bold">
+                    <span>Total Amount</span>
+                    <span className="text-primary-600">₹{order.total_amount.toLocaleString()}</span>
                   </div>
                 </div>
 
@@ -642,66 +569,37 @@ export default function OrderConfirmation() {
               </div>
               
               <div className="p-6">
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
+                <div className="space-y-4">
+                  <div className="flex items-start gap-3">
+                    <MapPin className="w-5 h-5 text-blue-600 mt-1" />
+                    <div>
+                      <p className="font-semibold text-gray-800">{order.customer_name}</p>
+                      <p className="text-gray-600 mt-1">
+                        {[
+                          order.shipping_address,
+                          order.shipping_city,
+                          order.shipping_state,
+                          order.shipping_pincode
+                        ].filter(Boolean).join(', ') || 'Address not provided'}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start gap-3">
+                    <Mail className="w-5 h-5 text-blue-600 mt-1" />
+                    <div>
+                      <p className="text-gray-600">{order.customer_email}</p>
+                    </div>
+                  </div>
+                  
+                  {order.customer_phone && (
                     <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <MapPin className="w-4 h-4 text-blue-600" />
-                      </div>
+                      <Phone className="w-5 h-5 text-blue-600 mt-1" />
                       <div>
-                        <p className="text-sm text-gray-500">Delivery Address</p>
-                        <p className="font-semibold text-gray-800">{order.customer_name}</p>
-                        <p className="text-gray-600 text-sm mt-1">
-                          {[
-                            order.shipping_address,
-                            order.shipping_city,
-                            order.shipping_state,
-                            order.shipping_pincode
-                          ].filter(Boolean).join(', ') || 'Address not provided'}
-                        </p>
+                        <p className="text-gray-600">{order.customer_phone}</p>
                       </div>
                     </div>
-                    
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <Mail className="w-4 h-4 text-blue-600" />
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Email</p>
-                        <p className="font-semibold text-gray-800 break-all">{order.customer_email}</p>
-                      </div>
-                    </div>
-                    
-                    {order.customer_phone && (
-                      <div className="flex items-start gap-3">
-                        <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                          <Phone className="w-4 h-4 text-blue-600" />
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-500">Phone</p>
-                          <p className="font-semibold text-gray-800">{order.customer_phone}</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Expected Delivery */}
-                  <div className="bg-gradient-to-br from-green-50 to-blue-50 rounded-xl p-4 border border-green-100">
-                    <h4 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-green-600" />
-                      Expected Delivery
-                    </h4>
-                    <p className="text-2xl font-bold text-green-700">
-                      {new Date(new Date(order.created_at || new Date()).setDate(new Date(order.created_at || new Date()).getDate() + 5)).toLocaleDateString('en-IN', { 
-                        day: 'numeric', 
-                        month: 'long'
-                      })}
-                    </p>
-                    <p className="text-sm text-gray-600 mt-2 flex items-center gap-1">
-                      <Truck className="w-3 h-3" />
-                      Standard shipping (5-7 business days)
-                    </p>
-                  </div>
+                  )}
                 </div>
 
                 {order.special_requests && (
@@ -740,7 +638,6 @@ export default function OrderConfirmation() {
                       time: 'Just now', 
                       icon: CheckCircle, 
                       active: true,
-                      color: 'green',
                       description: 'Your order has been received'
                     },
                     { 
@@ -748,7 +645,6 @@ export default function OrderConfirmation() {
                       time: 'Within 24 hours', 
                       icon: Package, 
                       active: true,
-                      color: 'blue',
                       description: 'Preparing your items'
                     },
                     { 
@@ -756,7 +652,6 @@ export default function OrderConfirmation() {
                       time: '1-2 business days', 
                       icon: Truck, 
                       active: false,
-                      color: 'orange',
                       description: 'On the way to you'
                     },
                     { 
@@ -764,7 +659,6 @@ export default function OrderConfirmation() {
                       time: '3-5 business days', 
                       icon: Gift, 
                       active: false,
-                      color: 'purple',
                       description: 'Package delivered'
                     },
                   ].map((step, index) => (
@@ -776,15 +670,13 @@ export default function OrderConfirmation() {
                       className="relative flex items-start mb-8 last:mb-0"
                     >
                       <div className={`z-10 flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center
-                        ${step.active 
-                          ? `bg-${step.color}-100 ring-4 ring-${step.color}-50` 
-                          : 'bg-gray-100'}`}
+                        ${step.active ? 'bg-green-100 ring-4 ring-green-50' : 'bg-gray-100'}`}
                       >
-                        <step.icon className={`w-6 h-6 ${step.active ? `text-${step.color}-600` : 'text-gray-400'}`} />
+                        <step.icon className={`w-6 h-6 ${step.active ? 'text-green-600' : 'text-gray-400'}`} />
                       </div>
                       <div className="ml-4 flex-1">
                         <div className="flex items-center justify-between">
-                          <h4 className={`font-semibold ${step.active ? `text-${step.color}-700` : 'text-gray-500'}`}>
+                          <h4 className={`font-semibold ${step.active ? 'text-green-700' : 'text-gray-500'}`}>
                             {step.status}
                           </h4>
                           {step.active && (
@@ -795,15 +687,6 @@ export default function OrderConfirmation() {
                         </div>
                         <p className="text-sm text-gray-500 mt-0.5">{step.time}</p>
                         <p className="text-xs text-gray-400 mt-1">{step.description}</p>
-                        
-                        {step.active && index < 3 && (
-                          <motion.div 
-                            initial={{ width: 0 }}
-                            animate={{ width: '100%' }}
-                            transition={{ duration: 2, repeat: Infinity }}
-                            className="h-1 bg-gradient-to-r from-green-400 to-blue-400 rounded-full mt-2"
-                          />
-                        )}
                       </div>
                     </motion.div>
                   ))}
@@ -811,31 +694,16 @@ export default function OrderConfirmation() {
 
                 {order.tracking_number && (
                   <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
-                    <h4 className="font-semibold text-blue-800 mb-2 flex items-center gap-2">
-                      <Truck className="w-4 h-4" />
-                      Tracking Number
-                    </h4>
-                    <div className="flex items-center gap-2">
-                      <code className="flex-1 bg-white px-4 py-2.5 rounded-lg font-mono text-blue-600 border border-blue-200 text-sm">
-                        {order.tracking_number}
-                      </code>
-                      <button 
-                        onClick={() => navigator.clipboard.writeText(order.tracking_number!)}
-                        className="p-2.5 bg-white rounded-lg border border-blue-200 hover:bg-blue-50 transition-colors"
-                      >
-                        <Copy className="w-4 h-4 text-blue-600" />
-                      </button>
-                    </div>
-                    <p className="text-xs text-blue-600 mt-2 flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      Track your package in real-time
-                    </p>
+                    <h4 className="font-semibold text-blue-800 mb-2">Tracking Number</h4>
+                    <code className="block bg-white px-4 py-2 rounded-lg font-mono text-blue-600 border border-blue-200 text-sm">
+                      {order.tracking_number}
+                    </code>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Next Steps & Rewards Card */}
+            {/* Next Steps Card */}
             <div className="bg-gradient-to-br from-primary-600 via-primary-700 to-purple-700 rounded-2xl shadow-xl p-6 text-white">
               <h3 className="text-2xl font-serif font-bold mb-4 flex items-center gap-2">
                 <Sparkles className="w-6 h-6 text-yellow-300" />
@@ -843,44 +711,29 @@ export default function OrderConfirmation() {
               </h3>
               
               <div className="space-y-4 mb-6">
-                <motion.div 
-                  whileHover={{ scale: 1.02 }}
-                  className="flex items-start gap-3 bg-white/10 backdrop-blur-sm rounded-xl p-3"
-                >
-                  <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
-                    <CheckCircle className="w-4 h-4 text-white" />
-                  </div>
+                <div className="flex items-start gap-3 bg-white/10 backdrop-blur-sm rounded-xl p-3">
+                  <CheckCircle className="w-5 h-5 text-green-300 flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="font-semibold">Confirmation Email</p>
                     <p className="text-sm text-white/80">Sent to {order.customer_email}</p>
                   </div>
-                </motion.div>
+                </div>
                 
-                <motion.div 
-                  whileHover={{ scale: 1.02 }}
-                  className="flex items-start gap-3 bg-white/10 backdrop-blur-sm rounded-xl p-3"
-                >
-                  <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
-                    <Package className="w-4 h-4 text-white" />
-                  </div>
+                <div className="flex items-start gap-3 bg-white/10 backdrop-blur-sm rounded-xl p-3">
+                  <Package className="w-5 h-5 text-blue-300 flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="font-semibold">Order Processing</p>
                     <p className="text-sm text-white/80">Will be processed within 24 hours</p>
                   </div>
-                </motion.div>
+                </div>
                 
-                <motion.div 
-                  whileHover={{ scale: 1.02 }}
-                  className="flex items-start gap-3 bg-white/10 backdrop-blur-sm rounded-xl p-3"
-                >
-                  <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center flex-shrink-0">
-                    <Truck className="w-4 h-4 text-white" />
-                  </div>
+                <div className="flex items-start gap-3 bg-white/10 backdrop-blur-sm rounded-xl p-3">
+                  <Truck className="w-5 h-5 text-purple-300 flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="font-semibold">Shipping Update</p>
                     <p className="text-sm text-white/80">Tracking info via email/SMS</p>
                   </div>
-                </motion.div>
+                </div>
               </div>
 
               {/* Rewards Section */}
@@ -892,11 +745,8 @@ export default function OrderConfirmation() {
                   </h4>
                   <span className="text-2xl font-bold text-yellow-300">150</span>
                 </div>
-                <p className="text-xs text-white/80 mb-4">
-                  You've earned 150 reward points from this purchase!
-                </p>
                 
-                <div className="flex gap-3">
+                <div className="flex gap-3 mt-4">
                   <button
                     onClick={() => navigate('/products')}
                     className="flex-1 bg-white text-primary-700 py-3 rounded-xl font-semibold hover:bg-gray-100 transition-colors flex items-center justify-center gap-2 text-sm"
@@ -951,7 +801,7 @@ export default function OrderConfirmation() {
           className="text-center mt-12 text-sm text-gray-500"
         >
           <p>A confirmation email has been sent to {order.customer_email}</p>
-          <p className="mt-1">For any queries, contact our support team</p>
+          <p className="mt-1">For any queries, contact support@gftd.com</p>
         </motion.div>
       </div>
     </div>
