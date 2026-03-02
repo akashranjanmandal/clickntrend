@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useCart } from '../context/CartContext';
 import { formatCurrency } from '../utils/helpers';
 import { CONFIG } from '../config';
-import { Wallet, Truck, Tag, CheckCircle, XCircle, ArrowLeft, ShoppingBag, Gift, AlertCircle, Sparkles, Bug } from 'lucide-react';
+import { Wallet, Truck, Tag, CheckCircle, XCircle, ArrowLeft, ShoppingBag, Gift, AlertCircle, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../utils/apiFetch';
 
@@ -17,7 +17,6 @@ const Checkout: React.FC = () => {
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(false);
-  const [debugMode, setDebugMode] = useState(true); // Enable debug mode
   const [paymentMethod, setPaymentMethod] = useState<'online' | 'cod'>('online');
 
   const [couponCode, setCouponCode] = useState('');
@@ -27,45 +26,16 @@ const Checkout: React.FC = () => {
   const [couponSuccess, setCouponSuccess] = useState('');
   const [couponLoading, setCouponLoading] = useState(false);
 
-  // Try multiple field name variations
+  // Use the field names that worked (v1)
   const [formData, setFormData] = useState({
-    // Name variations
     name: '',
-    customer_name: '',
-    full_name: '',
-    userName: '',
-    
-    // Email variations
     email: '',
-    customer_email: '',
-    userEmail: '',
-    
-    // Phone variations
     phone: '',
-    customer_phone: '',
-    mobile: '',
-    phoneNumber: '',
-    contact: '',
-    
-    // Address variations
     address: '',
-    customer_address: '',
-    shipping_address: '',
-    addressLine1: '',
-    street: '',
-    
     city: '',
     state: '',
-    
-    // Pincode variations
     pincode: '',
-    zip: '',
-    postal_code: '',
-    zipCode: '',
-    
     special_requests: '',
-    notes: '',
-    instructions: '',
   });
 
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -97,49 +67,31 @@ const Checkout: React.FC = () => {
   const validateForm = () => {
     const errors: Record<string, string> = {};
     
-    // Check if at least one name field is filled
-    const hasName = formData.name || formData.customer_name || formData.full_name || formData.userName;
-    if (!hasName) {
+    if (!formData.name?.trim()) {
       errors.name = "Please enter your full name";
     }
-    
-    // Check email
-    const email = formData.email || formData.customer_email || formData.userEmail;
-    if (!email) {
+    if (!formData.email?.trim()) {
       errors.email = "Please enter your email";
-    } else if (!/^\S+@\S+\.\S+$/.test(email)) {
+    } else if (!/^\S+@\S+\.\S+$/.test(formData.email)) {
       errors.email = "Please enter a valid email address";
     }
-    
-    // Check phone
-    const phone = formData.phone || formData.customer_phone || formData.mobile || formData.phoneNumber || formData.contact;
-    if (!phone) {
+    if (!formData.phone?.trim()) {
       errors.phone = "Please enter your phone number";
-    } else if (!/^\d{10}$/.test(phone.replace(/\D/g, ''))) {
+    } else if (!/^\d{10}$/.test(formData.phone.replace(/\D/g, ''))) {
       errors.phone = "Please enter a valid 10-digit phone number";
     }
-    
-    // Check address
-    const address = formData.address || formData.customer_address || formData.shipping_address || formData.addressLine1 || formData.street;
-    if (!address) {
+    if (!formData.address?.trim()) {
       errors.address = "Please enter your address";
     }
-    
-    // Check city
-    if (!formData.city) {
+    if (!formData.city?.trim()) {
       errors.city = "Please enter your city";
     }
-    
-    // Check state
-    if (!formData.state) {
+    if (!formData.state?.trim()) {
       errors.state = "Please enter your state";
     }
-    
-    // Check pincode
-    const pincode = formData.pincode || formData.zip || formData.postal_code || formData.zipCode;
-    if (!pincode) {
+    if (!formData.pincode?.trim()) {
       errors.pincode = "Please enter your pincode";
-    } else if (!/^\d{6}$/.test(pincode.replace(/\D/g, ''))) {
+    } else if (!/^\d{6}$/.test(formData.pincode.replace(/\D/g, ''))) {
       errors.pincode = "Please enter a valid 6-digit pincode";
     }
 
@@ -147,153 +99,9 @@ const Checkout: React.FC = () => {
     return Object.keys(errors).length === 0;
   };
 
-  // Get the first non-empty value from multiple fields
-  const getFirstNonEmpty = (...fields: (string | undefined)[]): string => {
-    for (const field of fields) {
-      if (field && field.trim()) return field.trim();
-    }
-    return '';
-  };
-
   // Build complete address
   const getFullAddress = () => {
-    const address = getFirstNonEmpty(
-      formData.address,
-      formData.customer_address,
-      formData.shipping_address,
-      formData.addressLine1,
-      formData.street
-    );
-    
-    const pincode = getFirstNonEmpty(
-      formData.pincode,
-      formData.zip,
-      formData.postal_code,
-      formData.zipCode
-    );
-    
-    return `${address}, ${formData.city}, ${formData.state} - ${pincode}`;
-  };
-
-  // Prepare ALL possible field combinations
-  const prepareAllRequestVariations = () => {
-    const fullAddress = getFullAddress();
-    const name = getFirstNonEmpty(formData.name, formData.customer_name, formData.full_name, formData.userName);
-    const email = getFirstNonEmpty(formData.email, formData.customer_email, formData.userEmail);
-    const phone = getFirstNonEmpty(formData.phone, formData.customer_phone, formData.mobile, formData.phoneNumber, formData.contact);
-    const address = getFirstNonEmpty(formData.address, formData.customer_address, formData.shipping_address, formData.addressLine1, formData.street);
-    const pincode = getFirstNonEmpty(formData.pincode, formData.zip, formData.postal_code, formData.zipCode);
-    const specialRequests = getFirstNonEmpty(formData.special_requests, formData.notes, formData.instructions);
-
-    // Common base data
-    const baseData = {
-      items,
-      subtotal,
-      shipping_charge: shippingCharge,
-      cod_charge: codCharge,
-      coupon_code: appliedCoupon?.code || null,
-      coupon_discount: couponDiscount,
-      total_amount: grandTotal,
-      payment_method: paymentMethod,
-    };
-
-    // Try ALL possible field name combinations
-    return {
-      // Version 1: Original field names
-      v1: {
-        ...baseData,
-        name,
-        email,
-        phone,
-        address: fullAddress,
-        city: formData.city,
-        state: formData.state,
-        pincode,
-        special_requests: specialRequests,
-      },
-      
-      // Version 2: customer_ prefixed
-      v2: {
-        ...baseData,
-        customer_name: name,
-        customer_email: email,
-        customer_phone: phone,
-        customer_address: fullAddress,
-        city: formData.city,
-        state: formData.state,
-        pincode,
-        special_requests: specialRequests,
-      },
-      
-      // Version 3: shipping_ prefixed
-      v3: {
-        ...baseData,
-        shipping_name: name,
-        shipping_email: email,
-        shipping_phone: phone,
-        shipping_address: fullAddress,
-        shipping_city: formData.city,
-        shipping_state: formData.state,
-        shipping_pincode: pincode,
-        special_requests: specialRequests,
-      },
-      
-      // Version 4: user_ prefixed
-      v4: {
-        ...baseData,
-        user_name: name,
-        user_email: email,
-        user_phone: phone,
-        user_address: fullAddress,
-        user_city: formData.city,
-        user_state: formData.state,
-        user_pincode: pincode,
-        special_requests: specialRequests,
-      },
-      
-      // Version 5: Separate fields
-      v5: {
-        ...baseData,
-        customer: {
-          name,
-          email,
-          phone
-        },
-        shipping: {
-          address: fullAddress,
-          city: formData.city,
-          state: formData.state,
-          pincode
-        },
-        special_requests: specialRequests,
-      },
-      
-      // Version 6: Flat with different names
-      v6: {
-        ...baseData,
-        full_name: name,
-        email_address: email,
-        mobile_number: phone,
-        delivery_address: fullAddress,
-        city_name: formData.city,
-        state_name: formData.state,
-        postal_code: pincode,
-        notes: specialRequests,
-      },
-      
-      // Version 7: billing_ prefixed
-      v7: {
-        ...baseData,
-        billing_name: name,
-        billing_email: email,
-        billing_phone: phone,
-        billing_address: fullAddress,
-        billing_city: formData.city,
-        billing_state: formData.state,
-        billing_zip: pincode,
-        special_instructions: specialRequests,
-      },
-    };
+    return `${formData.address}, ${formData.city}, ${formData.state} - ${formData.pincode}`;
   };
 
   /* ---------------- COUPON ---------------- */
@@ -308,14 +116,12 @@ const Checkout: React.FC = () => {
     setCouponSuccess('');
 
     try {
-      const email = getFirstNonEmpty(formData.email, formData.customer_email, formData.userEmail);
-      
       const data = await apiFetch('/api/coupons/validate', {
         method: 'POST',
         body: JSON.stringify({
           code: couponCode,
           subtotal,
-          email: email || undefined,
+          email: formData.email || undefined,
         }),
       });
 
@@ -347,6 +153,14 @@ const Checkout: React.FC = () => {
   const extractOrderId = (response: any): string | null => {
     if (!response) return null;
     
+    console.log('Extracting order ID from:', response);
+    
+    // Your response structure: { success: true, message: "...", order: { id: "..." } }
+    if (response.order?.id) {
+      return response.order.id;
+    }
+    
+    // Try other common patterns
     const patterns = [
       response.order_id,
       response.orderId,
@@ -370,73 +184,61 @@ const Checkout: React.FC = () => {
     setLoading(true);
 
     try {
-      // Prepare all possible request variations
-      const allRequests = prepareAllRequestVariations();
+      const fullAddress = getFullAddress();
       
-      if (debugMode) {
-        console.log('📦 All request variations:', allRequests);
-      }
+      // Use the v1 format that worked
+      const requestBody = {
+        items,
+        subtotal,
+        shipping_charge: shippingCharge,
+        cod_charge: codCharge,
+        coupon_code: appliedCoupon?.code || null,
+        coupon_discount: couponDiscount,
+        total_amount: grandTotal,
+        payment_method: 'cod',
+        // These field names worked
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        address: fullAddress,
+        city: formData.city,
+        state: formData.state,
+        pincode: formData.pincode,
+        special_requests: formData.special_requests || '',
+      };
 
-      // Try each version until one works
-      let lastError = null;
-      let successResponse = null;
+      console.log('📦 Sending COD request:', requestBody);
 
-      for (const [version, requestBody] of Object.entries(allRequests)) {
-        try {
-          console.log(`🔄 Trying ${version}...`, requestBody);
-          
-          const response = await apiFetch('/api/orders/cod', {
-            method: 'POST',
-            body: JSON.stringify(requestBody),
-          });
+      const response = await apiFetch('/api/orders/cod', {
+        method: 'POST',
+        body: JSON.stringify(requestBody),
+      });
 
-          console.log(`✅ ${version} succeeded!`, response);
-          successResponse = response;
-          break;
-        } catch (error: any) {
-          console.log(`❌ ${version} failed:`, error.message);
-          lastError = error;
-          
-          // If this is the last version and we're in debug mode, show all errors
-          if (version === 'v7' && debugMode) {
-            console.error('All versions failed. Last error:', lastError);
-          }
-          
-          // Continue to next version
-          continue;
-        }
-      }
+      console.log('✅ COD Response:', response);
 
-      if (successResponse) {
-        const orderId = extractOrderId(successResponse);
-        
-        if (orderId) {
-          clearCart();
-          navigate(`/order-confirmation?orderId=${orderId}`);
-        } else {
-          alert('Order placed successfully!');
-          clearCart();
-          navigate('/');
-        }
+      // Extract order ID from response
+      const orderId = extractOrderId(response);
+      
+      if (orderId) {
+        console.log('🎉 Order placed! Order ID:', orderId);
+        clearCart();
+        // Redirect to confirmation page
+        navigate(`/order-confirmation?orderId=${orderId}`);
       } else {
-        throw lastError || new Error('All request versions failed');
+        console.warn('⚠️ No order ID in response, but order was placed');
+        alert('Order placed successfully!');
+        clearCart();
+        navigate('/');
       }
       
     } catch (error: any) {
-      console.error('❌ All COD attempts failed:', error);
+      console.error('❌ COD Error:', error);
       
       let errorMessage = 'Failed to place order. Please try again.';
       if (error.message) {
         try {
           const parsedError = JSON.parse(error.message);
-          if (parsedError.error) {
-            errorMessage = parsedError.error;
-            
-            // Add helpful hint
-            if (parsedError.error.includes('customer information')) {
-              errorMessage = 'Please check all fields are filled correctly. We need your complete information.';
-            }
-          }
+          errorMessage = parsedError.error || parsedError.message || errorMessage;
         } catch {
           errorMessage = error.message;
         }
@@ -468,8 +270,26 @@ const Checkout: React.FC = () => {
         throw new Error('Failed to load payment gateway');
       }
 
-      const allRequests = prepareAllRequestVariations();
-      const primaryRequest = allRequests.v2; // Start with customer_ prefixed version
+      const fullAddress = getFullAddress();
+
+      // Use the v1 format that worked for COD
+      const orderDataPayload = {
+        items,
+        subtotal,
+        shipping_charge: shippingCharge,
+        coupon_code: appliedCoupon?.code,
+        coupon_discount: couponDiscount,
+        total_amount: grandTotal,
+        payment_method: 'online',
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        address: fullAddress,
+        city: formData.city,
+        state: formData.state,
+        pincode: formData.pincode,
+        special_requests: formData.special_requests,
+      };
 
       // Create Razorpay order
       const orderData = await apiFetch('/api/payment/create-order', {
@@ -496,9 +316,11 @@ const Checkout: React.FC = () => {
                 razorpay_order_id: res.razorpay_order_id,
                 razorpay_payment_id: res.razorpay_payment_id,
                 razorpay_signature: res.razorpay_signature,
-                order_data: primaryRequest,
+                order_data: orderDataPayload,
               }),
             });
+
+            console.log('✅ Verification response:', verifyResponse);
 
             const orderId = extractOrderId(verifyResponse);
             
@@ -514,11 +336,11 @@ const Checkout: React.FC = () => {
           }
         },
         prefill: {
-          name: primaryRequest.customer_name,
-          email: primaryRequest.customer_email,
-          contact: primaryRequest.customer_phone,
+          name: formData.name,
+          email: formData.email,
+          contact: formData.phone,
         },
-        notes: primaryRequest,
+        notes: orderDataPayload,
         theme: { color: '#D4AF37' },
         modal: {
           ondismiss: () => setLoading(false),
@@ -611,17 +433,6 @@ const Checkout: React.FC = () => {
   return (
     <div className="container mx-auto px-4 py-6 md:py-12">
       <div className="max-w-6xl mx-auto">
-        {/* Debug Toggle */}
-        <div className="flex justify-end mb-2">
-          <button
-            onClick={() => setDebugMode(!debugMode)}
-            className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1"
-          >
-            <Bug className="h-3 w-3" />
-            {debugMode ? 'Debug Mode ON' : 'Debug Mode OFF'}
-          </button>
-        </div>
-
         {/* Back Button */}
         <button
           onClick={() => navigate('/cart')}
@@ -743,17 +554,10 @@ const Checkout: React.FC = () => {
               <h2 className="text-xl md:text-2xl font-serif font-semibold mb-4 md:mb-6">Shipping Details</h2>
               
               <div className="space-y-3 md:space-y-4">
-                {/* Multiple name fields to catch all possibilities */}
-                {renderField('Full Name', 'customer_name', 'text', 'Enter your full name')}
-                
-                {/* Email fields */}
-                {renderField('Email', 'customer_email', 'email', 'Enter your email')}
-                
-                {/* Phone fields */}
-                {renderField('Phone Number', 'customer_phone', 'tel', '10-digit mobile number')}
-                
-                {/* Address fields */}
-                {renderField('Address', 'customer_address', 'textarea', 'House no, Street, Area')}
+                {renderField('Full Name', 'name', 'text', 'Enter your full name')}
+                {renderField('Email', 'email', 'email', 'Enter your email')}
+                {renderField('Phone Number', 'phone', 'tel', '10-digit mobile number')}
+                {renderField('Address', 'address', 'textarea', 'House no, Street, Area')}
 
                 {/* City, State, Pincode */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -769,6 +573,9 @@ const Checkout: React.FC = () => {
                       }`}
                       placeholder="City"
                     />
+                    {fieldErrors.city && (
+                      <p className="text-red-500 text-xs mt-1">{fieldErrors.city}</p>
+                    )}
                   </div>
 
                   <div>
@@ -783,6 +590,9 @@ const Checkout: React.FC = () => {
                       }`}
                       placeholder="State"
                     />
+                    {fieldErrors.state && (
+                      <p className="text-red-500 text-xs mt-1">{fieldErrors.state}</p>
+                    )}
                   </div>
 
                   <div>
@@ -798,6 +608,9 @@ const Checkout: React.FC = () => {
                       }`}
                       placeholder="6-digit pincode"
                     />
+                    {fieldErrors.pincode && (
+                      <p className="text-red-500 text-xs mt-1">{fieldErrors.pincode}</p>
+                    )}
                   </div>
                 </div>
 
@@ -805,7 +618,7 @@ const Checkout: React.FC = () => {
                 <div className="border-t pt-3 md:pt-4 mt-3 md:mt-4">
                   <h3 className="font-medium mb-2 md:mb-3 flex items-center text-sm md:text-base">
                     <Tag className="h-4 w-4 mr-2" />
-                    Apply Coupon
+                    Got a coupon? 🏷️
                   </h3>
                   
                   {appliedCoupon ? (
