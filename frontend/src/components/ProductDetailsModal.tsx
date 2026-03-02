@@ -207,86 +207,87 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="relative bg-white rounded-2xl sm:rounded-3xl w-full max-w-7xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden shadow-2xl"
+            className="relative bg-white rounded-2xl sm:rounded-3xl w-full max-w-7xl max-h-[90vh] overflow-hidden shadow-2xl"
           >
             {/* Close Button */}
             <button
               onClick={onClose}
-              className="absolute top-3 right-3 sm:top-6 sm:right-6 z-20 p-2 sm:p-3 bg-white/90 backdrop-blur-sm rounded-full shadow-lg hover:bg-premium-gold hover:text-white transition-all duration-300 z-50"
+              className="absolute top-3 right-3 sm:top-6 sm:right-6 z-50 p-2 sm:p-3 bg-white/90 backdrop-blur-sm rounded-full shadow-lg hover:bg-premium-gold hover:text-white transition-all duration-300"
             >
               <X className="h-4 w-4 sm:h-5 sm:w-5" />
             </button>
 
-            <div className="grid lg:grid-cols-2 h-full overflow-y-auto">
-              {/* Left Column - Images */}
-              <div className="bg-gradient-to-br from-gray-50 to-white p-4 sm:p-8">
-                <div className="space-y-4">
-                  {/* Main Image */}
-                  <div className="relative aspect-square rounded-xl sm:rounded-3xl overflow-hidden bg-white shadow-lg group">
-                    <img
-                      src={getImageUrl(productImages[selectedImage])}
-                      alt={product.name}
-                      className="w-full h-full object-cover"
-                    />
-                    
-                    {/* Image Navigation */}
-                    {productImages.length > 1 && (
-                      <>
-                        <button
-                          onClick={prevImage}
-                          className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 p-2 sm:p-3 bg-white/90 backdrop-blur-sm rounded-full shadow-lg hover:bg-premium-gold hover:text-white transition-all duration-300 opacity-0 group-hover:opacity-100"
-                        >
-                          <ChevronLeft className="h-4 w-4 sm:h-6 sm:w-6" />
-                        </button>
-                        <button
-                          onClick={nextImage}
-                          className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 p-2 sm:p-3 bg-white/90 backdrop-blur-sm rounded-full shadow-lg hover:bg-premium-gold hover:text-white transition-all duration-300 opacity-0 group-hover:opacity-100"
-                        >
-                          <ChevronRight className="h-4 w-4 sm:h-6 sm:w-6" />
-                        </button>
-                      </>
-                    )}
-                    
-                    {/* Discount Badge */}
-                    {product.discount_percentage && (
-                      <div className="absolute top-2 left-2 sm:top-4 sm:left-4 bg-gradient-to-r from-premium-burgundy to-red-600 text-white px-2 sm:px-4 py-1 sm:py-2 rounded-full text-sm sm:text-lg font-bold shadow-lg">
-                        -{product.discount_percentage}% OFF
-                      </div>
-                    )}
+            {/* Scrollable Container - FIXED */}
+            <div className="h-full overflow-y-auto">
+              <div className="grid lg:grid-cols-2">
+                {/* Left Column - Images */}
+                <div className="bg-gradient-to-br from-gray-50 to-white p-4 sm:p-8">
+                  <div className="space-y-4">
+                    {/* Main Image */}
+                    <div className="relative aspect-square rounded-xl sm:rounded-3xl overflow-hidden bg-white shadow-lg group">
+                      <img
+                        src={getImageUrl(productImages[selectedImage])}
+                        alt={product.name}
+                        className="w-full h-full object-cover"
+                      />
+                      
+                      {/* Image Navigation */}
+                      {productImages.length > 1 && (
+                        <>
+                          <button
+                            onClick={prevImage}
+                            className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 p-2 sm:p-3 bg-white/90 backdrop-blur-sm rounded-full shadow-lg hover:bg-premium-gold hover:text-white transition-all duration-300 opacity-0 group-hover:opacity-100"
+                          >
+                            <ChevronLeft className="h-4 w-4 sm:h-6 sm:w-6" />
+                          </button>
+                          <button
+                            onClick={nextImage}
+                            className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 p-2 sm:p-3 bg-white/90 backdrop-blur-sm rounded-full shadow-lg hover:bg-premium-gold hover:text-white transition-all duration-300 opacity-0 group-hover:opacity-100"
+                          >
+                            <ChevronRight className="h-4 w-4 sm:h-6 sm:w-6" />
+                          </button>
+                        </>
+                      )}
+                      
+                      {/* Discount Badge */}
+                      {product.discount_percentage && (
+                        <div className="absolute top-2 left-2 sm:top-4 sm:left-4 bg-gradient-to-r from-premium-burgundy to-red-600 text-white px-2 sm:px-4 py-1 sm:py-2 rounded-full text-sm sm:text-lg font-bold shadow-lg">
+                          -{product.discount_percentage}% OFF
+                        </div>
+                      )}
 
-                    {/* Customizable Badge */}
-                    {product.is_customizable && (
-                      <div className="absolute top-2 right-2 sm:top-4 sm:right-4 bg-gradient-to-r from-purple-600 to-purple-700 text-white px-2 sm:px-4 py-1 sm:py-2 rounded-full text-xs sm:text-sm font-semibold shadow-lg flex items-center gap-1 sm:gap-2">
-                        <Sparkles className="h-3 w-3 sm:h-4 sm:w-4" />
-                        <span className="hidden sm:inline">Personalizable</span>
-                        <span className="sm:hidden">Custom</span>
+                      {/* Customizable Badge */}
+                      {product.is_customizable && (
+                        <div className="absolute top-2 right-2 sm:top-4 sm:right-4 bg-gradient-to-r from-purple-600 to-purple-700 text-white px-2 sm:px-4 py-1 sm:py-2 rounded-full text-xs sm:text-sm font-semibold shadow-lg flex items-center gap-1 sm:gap-2">
+                          <Sparkles className="h-3 w-3 sm:h-4 sm:w-4" />
+                          <span className="hidden sm:inline">Personalizable</span>
+                          <span className="sm:hidden">Custom</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Thumbnail Gallery */}
+                    {productImages.length > 1 && (
+                      <div className="flex gap-2 sm:gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-premium-gold/20">
+                        {productImages.map((url, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => setSelectedImage(idx)}
+                            className={`flex-shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-lg sm:rounded-xl overflow-hidden cursor-pointer border-2 transition-all ${
+                              selectedImage === idx 
+                                ? 'border-premium-gold shadow-lg' 
+                                : 'border-transparent hover:border-premium-gold/50'
+                            }`}
+                          >
+                            <img src={getImageUrl(url)} alt={`${product.name} ${idx + 1}`} className="w-full h-full object-cover" />
+                          </button>
+                        ))}
                       </div>
                     )}
                   </div>
-
-                  {/* Thumbnail Gallery */}
-                  {productImages.length > 1 && (
-                    <div className="flex gap-2 sm:gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-premium-gold/20">
-                      {productImages.map((url, idx) => (
-                        <button
-                          key={idx}
-                          onClick={() => setSelectedImage(idx)}
-                          className={`flex-shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-lg sm:rounded-xl overflow-hidden cursor-pointer border-2 transition-all ${
-                            selectedImage === idx 
-                              ? 'border-premium-gold shadow-lg' 
-                              : 'border-transparent hover:border-premium-gold/50'
-                          }`}
-                        >
-                          <img src={getImageUrl(url)} alt={`${product.name} ${idx + 1}`} className="w-full h-full object-cover" />
-                        </button>
-                      ))}
-                    </div>
-                  )}
                 </div>
-              </div>
 
-              {/* Right Column - Details */}
-              <div className="overflow-y-auto max-h-[60vh] sm:max-h-[90vh] scrollbar-thin scrollbar-thumb-premium-gold/20">
+                {/* Right Column - Details */}
                 <div className="p-4 sm:p-8 space-y-4 sm:space-y-6">
                   {/* Title Section */}
                   <div>
