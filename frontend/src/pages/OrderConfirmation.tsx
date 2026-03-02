@@ -8,7 +8,6 @@ import {
   ShoppingBag, 
   Gift, 
   Clock,
-  Copy,
   MapPin,
   Mail,
   Phone,
@@ -23,12 +22,23 @@ import {
   ChevronRight,
   Calendar,
   Hash,
-  IndianRupee
+  IndianRupee,
+  Copy,
+  FileText
 } from 'lucide-react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../utils/supabase'
 import { Order } from '../types'
 import { formatCurrency } from '../utils/helpers'
+import jsPDF from 'jspdf'
+import 'jspdf-autotable'
+
+// Extend jsPDF with autoTable
+declare module 'jspdf' {
+  interface jsPDF {
+    autoTable: (options: any) => jsPDF;
+  }
+}
 
 export default function OrderConfirmation() {
   const [searchParams] = useSearchParams()
@@ -36,7 +46,7 @@ export default function OrderConfirmation() {
   const [order, setOrder] = useState<Order | null>(null)
   const [loading, setLoading] = useState(true)
   const [showConfetti, setShowConfetti] = useState(true)
-  const [activeTab, setActiveTab] = useState('summary')
+  const [copySuccess, setCopySuccess] = useState(false)
 
   const orderId = searchParams.get('orderId')
 
@@ -67,48 +77,193 @@ export default function OrderConfirmation() {
     }
   }
 
-  const handleDownloadInvoice = () => {
-    // Create invoice content
-    const invoiceContent = `
-      GFTD - Order Invoice
-      Order #: ${order?.id.slice(0, 8).toUpperCase()}
-      Date: ${new Date(order?.created_at || '').toLocaleDateString()}
-      
-      Customer Details:
-      Name: ${order?.customer_name}
-      Email: ${order?.customer_email}
-      Phone: ${order?.customer_phone || 'N/A'}
-      
-      Order Summary:
-      ${Array.isArray(order?.items) && order?.items.map((item: any) => 
-        `${item.name} x${item.quantity} - ₹${(item.price * item.quantity).toLocaleString()}`
-      ).join('\n')}
-      
-      Total: ₹${order?.total_amount.toLocaleString()}
-      
-      Thank you for shopping with GFTD!
-    `
-    
-    const blob = new Blob([invoiceContent], { type: 'text/plain' })
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `invoice-${order?.id.slice(0, 8)}.txt`
-    a.click()
+  // Generate custom order ID (e.g., GFTD-2024-12345)
+  const getCustomOrderId = (uuid: string) => {
+    if (!uuid) return 'GFTD-2024-00000'
+    // Extract last 5 characters of UUID and make them uppercase
+    const shortId = uuid.slice(-5).toUpperCase()
+    const year = new Date().getFullYear()
+    return `GFTD-${year}-${shortId}`
   }
 
-  const handleShare = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: 'My GFTD Order',
-          text: `Just ordered from GFTD! Total: ₹${order?.total_amount.toLocaleString()}`,
-          url: window.location.href,
-        })
-      } catch (error) {
-        console.log('Error sharing:', error)
-      }
+  const handleCopyOrderId = () => {
+    if (order) {
+      navigator.clipboard.writeText(getCustomOrderId(order.id))
+      setCopySuccess(true)
+      setTimeout(() => setCopySuccess(false), 2000)
     }
+  }
+
+  const generatePDF = () => {
+    if (!order) return
+
+    const doc = new jsPDF()
+    const customOrderId = getCustomOrderId(order.id)
+    const pageWidth = doc.internal.pageSize.getWidth()
+    
+    // Brand Colors
+    const goldColor = [212, 175, 55] // #D4AF37
+    const burgundyColor = [128, 0, 32] // #800020
+    
+    // Add Logo/Header
+    doc.setFillColor(245, 245, 250)
+    doc.rect(0, 0, pageWidth, 40, 'F')
+    
+    doc.setFontSize(28)
+    doc.setTextColor(goldColor[0], goldColor[1], goldColor[2])
+    doc.setFont('helvetica', 'bold')
+    doc.text('GFTD', 20, 25)
+    
+    doc.setFontSize(10)
+    doc.setTextColor(100, 100, 100)
+    doc.setFont('helvetica', 'normal')
+    doc.text('Premium Gifts & Curated Experiences', 20, 32)
+    
+    // Invoice Title
+    doc.setFontSize(20)
+    doc.setTextColor(burgundyColor[0], burgundyColor[1], burgundyColor[2])
+    doc.setFont('helvetica', 'bold')
+    doc.text('ORDER INVOICE', pageWidth - 20, 25, { align: 'right' })
+    
+    // Order Details Box
+    doc.setFillColor(250, 250, 250)
+    doc.roundedRect(20, 50, pageWidth - 40, 35, 3, 3, 'F')
+    
+    doc.setFontSize(10)
+    doc.setTextColor(80, 80, 80)
+    doc.setFont('helvetica', 'normal')
+    doc.text('Order Number:', 25, 62)
+    doc.text('Order Date:', 25, 72)
+    doc.text('Payment Method:', 25, 82)
+    
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(0, 0, 0)
+    doc.text(customOrderId, 65, 62)
+    doc.text(new Date(order.created_at || '').toLocaleDateString('en-IN', { 
+      day: 'numeric', 
+      month: 'long', 
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    }), 65, 72)
+    doc.text((order.payment_method || 'Online').toUpperCase(), 65, 82)
+    
+    // Customer Information
+    doc.setFontSize(14)
+    doc.setTextColor(burgundyColor[0], burgundyColor[1], burgundyColor[2])
+    doc.setFont('helvetica', 'bold')
+    doc.text('Customer Information', 20, 105)
+    
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(80, 80, 80)
+    doc.text('Name:', 20, 115)
+    doc.text('Email:', 20, 122)
+    doc.text('Phone:', 20, 129)
+    
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(0, 0, 0)
+    doc.text(order.customer_name, 45, 115)
+    doc.text(order.customer_email, 45, 122)
+    doc.text(order.customer_phone || 'N/A', 45, 129)
+    
+    // Shipping Address
+    doc.setFontSize(14)
+    doc.setTextColor(burgundyColor[0], burgundyColor[1], burgundyColor[2])
+    doc.setFont('helvetica', 'bold')
+    doc.text('Shipping Address', pageWidth / 2 + 10, 105)
+    
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(0, 0, 0)
+    const address = order.shipping_address || 'Address not provided'
+    const addressLines = doc.splitTextToSize(address, pageWidth / 2 - 30)
+    doc.text(addressLines, pageWidth / 2 + 10, 115)
+    
+    // Order Items Table
+    doc.setFontSize(14)
+    doc.setTextColor(burgundyColor[0], burgundyColor[1], burgundyColor[2])
+    doc.setFont('helvetica', 'bold')
+    doc.text('Order Summary', 20, 155)
+    
+    // Table headers
+    const tableColumn = ["Item", "Quantity", "Unit Price", "Total"]
+    const tableRows: any[] = []
+    
+    if (Array.isArray(order.items)) {
+      order.items.forEach((item: any) => {
+        const itemData = [
+          item.name,
+          item.quantity.toString(),
+          `₹${item.price.toLocaleString()}`,
+          `₹${(item.price * item.quantity).toLocaleString()}`
+        ]
+        tableRows.push(itemData)
+      })
+    }
+    
+    // Add table
+    doc.autoTable({
+      startY: 160,
+      head: [tableColumn],
+      body: tableRows,
+      theme: 'grid',
+      headStyles: {
+        fillColor: burgundyColor,
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+      },
+      alternateRowStyles: {
+        fillColor: [245, 245, 250],
+      },
+      columnStyles: {
+        0: { cellWidth: 80 },
+        1: { cellWidth: 30, halign: 'center' },
+        2: { cellWidth: 40, halign: 'right' },
+        3: { cellWidth: 40, halign: 'right' },
+      },
+      margin: { left: 20, right: 20 },
+    })
+    
+    // Calculate totals
+    const subtotal = order.total_amount
+    const tax = subtotal * 0.18
+    const grandTotal = subtotal + tax
+    
+    // Get the final Y position after the table
+    const finalY = (doc as any).lastAutoTable.finalY + 10
+    
+    // Summary Box
+    doc.setFillColor(250, 250, 250)
+    doc.roundedRect(pageWidth - 80, finalY, 60, 45, 3, 3, 'F')
+    
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(80, 80, 80)
+    doc.text('Subtotal:', pageWidth - 75, finalY + 8)
+    doc.text('Tax (18%):', pageWidth - 75, finalY + 16)
+    doc.text('Shipping:', pageWidth - 75, finalY + 24)
+    doc.text('Total:', pageWidth - 75, finalY + 37)
+    
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(0, 0, 0)
+    doc.text(`₹${subtotal.toLocaleString()}`, pageWidth - 25, finalY + 8, { align: 'right' })
+    doc.text(`₹${tax.toLocaleString()}`, pageWidth - 25, finalY + 16, { align: 'right' })
+    doc.text('FREE', pageWidth - 25, finalY + 24, { align: 'right' })
+    
+    doc.setFontSize(12)
+    doc.setTextColor(goldColor[0], goldColor[1], goldColor[2])
+    doc.text(`₹${grandTotal.toLocaleString()}`, pageWidth - 25, finalY + 37, { align: 'right' })
+    
+    // Footer
+    doc.setFontSize(9)
+    doc.setTextColor(150, 150, 150)
+    doc.setFont('helvetica', 'italic')
+    doc.text('Thank you for shopping with GFTD!', pageWidth / 2, finalY + 60, { align: 'center' })
+    doc.text('For any queries, contact support@gftd.com', pageWidth / 2, finalY + 67, { align: 'center' })
+    
+    // Save the PDF
+    doc.save(`GFTD_Invoice_${customOrderId}.pdf`)
   }
 
   if (loading) {
@@ -177,6 +332,8 @@ export default function OrderConfirmation() {
       </motion.div>
     )
   }
+
+  const customOrderId = getCustomOrderId(order.id)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 py-8 md:py-12 px-4">
@@ -257,29 +414,47 @@ export default function OrderConfirmation() {
             </p>
           </motion.div>
 
-          {/* Order Badge */}
+          {/* Custom Order ID Badge */}
           <motion.div
             initial={{ opacity: 0, scale: 0.5 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.6 }}
-            className="inline-flex items-center gap-3 bg-white/80 backdrop-blur-sm px-6 py-3 rounded-full shadow-lg mt-4 border border-gray-100"
+            className="inline-flex items-center gap-3 bg-gradient-to-r from-primary-600 to-primary-700 text-white px-6 py-3 rounded-full shadow-lg mt-4"
           >
-            <Hash className="w-5 h-5 text-primary-600" />
-            <span className="font-mono font-semibold text-gray-700">
-              Order #{order.id.slice(0, 8).toUpperCase()}
+            <Hash className="w-5 h-5" />
+            <span className="font-mono font-bold text-lg">
+              {customOrderId}
             </span>
-            <span className="w-1.5 h-1.5 bg-gray-300 rounded-full"></span>
-            <Calendar className="w-4 h-4 text-gray-400" />
-            <span className="text-sm text-gray-600">
-              {new Date(order.created_at || '').toLocaleDateString('en-IN', { 
-                day: 'numeric', 
-                month: 'short', 
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-              })}
-            </span>
+            <button
+              onClick={handleCopyOrderId}
+              className="ml-2 p-1 hover:bg-white/20 rounded transition-colors"
+              title="Copy Order ID"
+            >
+              <Copy className="w-4 h-4" />
+            </button>
+            {copySuccess && (
+              <span className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-xs bg-gray-800 text-white px-2 py-1 rounded">
+                Copied!
+              </span>
+            )}
           </motion.div>
+
+          {/* Order Date */}
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.7 }}
+            className="text-sm text-gray-500 mt-4 flex items-center justify-center gap-2"
+          >
+            <Calendar className="w-4 h-4" />
+            {new Date(order.created_at || '').toLocaleDateString('en-IN', { 
+              day: 'numeric', 
+              month: 'long', 
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })}
+          </motion.p>
 
           {/* Action Buttons */}
           <motion.div
@@ -289,18 +464,11 @@ export default function OrderConfirmation() {
             className="flex flex-wrap items-center justify-center gap-3 mt-6"
           >
             <button
-              onClick={handleDownloadInvoice}
+              onClick={generatePDF}
               className="inline-flex items-center gap-2 px-4 py-2 bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 text-gray-700 hover:text-primary-600 border border-gray-200"
             >
-              <Download className="w-4 h-4" />
-              Download Invoice
-            </button>
-            <button
-              onClick={handleShare}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 text-gray-700 hover:text-primary-600 border border-gray-200"
-            >
-              <Share2 className="w-4 h-4" />
-              Share Order
+              <FileText className="w-4 h-4" />
+              Download PDF Invoice
             </button>
             <button
               onClick={() => window.print()}
@@ -312,6 +480,7 @@ export default function OrderConfirmation() {
           </motion.div>
         </motion.div>
 
+        {/* Rest of the component remains the same as before... */}
         {/* Main Content Grid */}
         <div className="grid lg:grid-cols-3 gap-6 md:gap-8">
           {/* Left Column - Order Summary (2 cols on desktop) */}

@@ -11,7 +11,7 @@ import AdminLogin from './pages/AdminLogin';
 import NotFound from './pages/NotFound';
 import './styles/globals.css';
 import OrderTracking from './pages/OrderTracking';
-
+import OrderConfirmation from './pages/OrderConfirmation';
 function App() {
   return (
     <Router>
@@ -25,6 +25,7 @@ function App() {
             <Route path="/custom-combo" element={<CustomCombo />} />
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/track-order" element={<OrderTracking />} />
+            <Route path="/order-confirmation" element={<OrderConfirmation />} />
           </Route>
           
           {/* Admin route without Layout */}
