@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingCart, Star, PenTool, X } from 'lucide-react';
+import { ShoppingCart, Star, PenTool } from 'lucide-react';
 import { Product } from '../types';
 import { formatCurrency, getImageUrl } from '../utils/helpers';
 import { useCart } from '../context/CartContext';
@@ -30,12 +30,10 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       try {
         const data = await apiFetch(`/api/social-proof/${product.id}`).catch(() => null);
         if (data && data.is_enabled) {
-          // Update count based on API response
           if (data.count) {
             setPurchaseCount(data.count);
           }
           
-          // Track view
           await apiFetch('/api/social-proof/track-view', {
             method: 'POST',
             body: JSON.stringify({ product_id: product.id })
@@ -49,19 +47,25 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     if (product.social_proof_enabled) {
       fetchSocialProof();
       
-      // Update count periodically between initial and end range
       const interval = setInterval(() => {
         setPurchaseCount(prev => {
           const initial = product.social_proof_initial_count || 5;
           const end = product.social_proof_end_count || 15;
-          // Generate random number between initial and end
           return Math.floor(Math.random() * (end - initial + 1)) + initial;
         });
-      }, 8000); // Change every 8 seconds
+      }, 8000);
 
       return () => clearInterval(interval);
     }
   }, [product.id, product.social_proof_enabled, product.social_proof_initial_count, product.social_proof_end_count]);
+
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Prevent opening modal if clicking on the add to cart button
+    if ((e.target as HTMLElement).closest('button')) {
+      return;
+    }
+    setShowDetails(true);
+  };
 
   const handleQuickAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -73,7 +77,6 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       }).catch(() => {});
     }
 
-    // Direct add to cart without customization
     addItem({
       id: product.id,
       name: product.name,
@@ -85,11 +88,6 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     });
   };
 
-  const handleShowMore = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setShowDetails(true);
-  };
-
   const handleCustomizeFromModal = () => {
     setShowDetails(false);
     setShowCustomization(true);
@@ -97,7 +95,17 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
 
   return (
     <>
-      <div className="group bg-white rounded-xl sm:rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border border-premium-gold/10">
+      <div 
+        className="group bg-white rounded-xl sm:rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border border-premium-gold/10 cursor-pointer"
+        onClick={handleCardClick}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            setShowDetails(true);
+          }
+        }}
+      >
         <div className="relative overflow-hidden aspect-square">
           {!imageLoaded && (
             <div className="absolute inset-0 bg-gray-200 animate-pulse" />
@@ -105,7 +113,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           <img
             src={getImageUrl(product.image_url)}
             alt={product.name}
-            className={`w-full h-full object-cover transition-transform duration-300 ${
+            className={`w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 ${
               imageLoaded ? 'opacity-100' : 'opacity-0'
             }`}
             onLoad={() => setImageLoaded(true)}
@@ -118,7 +126,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             </div>
           )}
           
-          {/* Customizable Badge - Moved to top right */}
+          {/* Customizable Badge */}
           {product.is_customizable && (
             <div className="absolute top-2 right-2 sm:top-3 sm:right-3 bg-purple-600 text-white px-2 py-0.5 sm:px-3 sm:py-1 rounded-full text-[10px] sm:text-xs font-semibold shadow-lg flex items-center gap-0.5 z-10">
               <PenTool className="h-2.5 w-2.5" />
@@ -167,16 +175,14 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
               )}
             </div>
             
-            {/* Two Buttons: Cart and Show More */}
-            <div className="flex gap-1 sm:gap-2">
-              <button
-                onClick={handleQuickAdd}
-                className="p-1.5 sm:p-2 bg-premium-gold/10 text-premium-gold rounded-lg hover:bg-premium-gold hover:text-white transition-colors"
-                title="Add to cart"
-              >
-                <ShoppingCart className="h-3 w-3 sm:h-4 sm:w-4" />
-              </button>
-            </div>
+            {/* Add to Cart Button */}
+            <button
+              onClick={handleQuickAdd}
+              className="p-1.5 sm:p-2 bg-premium-gold/10 text-premium-gold rounded-lg hover:bg-premium-gold hover:text-white transition-colors z-20 relative"
+              title="Add to cart"
+            >
+              <ShoppingCart className="h-3 w-3 sm:h-4 sm:w-4" />
+            </button>
           </div>
         </div>
       </div>
