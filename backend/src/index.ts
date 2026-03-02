@@ -34,6 +34,8 @@ app.use(cors({
 }));
 
 app.options('*', cors());
+app.use('/api/upload', uploadRoutes);
+console.log('✅ /api/upload');
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -71,9 +73,6 @@ console.log('✅ /api/coupons');
 
 app.use('/api/reviews', reviewRoutes);
 console.log('✅ /api/reviews');
-
-app.use('/api/upload', uploadRoutes);
-console.log('✅ /api/upload');
 
 app.use('/api/popups', popupRoutes);
 console.log('✅ /api/popups');
