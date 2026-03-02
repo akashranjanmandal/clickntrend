@@ -24,11 +24,11 @@ import {
   Hash,
   IndianRupee,
   Copy,
-  FileText
+  FileText,
+  AlertCircle
 } from 'lucide-react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import { supabase } from '../utils/supabase'
-import { Order } from '../types'
+import { apiFetch } from '../utils/apiFetch'
 import { formatCurrency } from '../utils/helpers'
 import jsPDF from 'jspdf'
 import 'jspdf-autotable'
@@ -38,6 +38,30 @@ declare module 'jspdf' {
   interface jsPDF {
     autoTable: (options: any) => jsPDF;
   }
+}
+
+interface Order {
+  id: string
+  custom_order_id?: string
+  customer_name: string
+  customer_email: string
+  customer_phone?: string
+  items: any[]
+  total_amount: number
+  payment_method?: string
+  shipping_address?: string
+  shipping_city?: string
+  shipping_state?: string
+  shipping_pincode?: string
+  tracking_number?: string
+  created_at?: string
+  status?: string
+  subtotal?: number
+  shipping_charge?: number
+  cod_charge?: number
+  coupon_discount?: number
+  coupon_code?: string
+  special_requests?: string
 }
 
 export default function OrderConfirmation() {
@@ -53,23 +77,26 @@ export default function OrderConfirmation() {
   useEffect(() => {
     if (orderId) {
       fetchOrder()
+    } else {
+      navigate('/')
     }
     
-    // Auto-hide confetti after animation
     const timer = setTimeout(() => setShowConfetti(false), 3000)
     return () => clearTimeout(timer)
   }, [orderId])
 
   const fetchOrder = async () => {
     try {
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('id', orderId)
-        .single()
+      setLoading(true)
+      console.log('🔍 Fetching order:', orderId)
+      
+      const response = await apiFetch(`/api/orders/${orderId}`, {
+        method: 'GET',
+      })
 
-      if (error) throw error
-      setOrder(data)
+      console.log('✅ Order fetched:', response)
+      setOrder(response)
+      
     } catch (error) {
       console.error('Error fetching order:', error)
     } finally {
@@ -77,18 +104,14 @@ export default function OrderConfirmation() {
     }
   }
 
-  // Generate custom order ID (e.g., GFTD-2024-12345)
-  const getCustomOrderId = (uuid: string) => {
-    if (!uuid) return 'GFTD-2024-00000'
-    // Extract last 5 characters of UUID and make them uppercase
-    const shortId = uuid.slice(-5).toUpperCase()
-    const year = new Date().getFullYear()
-    return `GFTD-${year}-${shortId}`
+  const getDisplayOrderId = () => {
+    if (!order) return 'GFTD#000'
+    return order.custom_order_id || `GFTD#${order.id.slice(-5).toUpperCase()}`
   }
 
   const handleCopyOrderId = () => {
     if (order) {
-      navigator.clipboard.writeText(getCustomOrderId(order.id))
+      navigator.clipboard.writeText(getDisplayOrderId())
       setCopySuccess(true)
       setTimeout(() => setCopySuccess(false), 2000)
     }
@@ -98,14 +121,14 @@ export default function OrderConfirmation() {
     if (!order) return
 
     const doc = new jsPDF()
-    const customOrderId = getCustomOrderId(order.id)
+    const displayOrderId = getDisplayOrderId()
     const pageWidth = doc.internal.pageSize.getWidth()
     
     // Brand Colors
     const goldColor = [212, 175, 55] // #D4AF37
     const burgundyColor = [128, 0, 32] // #800020
     
-    // Add Logo/Header
+    // Header
     doc.setFillColor(245, 245, 250)
     doc.rect(0, 0, pageWidth, 40, 'F')
     
@@ -119,7 +142,6 @@ export default function OrderConfirmation() {
     doc.setFont('helvetica', 'normal')
     doc.text('Premium Gifts & Curated Experiences', 20, 32)
     
-    // Invoice Title
     doc.setFontSize(20)
     doc.setTextColor(burgundyColor[0], burgundyColor[1], burgundyColor[2])
     doc.setFont('helvetica', 'bold')
@@ -138,14 +160,14 @@ export default function OrderConfirmation() {
     
     doc.setFont('helvetica', 'bold')
     doc.setTextColor(0, 0, 0)
-    doc.text(customOrderId, 65, 62)
-    doc.text(new Date(order.created_at || '').toLocaleDateString('en-IN', { 
+    doc.text(displayOrderId, 65, 62)
+    doc.text(order.created_at ? new Date(order.created_at).toLocaleDateString('en-IN', { 
       day: 'numeric', 
       month: 'long', 
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
-    }), 65, 72)
+    }) : new Date().toLocaleDateString(), 65, 72)
     doc.text((order.payment_method || 'Online').toUpperCase(), 65, 82)
     
     // Customer Information
@@ -176,7 +198,15 @@ export default function OrderConfirmation() {
     doc.setFontSize(10)
     doc.setFont('helvetica', 'normal')
     doc.setTextColor(0, 0, 0)
-    const address = order.shipping_address || 'Address not provided'
+    
+    const addressParts = [
+      order.shipping_address,
+      order.shipping_city,
+      order.shipping_state,
+      order.shipping_pincode
+    ].filter(Boolean)
+    
+    const address = addressParts.join(', ') || 'Address not provided'
     const addressLines = doc.splitTextToSize(address, pageWidth / 2 - 30)
     doc.text(addressLines, pageWidth / 2 + 10, 115)
     
@@ -186,7 +216,6 @@ export default function OrderConfirmation() {
     doc.setFont('helvetica', 'bold')
     doc.text('Order Summary', 20, 155)
     
-    // Table headers
     const tableColumn = ["Item", "Quantity", "Unit Price", "Total"]
     const tableRows: any[] = []
     
@@ -202,7 +231,6 @@ export default function OrderConfirmation() {
       })
     }
     
-    // Add table
     doc.autoTable({
       startY: 160,
       head: [tableColumn],
@@ -225,12 +253,10 @@ export default function OrderConfirmation() {
       margin: { left: 20, right: 20 },
     })
     
-    // Calculate totals
     const subtotal = order.total_amount
     const tax = subtotal * 0.18
     const grandTotal = subtotal + tax
     
-    // Get the final Y position after the table
     const finalY = (doc as any).lastAutoTable.finalY + 10
     
     // Summary Box
@@ -262,8 +288,21 @@ export default function OrderConfirmation() {
     doc.text('Thank you for shopping with GFTD!', pageWidth / 2, finalY + 60, { align: 'center' })
     doc.text('For any queries, contact support@gftd.com', pageWidth / 2, finalY + 67, { align: 'center' })
     
-    // Save the PDF
-    doc.save(`GFTD_Invoice_${customOrderId}.pdf`)
+    doc.save(`GFTD_Invoice_${displayOrderId.replace('#', '_')}.pdf`)
+  }
+
+  const handleShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'My GFTD Order',
+          text: `Just ordered from GFTD! Order #${getDisplayOrderId()}`,
+          url: window.location.href,
+        })
+      } catch (error) {
+        console.log('Error sharing:', error)
+      }
+    }
   }
 
   if (loading) {
@@ -333,7 +372,7 @@ export default function OrderConfirmation() {
     )
   }
 
-  const customOrderId = getCustomOrderId(order.id)
+  const displayOrderId = getDisplayOrderId()
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 py-8 md:py-12 px-4">
@@ -376,7 +415,7 @@ export default function OrderConfirmation() {
       </AnimatePresence>
 
       <div className="max-w-7xl mx-auto">
-        {/* Success Header with Animation */}
+        {/* Success Header */}
         <motion.div
           initial={{ opacity: 0, y: -50 }}
           animate={{ opacity: 1, y: 0 }}
@@ -409,12 +448,12 @@ export default function OrderConfirmation() {
               <Sparkles className="inline-block w-8 h-8 md:w-10 md:h-10 text-yellow-500 ml-2 animate-bounce" />
             </h1>
             <p className="text-lg md:text-xl text-gray-600 max-w-2xl mx-auto">
-              Thank you for choosing GFTD, {order.customer_name.split(' ')[0]}! 
+              Thank you for choosing GFTD, {order.customer_name?.split(' ')[0] || 'there'}! 
               Your order has been successfully placed.
             </p>
           </motion.div>
 
-          {/* Custom Order ID Badge */}
+          {/* Order ID Badge */}
           <motion.div
             initial={{ opacity: 0, scale: 0.5 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -423,7 +462,7 @@ export default function OrderConfirmation() {
           >
             <Hash className="w-5 h-5" />
             <span className="font-mono font-bold text-lg">
-              {customOrderId}
+              {displayOrderId}
             </span>
             <button
               onClick={handleCopyOrderId}
@@ -447,13 +486,13 @@ export default function OrderConfirmation() {
             className="text-sm text-gray-500 mt-4 flex items-center justify-center gap-2"
           >
             <Calendar className="w-4 h-4" />
-            {new Date(order.created_at || '').toLocaleDateString('en-IN', { 
+            {order.created_at ? new Date(order.created_at).toLocaleDateString('en-IN', { 
               day: 'numeric', 
               month: 'long', 
               year: 'numeric',
               hour: '2-digit',
               minute: '2-digit'
-            })}
+            }) : new Date().toLocaleDateString()}
           </motion.p>
 
           {/* Action Buttons */}
@@ -471,6 +510,13 @@ export default function OrderConfirmation() {
               Download PDF Invoice
             </button>
             <button
+              onClick={handleShare}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 text-gray-700 hover:text-primary-600 border border-gray-200"
+            >
+              <Share2 className="w-4 h-4" />
+              Share Order
+            </button>
+            <button
               onClick={() => window.print()}
               className="inline-flex items-center gap-2 px-4 py-2 bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 text-gray-700 hover:text-primary-600 border border-gray-200"
             >
@@ -480,10 +526,9 @@ export default function OrderConfirmation() {
           </motion.div>
         </motion.div>
 
-        {/* Rest of the component remains the same as before... */}
         {/* Main Content Grid */}
         <div className="grid lg:grid-cols-3 gap-6 md:gap-8">
-          {/* Left Column - Order Summary (2 cols on desktop) */}
+          {/* Left Column - Order Summary */}
           <motion.div
             initial={{ opacity: 0, x: -30 }}
             animate={{ opacity: 1, x: 0 }}
@@ -503,8 +548,8 @@ export default function OrderConfirmation() {
               </div>
               
               <div className="p-6">
-                {/* Items List with Animation */}
-                <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                {/* Items List */}
+                <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
                   {Array.isArray(order.items) && order.items.map((item: any, index: number) => (
                     <motion.div
                       key={index}
@@ -515,7 +560,7 @@ export default function OrderConfirmation() {
                     >
                       <div className="relative">
                         <img
-                          src={item.image_url || '/placeholder-product.jpg'}
+                          src={item.image_url || 'https://via.placeholder.com/80'}
                           alt={item.name}
                           className="w-20 h-20 object-cover rounded-lg shadow-md group-hover:shadow-lg transition-shadow"
                         />
@@ -557,6 +602,12 @@ export default function OrderConfirmation() {
                         FREE
                       </span>
                     </div>
+                    {order.coupon_discount ? (
+                      <div className="flex justify-between text-green-600">
+                        <span>Coupon Discount</span>
+                        <span>-₹{order.coupon_discount.toLocaleString()}</span>
+                      </div>
+                    ) : null}
                     <div className="flex justify-between text-gray-600">
                       <span>Tax (GST 18%)</span>
                       <span>₹{(order.total_amount * 0.18).toLocaleString()}</span>
@@ -601,7 +652,12 @@ export default function OrderConfirmation() {
                         <p className="text-sm text-gray-500">Delivery Address</p>
                         <p className="font-semibold text-gray-800">{order.customer_name}</p>
                         <p className="text-gray-600 text-sm mt-1">
-                          {order.shipping_address || 'Address not provided'}
+                          {[
+                            order.shipping_address,
+                            order.shipping_city,
+                            order.shipping_state,
+                            order.shipping_pincode
+                          ].filter(Boolean).join(', ') || 'Address not provided'}
                         </p>
                       </div>
                     </div>
@@ -636,7 +692,7 @@ export default function OrderConfirmation() {
                       Expected Delivery
                     </h4>
                     <p className="text-2xl font-bold text-green-700">
-                      {new Date(new Date(order.created_at || '').setDate(new Date(order.created_at || '').getDate() + 5)).toLocaleDateString('en-IN', { 
+                      {new Date(new Date(order.created_at || new Date()).setDate(new Date(order.created_at || new Date()).getDate() + 5)).toLocaleDateString('en-IN', { 
                         day: 'numeric', 
                         month: 'long'
                       })}
@@ -647,6 +703,13 @@ export default function OrderConfirmation() {
                     </p>
                   </div>
                 </div>
+
+                {order.special_requests && (
+                  <div className="mt-4 pt-4 border-t border-gray-100">
+                    <p className="text-sm text-gray-500">Special Requests</p>
+                    <p className="text-gray-700 mt-1">{order.special_requests}</p>
+                  </div>
+                )}
               </div>
             </div>
           </motion.div>
@@ -668,12 +731,9 @@ export default function OrderConfirmation() {
               </div>
               
               <div className="p-6">
-                {/* Status Timeline */}
                 <div className="relative">
-                  {/* Timeline line */}
                   <div className="absolute left-6 top-2 bottom-2 w-0.5 bg-gradient-to-b from-green-400 via-blue-400 to-gray-200"></div>
                   
-                  {/* Status steps */}
                   {[
                     { 
                       status: 'Order Confirmed', 
@@ -736,7 +796,6 @@ export default function OrderConfirmation() {
                         <p className="text-sm text-gray-500 mt-0.5">{step.time}</p>
                         <p className="text-xs text-gray-400 mt-1">{step.description}</p>
                         
-                        {/* Progress indicator for active step */}
                         {step.active && index < 3 && (
                           <motion.div 
                             initial={{ width: 0 }}
@@ -750,7 +809,6 @@ export default function OrderConfirmation() {
                   ))}
                 </div>
 
-                {/* Tracking Number if available */}
                 {order.tracking_number && (
                   <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
                     <h4 className="font-semibold text-blue-800 mb-2 flex items-center gap-2">
