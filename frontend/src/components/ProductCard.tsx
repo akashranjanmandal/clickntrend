@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingCart, Eye, Star, PenTool, X } from 'lucide-react';
+import { ShoppingCart, Star, PenTool, X } from 'lucide-react';
 import { Product } from '../types';
 import { formatCurrency, getImageUrl } from '../utils/helpers';
 import { useCart } from '../context/CartContext';
@@ -175,13 +175,6 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
                 title="Add to cart"
               >
                 <ShoppingCart className="h-3 w-3 sm:h-4 sm:w-4" />
-              </button>
-              <button
-                onClick={handleShowMore}
-                className="p-1.5 sm:p-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-premium-gold hover:text-white transition-colors"
-                title="Show more details"
-              >
-                <Eye className="h-3 w-3 sm:h-4 sm:w-4" />
               </button>
             </div>
           </div>
