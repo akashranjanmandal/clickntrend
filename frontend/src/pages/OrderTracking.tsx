@@ -28,7 +28,9 @@ const OrderTracking: React.FC = () => {
     setOrder(null);
 
     try {
-      const data = await apiFetch(`/api/orders/track?orderId=${orderId}&phone=${phone}`);
+      // Encode the orderId to handle special characters like #
+      const encodedOrderId = encodeURIComponent(orderId);
+      const data = await apiFetch(`/api/orders/track?orderId=${encodedOrderId}&phone=${phone}`);
       setOrder(data);
     } catch (err: any) {
       setError(err.message || 'Order not found. Please check your details.');

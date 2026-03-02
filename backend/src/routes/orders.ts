@@ -17,13 +17,39 @@ async function generateCustomOrderId(): Promise<string> {
 
     if (error) throw error;
 
-    let nextNumber = 1;
+    let nextNumber = 100; // Start from 100 instead of 1
     
     if (latestOrder?.custom_order_id) {
       // Extract number from existing custom order ID (format: GFTD#101)
       const match = latestOrder.custom_order_id.match(/GFTD#(\d+)/);
       if (match) {
         nextNumber = parseInt(match[1]) + 1;
+      }
+    } else {
+      // If no existing orders, check if there are any orders without custom_order_id
+      // and generate IDs for them starting from 100
+      const { data: ordersWithoutCustomId } = await supabase
+        .from('orders')
+        .select('id')
+        .is('custom_order_id', null)
+        .order('created_at', { ascending: true });
+
+      if (ordersWithoutCustomId && ordersWithoutCustomId.length > 0) {
+        // This will be handled by a migration script, but for new orders we start after the highest
+        const { data: maxCustomId } = await supabase
+          .from('orders')
+          .select('custom_order_id')
+          .not('custom_order_id', 'is', null)
+          .order('custom_order_id', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (maxCustomId?.custom_order_id) {
+          const match = maxCustomId.custom_order_id.match(/GFTD#(\d+)/);
+          if (match) {
+            nextNumber = parseInt(match[1]) + 1;
+          }
+        }
       }
     }
 
