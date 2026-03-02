@@ -123,58 +123,66 @@ router.post(
 router.post(
   '/customization',
   customizationLimiter,
-  upload.single('image'),
-  async (req: Request, res: Response) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({ error: 'Image is required' });
-      }
-
-      if (!req.body.product_id) {
-        return res.status(400).json({ error: 'Product ID is required' });
-      }
-
-      const file = req.file;
-      const productId = req.body.product_id;
-
-      const allowedTypes = [
-        'image/jpeg',
-        'image/png',
-        'image/webp',
-        'image/jpg',
-      ];
-
-      if (!allowedTypes.includes(file.mimetype)) {
-        return res.status(400).json({ error: 'Unsupported image type' });
-      }
-
-      const ext = file.mimetype.split('/')[1];
-      const fileName = `customizations/${productId}/${Date.now()}-${Math.random()
-        .toString(36)
-        .slice(2)}.${ext}`;
-
-      const { error } = await supabase.storage
-        .from('giftshop')
-        .upload(fileName, file.buffer, {
-          contentType: file.mimetype,
-          cacheControl: '3600',
-          upsert: false,
+  (req: Request, res: Response) => {
+    upload.single('image')(req, res, async (err: any) => {
+      // 🔴 THIS IS THE IMPORTANT PART
+      if (err) {
+        return res.status(400).json({
+          error: err.message || 'Upload failed',
         });
+      }
 
-      if (error) throw error;
+      try {
+        if (!req.file) {
+          return res.status(400).json({ error: 'Image is required' });
+        }
 
-      const { data } = supabase.storage
-        .from('giftshop')
-        .getPublicUrl(fileName);
+        if (!req.body.product_id) {
+          return res.status(400).json({ error: 'Product ID is required' });
+        }
 
-      return res.json({
-        success: true,
-        image_url: data.publicUrl,
-      });
-    } catch (err: any) {
-      console.error('Customization upload error:', err);
-      return res.status(500).json({ error: err.message });
-    }
+        const file = req.file;
+        const productId = req.body.product_id;
+
+        const allowedTypes = [
+          'image/jpeg',
+          'image/png',
+          'image/webp',
+          'image/jpg',
+        ];
+
+        if (!allowedTypes.includes(file.mimetype)) {
+          return res.status(400).json({ error: 'Unsupported image type' });
+        }
+
+        const ext = file.mimetype.split('/')[1];
+        const fileName = `customizations/${productId}/${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2)}.${ext}`;
+
+        const { error } = await supabase.storage
+          .from('giftshop')
+          .upload(fileName, file.buffer, {
+            contentType: file.mimetype,
+            cacheControl: '3600',
+            upsert: false,
+          });
+
+        if (error) throw error;
+
+        const { data } = supabase.storage
+          .from('giftshop')
+          .getPublicUrl(fileName);
+
+        return res.json({
+          success: true,
+          image_url: data.publicUrl,
+        });
+      } catch (e: any) {
+        console.error('Customization upload error:', e);
+        return res.status(500).json({ error: e.message });
+      }
+    });
   }
 );
 /* ===============================
