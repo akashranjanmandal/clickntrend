@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   X, ShoppingCart, Star, ChevronLeft, ChevronRight, 
   ThumbsUp, MessageCircle, Send, PenTool, Truck,
@@ -34,6 +34,7 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
   const [showCustomization, setShowCustomization] = useState(false);
   const [reviewSort, setReviewSort] = useState<'newest' | 'highest' | 'lowest'>('newest');
   const [helpfulReviews, setHelpfulReviews] = useState<string[]>([]);
+  const modalRef = useRef<HTMLDivElement>(null);
 
   // Review form state
   const [reviewForm, setReviewForm] = useState({
@@ -63,6 +64,18 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
       document.body.style.overflow = 'unset';
     };
   }, []);
+
+  // Handle click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [onClose]);
 
   const fetchReviews = async () => {
     try {
@@ -114,7 +127,8 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
     }
   };
 
-  const handleAddToCart = () => {
+  const handleAddToCart = (e: React.MouseEvent) => {
+    e.stopPropagation();
     for (let i = 0; i < quantity; i++) {
       addItem({
         id: product.id,
@@ -130,7 +144,8 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
     onClose();
   };
 
-  const handleCustomizeClick = () => {
+  const handleCustomizeClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (onCustomize) {
       onCustomize();
     } else {
@@ -143,7 +158,8 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
     onClose();
   };
 
-  const handleHelpfulClick = (reviewId: string) => {
+  const handleHelpfulClick = (e: React.MouseEvent, reviewId: string) => {
+    e.stopPropagation();
     if (helpfulReviews.includes(reviewId)) {
       setHelpfulReviews(helpfulReviews.filter(id => id !== reviewId));
     } else {
@@ -155,11 +171,13 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
     ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
     : 0;
 
-  const nextImage = () => {
+  const nextImage = (e: React.MouseEvent) => {
+    e.stopPropagation();
     setSelectedImage((prev) => (prev + 1) % productImages.length);
   };
 
-  const prevImage = () => {
+  const prevImage = (e: React.MouseEvent) => {
+    e.stopPropagation();
     setSelectedImage((prev) => (prev - 1 + productImages.length) % productImages.length);
   };
 
@@ -189,36 +207,39 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
 
   return (
     <>
-      <AnimatePresence>
+      <AnimatePresence mode="wait">
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4">
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={onClose}
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
           />
 
           {/* Modal */}
           <motion.div
+            ref={modalRef}
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-  className="relative bg-white rounded-2xl sm:rounded-3xl w-full max-w-7xl h-full sm:h-auto sm:max-h-[90vh] overflow-y-auto shadow-2xl"
+            className="relative bg-white rounded-2xl sm:rounded-3xl w-full max-w-7xl h-full sm:h-auto sm:max-h-[90vh] overflow-y-auto shadow-2xl"
           >
             {/* Close Button */}
             <button
-              onClick={onClose}
+              onClick={(e) => {
+                e.stopPropagation();
+                onClose();
+              }}
               className="absolute top-3 right-3 sm:top-6 sm:right-6 z-50 p-2 sm:p-3 bg-white/90 backdrop-blur-sm rounded-full shadow-lg hover:bg-premium-gold hover:text-white transition-all duration-300"
             >
               <X className="h-4 w-4 sm:h-5 sm:w-5" />
             </button>
 
             {/* Scrollable Container */}
-<div className="h-full">
-                <div className="grid lg:grid-cols-2">
+            <div className="h-full">
+              <div className="grid lg:grid-cols-2">
                 {/* Left Column - Images */}
                 <div className="bg-gradient-to-br from-gray-50 to-white p-4 sm:p-8">
                   <div className="space-y-4">
@@ -271,7 +292,10 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
                         {productImages.map((url, idx) => (
                           <button
                             key={idx}
-                            onClick={() => setSelectedImage(idx)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedImage(idx);
+                            }}
                             className={`flex-shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-lg sm:rounded-xl overflow-hidden cursor-pointer border-2 transition-all ${
                               selectedImage === idx 
                                 ? 'border-premium-gold shadow-lg' 
@@ -364,7 +388,10 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
                         <span className="text-xs sm:text-sm font-medium text-gray-700">Qty:</span>
                         <div className="flex items-center border-2 border-premium-gold/20 rounded-xl overflow-hidden">
                           <button
-                            onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setQuantity(Math.max(1, quantity - 1));
+                            }}
                             className="px-2 sm:px-3 py-1 sm:py-2 hover:bg-premium-gold/10 transition-colors text-base sm:text-lg font-medium"
                           >
                             −
@@ -373,7 +400,10 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
                             {quantity}
                           </span>
                           <button
-                            onClick={() => setQuantity(Math.min(product.stock_quantity, quantity + 1))}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setQuantity(Math.min(product.stock_quantity, quantity + 1));
+                            }}
                             className="px-2 sm:px-3 py-1 sm:py-2 hover:bg-premium-gold/10 transition-colors text-base sm:text-lg font-medium"
                             disabled={quantity >= product.stock_quantity}
                           >
@@ -389,7 +419,10 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
                         {['details', 'reviews', 'shipping'].map((tab) => (
                           <button
                             key={tab}
-                            onClick={() => setActiveTab(tab as any)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveTab(tab as any);
+                            }}
                             className={`pb-2 sm:pb-3 px-1 font-medium capitalize transition-all relative text-sm sm:text-base whitespace-nowrap ${
                               activeTab === tab
                                 ? 'text-premium-gold'
@@ -488,7 +521,10 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
                           {/* Write Review Button */}
                           {!showReviewForm && (
                             <button
-                              onClick={() => setShowReviewForm(true)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowReviewForm(true);
+                              }}
                               className="w-full py-3 sm:py-4 bg-gradient-to-r from-premium-gold/10 to-premium-cream text-premium-gold rounded-xl hover:shadow-lg transition-all font-medium flex items-center justify-center gap-2 border-2 border-premium-gold/20 text-sm sm:text-base"
                             >
                               <MessageCircle className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -500,6 +536,7 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
                           {showReviewForm && (
                             <form
                               onSubmit={handleSubmitReview}
+                              onClick={(e) => e.stopPropagation()}
                               className="bg-gradient-to-br from-gray-50 to-white rounded-xl sm:rounded-2xl p-4 sm:p-6 space-y-3 sm:space-y-4 border border-premium-gold/10"
                             >
                               <h3 className="font-semibold text-base sm:text-xl">Write a Review</h3>
@@ -535,7 +572,10 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
                                     <button
                                       key={star}
                                       type="button"
-                                      onClick={() => setReviewForm({...reviewForm, rating: star})}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setReviewForm({...reviewForm, rating: star});
+                                      }}
                                     >
                                       <Star
                                         className={`h-6 w-6 sm:h-8 sm:w-8 ${
@@ -571,7 +611,10 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => setShowReviewForm(false)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowReviewForm(false);
+                                  }}
                                   className="px-4 sm:px-6 py-2 sm:py-3 border-2 border-premium-gold/20 rounded-lg text-sm hover:bg-gray-50"
                                 >
                                   Cancel
@@ -624,7 +667,7 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
                                       </div>
                                     </div>
                                     <button
-                                      onClick={() => handleHelpfulClick(review.id)}
+                                      onClick={(e) => handleHelpfulClick(e, review.id)}
                                       className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs transition-all ${
                                         helpfulReviews.includes(review.id)
                                           ? 'bg-premium-gold/20 text-premium-gold'
@@ -696,12 +739,14 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
       </AnimatePresence>
 
       {/* Customization Modal */}
-      {showCustomization && (
-        <ProductCustomizationModal
-          product={product}
-          onClose={handleCustomizationClose}
-        />
-      )}
+      <AnimatePresence mode="wait">
+        {showCustomization && (
+          <ProductCustomizationModal
+            product={product}
+            onClose={handleCustomizationClose}
+          />
+        )}
+      </AnimatePresence>
     </>
   );
 };
