@@ -66,7 +66,7 @@ router.post('/product-images', requireAuth, upload.array('images', 5), async (re
 
 // ========== CUSTOMIZATION IMAGE UPLOAD ==========
 router.post('/customization', upload.single('image'), async (req, res) => {
-  console.log('🎨 POST /api/upload/customization - Uploading customization image');
+  console.log('🎨 POST /api/customization - Uploading customization image');
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
