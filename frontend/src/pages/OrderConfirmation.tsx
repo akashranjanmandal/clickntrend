@@ -401,23 +401,6 @@ export default function OrderConfirmation() {
             Thank you for choosing GFTD, {order.customer_name?.split(' ')[0] || 'there'}!
           </p>
 
-          {/* Order ID Badge */}
-          <div className="inline-flex items-center gap-3 bg-primary-600 text-white px-6 py-3 rounded-full shadow-lg mt-4">
-            <Hash className="w-5 h-5" />
-            <span className="font-mono font-bold text-lg">{displayOrderId}</span>
-            <button
-              onClick={handleCopyOrderId}
-              className="p-1 hover:bg-white/20 rounded transition-colors relative"
-            >
-              <Copy className="w-4 h-4" />
-              {copySuccess && (
-                <span className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-xs bg-gray-800 text-white px-2 py-1 rounded whitespace-nowrap">
-                  Copied!
-                </span>
-              )}
-            </button>
-          </div>
-
           {/* Order Date */}
           <p className="text-sm text-gray-500 mt-4 flex items-center justify-center gap-2">
             <Calendar className="w-4 h-4" />
@@ -590,7 +573,6 @@ export default function OrderConfirmation() {
           transition={{ delay: 0.6 }}
           className="text-center mt-8 text-sm text-gray-500"
         >
-          <p>A confirmation email has been sent to {order.customer_email}</p>
           <p className="mt-1">For any queries, contact support@gftd.com</p>
         </motion.div>
       </div>
