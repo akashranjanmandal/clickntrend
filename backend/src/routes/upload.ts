@@ -1,10 +1,45 @@
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import multer from 'multer';
-import rateLimit from 'express-rate-limit';
 import { supabase } from '../utils/supabase';
 import { requireAuth } from '../middleware/auth';
 
 const router = express.Router();
+
+/* ===============================
+   SIMPLE RATE LIMITER (NO LIB)
+================================ */
+const uploadHits = new Map<
+  string,
+  { count: number; startTime: number }
+>();
+
+function customizationLimiter(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown';
+  const now = Date.now();
+
+  const limit = 20; // max uploads
+  const windowMs = 15 * 60 * 1000; // 15 minutes
+
+  const record = uploadHits.get(ip);
+
+  if (!record || now - record.startTime > windowMs) {
+    uploadHits.set(ip, { count: 1, startTime: now });
+    return next();
+  }
+
+  if (record.count >= limit) {
+    return res.status(429).json({
+      error: 'Too many uploads. Please try again later.',
+    });
+  }
+
+  record.count += 1;
+  next();
+}
 
 /* ===============================
    MULTER CONFIG
@@ -13,11 +48,9 @@ const storage = multer.memoryStorage();
 
 const upload = multer({
   storage,
-  limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB
-  },
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
   fileFilter: (_req, file, cb) => {
-    const allowedTypes = [
+    const allowed = [
       'image/jpeg',
       'image/png',
       'image/webp',
@@ -25,8 +58,7 @@ const upload = multer({
       'video/mp4',
       'video/webm',
     ];
-
-    if (allowedTypes.includes(file.mimetype)) {
+    if (allowed.includes(file.mimetype)) {
       cb(null, true);
     } else {
       cb(new Error('Invalid file type'));
@@ -35,23 +67,13 @@ const upload = multer({
 });
 
 /* ===============================
-   RATE LIMITERS
-================================ */
-const customizationLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 min
-  max: 20, // 20 uploads per IP
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-/* ===============================
-   PRODUCT IMAGES UPLOAD (AUTH)
+   PRODUCT IMAGES (AUTH)
 ================================ */
 router.post(
   '/product-images',
   requireAuth,
   upload.array('images', 5),
-  async (req, res) => {
+  async (req: Request, res: Response) => {
     try {
       const files = req.files as Express.Multer.File[];
 
@@ -59,7 +81,7 @@ router.post(
         return res.status(400).json({ error: 'No files uploaded' });
       }
 
-      const uploads = await Promise.all(
+      const results = await Promise.all(
         files.map(async (file, index) => {
           const ext = file.mimetype.split('/')[1];
           const fileName = `products/${Date.now()}-${Math.random()
@@ -87,7 +109,7 @@ router.post(
         })
       );
 
-      res.json({ success: true, images: uploads });
+      res.json({ success: true, images: results });
     } catch (err: any) {
       console.error('Product upload error:', err);
       res.status(500).json({ error: err.message });
@@ -102,12 +124,12 @@ router.post(
   '/customization',
   customizationLimiter,
   upload.single('image'),
-  async (req, res) => {
+  async (req: Request, res: Response) => {
     try {
       if (!req.is('multipart/form-data')) {
-        return res
-          .status(415)
-          .json({ error: 'Content-Type must be multipart/form-data' });
+        return res.status(415).json({
+          error: 'Content-Type must be multipart/form-data',
+        });
       }
 
       if (!req.file) {
@@ -121,7 +143,13 @@ router.post(
       const file = req.file;
       const productId = req.body.product_id;
 
-      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
+      const allowedTypes = [
+        'image/jpeg',
+        'image/png',
+        'image/webp',
+        'image/jpg',
+      ];
+
       if (!allowedTypes.includes(file.mimetype)) {
         return res.status(400).json({ error: 'Unsupported image type' });
       }
@@ -145,7 +173,7 @@ router.post(
         .from('giftshop')
         .getPublicUrl(fileName);
 
-      res.json({
+      return res.json({
         success: true,
         image_url: data.publicUrl,
       });
@@ -157,13 +185,13 @@ router.post(
 );
 
 /* ===============================
-   HERO MEDIA UPLOAD (AUTH)
+   HERO MEDIA (AUTH)
 ================================ */
 router.post(
   '/hero',
   requireAuth,
   upload.single('media'),
-  async (req, res) => {
+  async (req: Request, res: Response) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: 'No file uploaded' });
