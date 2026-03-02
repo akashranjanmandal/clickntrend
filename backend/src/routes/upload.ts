@@ -126,12 +126,6 @@ router.post(
   upload.single('image'),
   async (req: Request, res: Response) => {
     try {
-      if (!req.is('multipart/form-data')) {
-        return res.status(415).json({
-          error: 'Content-Type must be multipart/form-data',
-        });
-      }
-
       if (!req.file) {
         return res.status(400).json({ error: 'Image is required' });
       }
@@ -179,11 +173,10 @@ router.post(
       });
     } catch (err: any) {
       console.error('Customization upload error:', err);
-      res.status(500).json({ error: err.message });
+      return res.status(500).json({ error: err.message });
     }
   }
 );
-
 /* ===============================
    HERO MEDIA (AUTH)
 ================================ */
