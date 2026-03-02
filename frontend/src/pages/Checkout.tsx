@@ -46,11 +46,10 @@ const Checkout: React.FC = () => {
     0
   );
 
-  // Calculate how much more to get free shipping
   const amountToFreeShipping = Math.max(FREE_SHIPPING_THRESHOLD - subtotal, 0);
   const shippingProgress = Math.min((subtotal / FREE_SHIPPING_THRESHOLD) * 100, 100);
 
-  /* ---------------- HELPERS ---------------- */
+  /* ---------------- HELPER FUNCTIONS ---------------- */
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
@@ -79,6 +78,48 @@ const Checkout: React.FC = () => {
       return false;
     }
     return true;
+  };
+
+  // Universal function to extract order ID from any response format
+  const extractOrderId = (response: any): string | null => {
+    if (!response) return null;
+    
+    console.log('Extracting order ID from:', response);
+    
+    // Common patterns for order ID in responses
+    const patterns = [
+      response.order_id,
+      response.orderId,
+      response.id,
+      response.ID,
+      response.data?.order_id,
+      response.data?.orderId,
+      response.data?.id,
+      response.data?.order?.id,
+      response.order?.id,
+      response.result?.order_id,
+      response.result?.id,
+      response.data?.data?.order_id,
+      response.body?.order_id
+    ];
+    
+    // Return the first valid string found
+    for (const pattern of patterns) {
+      if (pattern && typeof pattern === 'string') {
+        console.log('Found order ID:', pattern);
+        return pattern;
+      }
+    }
+    
+    // If response itself is a string that looks like a UUID, return it
+    if (typeof response === 'string') {
+      const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (uuidPattern.test(response)) {
+        return response;
+      }
+    }
+    
+    return null;
   };
 
   /* ---------------- COUPON ---------------- */
@@ -123,6 +164,29 @@ const Checkout: React.FC = () => {
     setCouponError('');
   };
 
+  /* ---------------- SUCCESS HANDLER ---------------- */
+  const handleOrderSuccess = (response: any) => {
+    console.log('Processing order success with response:', response);
+    
+    // Try to extract order ID from response
+    const orderId = extractOrderId(response);
+    
+    if (orderId) {
+      console.log('✅ Order placed successfully! Order ID:', orderId);
+      clearCart();
+      
+      // Small delay to ensure cart is cleared
+      setTimeout(() => {
+        navigate(`/order-confirmation?orderId=${orderId}`);
+      }, 100);
+    } else {
+      console.error('❌ No order ID found in response:', response);
+      alert('Order placed but unable to get order ID. Please check your email for confirmation.');
+      clearCart();
+      navigate('/');
+    }
+  };
+
   /* ---------------- COD ---------------- */
   const handleCODOrder = async () => {
     if (!validateForm()) return;
@@ -140,22 +204,20 @@ const Checkout: React.FC = () => {
           coupon_discount: couponDiscount,
           total_amount: grandTotal,
           payment_method: 'cod',
-          ...formData,
+          customer_name: formData.name,
+          customer_email: formData.email,
+          customer_phone: formData.phone,
+          shipping_address: `${formData.address}, ${formData.city}, ${formData.state} - ${formData.pincode}`,
+          special_requests: formData.specialRequests,
         }),
       });
 
-      // Check if response contains order_id
-      if (response && response.order_id) {
-        // Clear cart and redirect to order confirmation
-        clearCart();
-        navigate(`/order-confirmation?orderId=${response.order_id}`);
-      } else {
-        // Fallback to home if no order_id
-        clearCart();
-        navigate('/');
-      }
-    } catch (error) {
-      alert('Failed to place order. Please try again.');
+      console.log('COD API Response:', response);
+      handleOrderSuccess(response);
+      
+    } catch (error: any) {
+      console.error('COD Error:', error);
+      alert(error.message || 'Failed to place order. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -178,18 +240,27 @@ const Checkout: React.FC = () => {
 
     try {
       if (!(await loadRazorpayScript())) {
-        throw new Error('Razorpay SDK failed to load');
+        throw new Error('Razorpay SDK failed to load. Please check your internet connection.');
       }
 
+      // Create Razorpay order
       const orderData = await apiFetch('/api/payment/create-order', {
         method: 'POST',
         body: JSON.stringify({
-          amount: grandTotal,
+          amount: Math.round(grandTotal * 100), // Razorpay expects amount in paise
           currency: 'INR',
           receipt: `receipt_${Date.now()}`,
+          notes: {
+            customer_name: formData.name,
+            customer_email: formData.email,
+            customer_phone: formData.phone,
+          }
         }),
       });
 
+      console.log('Razorpay order created:', orderData);
+
+      // Initialize Razorpay
       const razorpay = new window.Razorpay({
         key: CONFIG.RAZORPAY_KEY_ID,
         amount: orderData.amount,
@@ -197,9 +268,13 @@ const Checkout: React.FC = () => {
         order_id: orderData.id,
         name: 'GFTD',
         description: 'Premium Gift Purchase',
+        image: '/logo.png', // Add your logo path
         handler: async (res: any) => {
           try {
-            const verify = await apiFetch('/api/payment/verify-payment', {
+            console.log('Razorpay payment response:', res);
+            
+            // Verify payment
+            const verifyResponse = await apiFetch('/api/payment/verify-payment', {
               method: 'POST',
               body: JSON.stringify({
                 razorpay_order_id: res.razorpay_order_id,
@@ -213,20 +288,25 @@ const Checkout: React.FC = () => {
                   coupon_discount: couponDiscount,
                   total_amount: grandTotal,
                   payment_method: 'online',
-                  ...formData,
+                  customer_name: formData.name,
+                  customer_email: formData.email,
+                  customer_phone: formData.phone,
+                  shipping_address: `${formData.address}, ${formData.city}, ${formData.state} - ${formData.pincode}`,
+                  special_requests: formData.specialRequests,
                 },
               }),
             });
 
-            if (verify.success && verify.order_id) {
-              // Clear cart and redirect to order confirmation with the order ID
-              clearCart();
-              navigate(`/order-confirmation?orderId=${verify.order_id}`);
+            console.log('Payment verification response:', verifyResponse);
+            
+            if (verifyResponse.success) {
+              handleOrderSuccess(verifyResponse);
             } else {
-              alert('Payment verification failed.');
+              throw new Error(verifyResponse.message || 'Payment verification failed');
             }
-          } catch (error) {
-            alert('Payment verification failed.');
+          } catch (error: any) {
+            console.error('Payment verification error:', error);
+            alert(error.message || 'Payment verification failed. Please contact support.');
           }
         },
         prefill: {
@@ -237,16 +317,22 @@ const Checkout: React.FC = () => {
         notes: {
           address: `${formData.address}, ${formData.city}, ${formData.state} - ${formData.pincode}`,
         },
-        theme: { color: '#D4AF37' },
+        theme: { 
+          color: '#D4AF37' // Premium gold color
+        },
         modal: {
-          ondismiss: () => setLoading(false),
+          ondismiss: () => {
+            console.log('Payment modal dismissed');
+            setLoading(false);
+          },
+          confirm_close: true, // Ask for confirmation before closing
         },
       });
 
       razorpay.open();
-    } catch (e: any) {
-      alert(e.message || 'Payment failed');
-    } finally {
+    } catch (error: any) {
+      console.error('Payment error:', error);
+      alert(error.message || 'Failed to initialize payment. Please try again.');
       setLoading(false);
     }
   };
@@ -297,7 +383,7 @@ const Checkout: React.FC = () => {
         </h1>
 
         <div className="grid lg:grid-cols-2 gap-6 md:gap-8">
-          {/* Order Summary - Mobile First */}
+          {/* Order Summary */}
           <div className="order-1 lg:order-1">
             <div className="bg-white rounded-xl md:rounded-2xl shadow-lg p-4 md:p-6 sticky top-20">
               <h2 className="text-xl md:text-2xl font-serif font-semibold mb-4 md:mb-6">Order Summary</h2>
@@ -321,7 +407,6 @@ const Checkout: React.FC = () => {
                   )}
                 </div>
                 
-                {/* Progress Bar */}
                 <div className="h-2 bg-gray-200 rounded-full overflow-hidden mb-2">
                   <div 
                     className="h-full bg-green-500 transition-all duration-500"
@@ -329,7 +414,6 @@ const Checkout: React.FC = () => {
                   />
                 </div>
                 
-                {/* Shop More Button */}
                 {shippingCharge > 0 && (
                   <div className="mt-3">
                     <button
@@ -339,9 +423,6 @@ const Checkout: React.FC = () => {
                       <ShoppingBag className="h-4 w-4" />
                       Shop ₹{amountToFreeShipping.toLocaleString()} more for FREE Shipping
                     </button>
-                    <p className="text-xs text-gray-500 text-center mt-2">
-                      Add more items to your cart and save ₹79 on shipping!
-                    </p>
                   </div>
                 )}
               </div>
@@ -608,7 +689,7 @@ const Checkout: React.FC = () => {
                   className={`w-full py-3 md:py-4 rounded-lg font-medium text-base md:text-lg transition-all mt-4 ${
                     loading 
                       ? 'bg-gray-300 cursor-not-allowed' 
-                      : 'bg-premium-gold hover:bg-premium-burgundy text-white hover:scale-[1.02]'
+                      : 'bg-premium-gold hover:bg-premium-burgundy text-white hover:scale-[1.02] shadow-lg hover:shadow-xl'
                   }`}
                 >
                   {loading ? (
