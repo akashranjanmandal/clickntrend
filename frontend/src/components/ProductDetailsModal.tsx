@@ -206,7 +206,7 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="relative bg-white rounded-2xl sm:rounded-3xl w-full max-w-7xl max-h-[90vh] overflow-hidden shadow-2xl"
+  className="relative bg-white rounded-2xl sm:rounded-3xl w-full max-w-7xl h-full sm:h-auto sm:max-h-[90vh] overflow-y-auto shadow-2xl"
           >
             {/* Close Button */}
             <button
@@ -217,8 +217,8 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
             </button>
 
             {/* Scrollable Container */}
-            <div className="h-full overflow-y-auto">
-              <div className="grid lg:grid-cols-2">
+<div className="h-full">
+                <div className="grid lg:grid-cols-2">
                 {/* Left Column - Images */}
                 <div className="bg-gradient-to-br from-gray-50 to-white p-4 sm:p-8">
                   <div className="space-y-4">
