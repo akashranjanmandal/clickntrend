@@ -14,11 +14,6 @@ import {
   CreditCard,
   Download,
   Share2,
-  Heart,
-  Star,
-  Sparkles,
-  Award,
-  ChevronRight,
   Calendar,
   Hash,
   IndianRupee,
@@ -29,14 +24,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom'
 import { apiFetch } from '../utils/apiFetch'
 import { formatCurrency } from '../utils/helpers'
 import jsPDF from 'jspdf'
-import 'jspdf-autotable'
-
-// Extend jsPDF with autoTable
-declare module 'jspdf' {
-  interface jsPDF {
-    autoTable: (options: any) => jsPDF;
-  }
-}
+import autoTable from 'jspdf-autotable'
 
 interface Order {
   id: string
@@ -54,11 +42,6 @@ interface Order {
   tracking_number?: string
   created_at?: string
   status?: string
-  subtotal?: number
-  shipping_charge?: number
-  cod_charge?: number
-  coupon_discount?: number
-  coupon_code?: string
   special_requests?: string
 }
 
@@ -122,9 +105,9 @@ export default function OrderConfirmation() {
     const displayOrderId = getDisplayOrderId()
     const pageWidth = doc.internal.pageSize.getWidth()
     
-    // Header - Only GFTD
+    // Header - GFTD
     doc.setFontSize(28)
-    doc.setTextColor(212, 175, 55) // Gold color
+    doc.setTextColor(212, 175, 55)
     doc.setFont('helvetica', 'bold')
     doc.text('GFTD', 20, 25)
     
@@ -135,7 +118,7 @@ export default function OrderConfirmation() {
     
     // Invoice Title
     doc.setFontSize(20)
-    doc.setTextColor(128, 0, 32) // Burgundy
+    doc.setTextColor(128, 0, 32)
     doc.setFont('helvetica', 'bold')
     doc.text('ORDER INVOICE', pageWidth - 20, 25, { align: 'right' })
     
@@ -221,7 +204,8 @@ export default function OrderConfirmation() {
       })
     }
     
-    doc.autoTable({
+    // Use autoTable correctly
+    autoTable(doc, {
       startY: 160,
       head: [tableColumn],
       body: tableRows,
@@ -243,6 +227,7 @@ export default function OrderConfirmation() {
       margin: { left: 20, right: 20 },
     })
     
+    // Get the last Y position
     const finalY = (doc as any).lastAutoTable.finalY + 10
     
     // Total Amount
@@ -264,8 +249,8 @@ export default function OrderConfirmation() {
     doc.setTextColor(150, 150, 150)
     doc.setFont('helvetica', 'normal')
     doc.text('GFTD - Premium Gifts', pageWidth / 2, finalY + 40, { align: 'center' })
-    doc.text('contact@gftd.com | +91 1234567890', pageWidth / 2, finalY + 45, { align: 'center' })
-    doc.text('123 Gift Street, Mumbai - 400001', pageWidth / 2, finalY + 50, { align: 'center' })
+    doc.text('contact@gftd.com | +91 9876543210', pageWidth / 2, finalY + 45, { align: 'center' })
+    doc.text('Mumbai, India', pageWidth / 2, finalY + 50, { align: 'center' })
     
     doc.save(`GFTD_Invoice_${displayOrderId.replace('#', '_')}.pdf`)
   }
@@ -393,412 +378,217 @@ export default function OrderConfirmation() {
         )}
       </AnimatePresence>
 
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-4xl mx-auto">
         {/* Success Header */}
         <motion.div
           initial={{ opacity: 0, y: -50 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-8 md:mb-12 relative"
+          className="text-center mb-8 md:mb-12"
         >
           <motion.div
-            initial={{ scale: 0, rotate: -180 }}
-            animate={{ scale: 1, rotate: 0 }}
-            transition={{ type: 'spring', stiffness: 200, damping: 20 }}
-            className="relative inline-block"
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ type: 'spring', stiffness: 200 }}
+            className="w-24 h-24 bg-gradient-to-br from-green-100 to-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl"
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-green-400 to-emerald-400 rounded-full blur-2xl opacity-50 animate-pulse"></div>
-            <div className="relative w-28 h-28 md:w-32 md:h-32 bg-gradient-to-br from-green-100 to-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-2xl border-4 border-white">
-              <motion.div
-                animate={{ scale: [1, 1.2, 1] }}
-                transition={{ duration: 2, repeat: Infinity }}
-              >
-                <CheckCircle className="w-14 h-14 md:w-16 md:h-16 text-green-600" />
-              </motion.div>
-            </div>
+            <CheckCircle className="w-12 h-12 text-green-600" />
           </motion.div>
           
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-          >
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent mb-3">
-              Order Confirmed! 
-              <Sparkles className="inline-block w-8 h-8 md:w-10 md:h-10 text-yellow-500 ml-2 animate-bounce" />
-            </h1>
-            <p className="text-lg md:text-xl text-gray-600 max-w-2xl mx-auto">
-              Thank you for choosing GFTD, {order.customer_name?.split(' ')[0] || 'there'}! 
-              Your order has been successfully placed.
-            </p>
-          </motion.div>
+          <h1 className="text-4xl md:text-5xl font-serif font-bold text-gray-900 mb-3">
+            Order Confirmed!
+          </h1>
+          <p className="text-lg md:text-xl text-gray-600">
+            Thank you for choosing GFTD, {order.customer_name?.split(' ')[0] || 'there'}!
+          </p>
 
           {/* Order ID Badge */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.5 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.6 }}
-            className="inline-flex items-center gap-3 bg-gradient-to-r from-primary-600 to-primary-700 text-white px-6 py-3 rounded-full shadow-lg mt-4"
-          >
+          <div className="inline-flex items-center gap-3 bg-primary-600 text-white px-6 py-3 rounded-full shadow-lg mt-4">
             <Hash className="w-5 h-5" />
-            <span className="font-mono font-bold text-lg">
-              {displayOrderId}
-            </span>
+            <span className="font-mono font-bold text-lg">{displayOrderId}</span>
             <button
               onClick={handleCopyOrderId}
-              className="ml-2 p-1 hover:bg-white/20 rounded transition-colors"
-              title="Copy Order ID"
+              className="p-1 hover:bg-white/20 rounded transition-colors relative"
             >
               <Copy className="w-4 h-4" />
+              {copySuccess && (
+                <span className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-xs bg-gray-800 text-white px-2 py-1 rounded whitespace-nowrap">
+                  Copied!
+                </span>
+              )}
             </button>
-            {copySuccess && (
-              <span className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-xs bg-gray-800 text-white px-2 py-1 rounded">
-                Copied!
-              </span>
-            )}
-          </motion.div>
+          </div>
 
           {/* Order Date */}
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.7 }}
-            className="text-sm text-gray-500 mt-4 flex items-center justify-center gap-2"
-          >
+          <p className="text-sm text-gray-500 mt-4 flex items-center justify-center gap-2">
             <Calendar className="w-4 h-4" />
             {order.created_at ? new Date(order.created_at).toLocaleDateString('en-IN', { 
               day: 'numeric', 
               month: 'long', 
               year: 'numeric'
             }) : new Date().toLocaleDateString()}
-          </motion.p>
+          </p>
 
-          {/* Action Buttons - Only Download and Share */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.8 }}
-            className="flex flex-wrap items-center justify-center gap-3 mt-6"
-          >
+          {/* Action Buttons */}
+          <div className="flex items-center justify-center gap-3 mt-6">
             <button
               onClick={generatePDF}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 text-gray-700 hover:text-primary-600 border border-gray-200"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
             >
               <FileText className="w-4 h-4" />
               Download Invoice
             </button>
             <button
               onClick={handleShare}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 text-gray-700 hover:text-primary-600 border border-gray-200"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-white text-gray-700 rounded-lg hover:bg-gray-50 transition-colors border border-gray-200"
             >
               <Share2 className="w-4 h-4" />
               Share
             </button>
-          </motion.div>
+          </div>
         </motion.div>
 
-        {/* Main Content Grid */}
-        <div className="grid lg:grid-cols-3 gap-6 md:gap-8">
-          {/* Left Column - Order Summary */}
+        {/* Order Details Grid */}
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* Order Summary */}
           <motion.div
-            initial={{ opacity: 0, x: -30 }}
+            initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.4 }}
-            className="lg:col-span-2 space-y-6"
+            transition={{ delay: 0.2 }}
+            className="bg-white rounded-xl shadow-lg p-6"
           >
-            {/* Order Summary Card */}
-            <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-              <div className="bg-gradient-to-r from-primary-600 to-primary-700 px-6 py-4">
-                <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-                  <ShoppingBag className="w-5 h-5" />
-                  Order Summary
-                  <span className="text-xs bg-white/20 px-3 py-1 rounded-full ml-auto">
-                    {Array.isArray(order.items) ? order.items.length : 0} items
-                  </span>
-                </h2>
-              </div>
-              
-              <div className="p-6">
-                {/* Items List - No Images */}
-                <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
-                  {Array.isArray(order.items) && order.items.map((item: any, index: number) => (
-                    <motion.div
-                      key={index}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-xl"
-                    >
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <h4 className="font-semibold text-gray-800">{item.name}</h4>
-                          <span className="font-bold text-primary-700">
-                            ₹{(item.price * item.quantity).toLocaleString()}
-                          </span>
-                        </div>
-                        <p className="text-sm text-gray-500 mt-1">
-                          Qty: {item.quantity} × ₹{item.price.toLocaleString()}
-                        </p>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-
-                {/* Total Amount */}
-                <div className="mt-6 pt-6 border-t border-gray-200">
-                  <div className="flex justify-between text-xl font-bold">
-                    <span>Total Amount</span>
-                    <span className="text-primary-600">₹{order.total_amount.toLocaleString()}</span>
+            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+              <ShoppingBag className="w-5 h-5 text-primary-600" />
+              Order Summary
+            </h2>
+            
+            <div className="space-y-3">
+              {Array.isArray(order.items) && order.items.map((item: any, index: number) => (
+                <div key={index} className="flex justify-between items-center py-2 border-b last:border-0">
+                  <div>
+                    <p className="font-medium">{item.name}</p>
+                    <p className="text-sm text-gray-500">Qty: {item.quantity} × ₹{item.price.toLocaleString()}</p>
                   </div>
+                  <p className="font-semibold">₹{(item.price * item.quantity).toLocaleString()}</p>
                 </div>
-
-                {/* Payment Method Badge */}
-                <div className="mt-4 flex items-center gap-2 text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
+              ))}
+              
+              <div className="pt-4 mt-2 border-t">
+                <div className="flex justify-between text-lg font-bold">
+                  <span>Total</span>
+                  <span className="text-primary-600">₹{order.total_amount.toLocaleString()}</span>
+                </div>
+                <div className="flex items-center gap-2 mt-3 text-sm text-gray-500">
                   <CreditCard className="w-4 h-4" />
-                  <span>Paid via {order.payment_method?.toUpperCase() || 'Online Payment'}</span>
+                  <span>Paid via {order.payment_method?.toUpperCase() || 'Online'}</span>
                 </div>
-              </div>
-            </div>
-
-            {/* Shipping Information Card */}
-            <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-              <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
-                <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-                  <Truck className="w-5 h-5" />
-                  Shipping Information
-                </h2>
-              </div>
-              
-              <div className="p-6">
-                <div className="space-y-4">
-                  <div className="flex items-start gap-3">
-                    <MapPin className="w-5 h-5 text-blue-600 mt-1" />
-                    <div>
-                      <p className="font-semibold text-gray-800">{order.customer_name}</p>
-                      <p className="text-gray-600 mt-1">
-                        {[
-                          order.shipping_address,
-                          order.shipping_city,
-                          order.shipping_state,
-                          order.shipping_pincode
-                        ].filter(Boolean).join(', ') || 'Address not provided'}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-start gap-3">
-                    <Mail className="w-5 h-5 text-blue-600 mt-1" />
-                    <div>
-                      <p className="text-gray-600">{order.customer_email}</p>
-                    </div>
-                  </div>
-                  
-                  {order.customer_phone && (
-                    <div className="flex items-start gap-3">
-                      <Phone className="w-5 h-5 text-blue-600 mt-1" />
-                      <div>
-                        <p className="text-gray-600">{order.customer_phone}</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {order.special_requests && (
-                  <div className="mt-4 pt-4 border-t border-gray-100">
-                    <p className="text-sm text-gray-500">Special Requests</p>
-                    <p className="text-gray-700 mt-1">{order.special_requests}</p>
-                  </div>
-                )}
               </div>
             </div>
           </motion.div>
 
-          {/* Right Column - Order Status & Next Steps */}
+          {/* Shipping Information */}
           <motion.div
-            initial={{ opacity: 0, x: 30 }}
+            initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.6 }}
-            className="space-y-6"
+            transition={{ delay: 0.3 }}
+            className="bg-white rounded-xl shadow-lg p-6"
           >
-            {/* Order Status Timeline */}
-            <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden sticky top-20">
-              <div className="bg-gradient-to-r from-purple-600 to-purple-700 px-6 py-4">
-                <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-                  <Clock className="w-5 h-5" />
-                  Order Status
-                </h2>
+            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+              <Truck className="w-5 h-5 text-blue-600" />
+              Shipping Details
+            </h2>
+            
+            <div className="space-y-4">
+              <div className="flex gap-3">
+                <MapPin className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                <div>
+                  <p className="font-medium">{order.customer_name}</p>
+                  <p className="text-gray-600 text-sm mt-1">
+                    {[
+                      order.shipping_address,
+                      order.shipping_city,
+                      order.shipping_state,
+                      order.shipping_pincode
+                    ].filter(Boolean).join(', ')}
+                  </p>
+                </div>
               </div>
               
-              <div className="p-6">
-                <div className="relative">
-                  <div className="absolute left-6 top-2 bottom-2 w-0.5 bg-gradient-to-b from-green-400 via-blue-400 to-gray-200"></div>
-                  
-                  {[
-                    { 
-                      status: 'Order Confirmed', 
-                      time: 'Just now', 
-                      icon: CheckCircle, 
-                      active: true,
-                      description: 'Your order has been received'
-                    },
-                    { 
-                      status: 'Processing', 
-                      time: 'Within 24 hours', 
-                      icon: Package, 
-                      active: true,
-                      description: 'Preparing your items'
-                    },
-                    { 
-                      status: 'Shipped', 
-                      time: '1-2 business days', 
-                      icon: Truck, 
-                      active: false,
-                      description: 'On the way to you'
-                    },
-                    { 
-                      status: 'Delivered', 
-                      time: '3-5 business days', 
-                      icon: Gift, 
-                      active: false,
-                      description: 'Package delivered'
-                    },
-                  ].map((step, index) => (
-                    <motion.div
-                      key={step.status}
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.8 + index * 0.1 }}
-                      className="relative flex items-start mb-8 last:mb-0"
-                    >
-                      <div className={`z-10 flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center
-                        ${step.active ? 'bg-green-100 ring-4 ring-green-50' : 'bg-gray-100'}`}
-                      >
-                        <step.icon className={`w-6 h-6 ${step.active ? 'text-green-600' : 'text-gray-400'}`} />
-                      </div>
-                      <div className="ml-4 flex-1">
-                        <div className="flex items-center justify-between">
-                          <h4 className={`font-semibold ${step.active ? 'text-green-700' : 'text-gray-500'}`}>
-                            {step.status}
-                          </h4>
-                          {step.active && (
-                            <span className="text-xs bg-green-100 text-green-600 px-2 py-1 rounded-full">
-                              Current
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-sm text-gray-500 mt-0.5">{step.time}</p>
-                        <p className="text-xs text-gray-400 mt-1">{step.description}</p>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-
-                {order.tracking_number && (
-                  <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
-                    <h4 className="font-semibold text-blue-800 mb-2">Tracking Number</h4>
-                    <code className="block bg-white px-4 py-2 rounded-lg font-mono text-blue-600 border border-blue-200 text-sm">
-                      {order.tracking_number}
-                    </code>
-                  </div>
-                )}
+              <div className="flex gap-3">
+                <Mail className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                <p className="text-gray-600">{order.customer_email}</p>
               </div>
-            </div>
-
-            {/* Next Steps Card */}
-            <div className="bg-gradient-to-br from-primary-600 via-primary-700 to-purple-700 rounded-2xl shadow-xl p-6 text-white">
-              <h3 className="text-2xl font-serif font-bold mb-4 flex items-center gap-2">
-                <Sparkles className="w-6 h-6 text-yellow-300" />
-                What's Next?
-              </h3>
               
-              <div className="space-y-4 mb-6">
-                <div className="flex items-start gap-3 bg-white/10 backdrop-blur-sm rounded-xl p-3">
-                  <CheckCircle className="w-5 h-5 text-green-300 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-semibold">Confirmation Email</p>
-                    <p className="text-sm text-white/80">Sent to {order.customer_email}</p>
-                  </div>
+              {order.customer_phone && (
+                <div className="flex gap-3">
+                  <Phone className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                  <p className="text-gray-600">{order.customer_phone}</p>
                 </div>
-                
-                <div className="flex items-start gap-3 bg-white/10 backdrop-blur-sm rounded-xl p-3">
-                  <Package className="w-5 h-5 text-blue-300 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-semibold">Order Processing</p>
-                    <p className="text-sm text-white/80">Will be processed within 24 hours</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start gap-3 bg-white/10 backdrop-blur-sm rounded-xl p-3">
-                  <Truck className="w-5 h-5 text-purple-300 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-semibold">Shipping Update</p>
-                    <p className="text-sm text-white/80">Tracking info via email/SMS</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Rewards Section */}
-              <div className="border-t border-white/20 pt-4 mt-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="font-semibold flex items-center gap-2">
-                    <Award className="w-4 h-4 text-yellow-300" />
-                    Rewards Earned
-                  </h4>
-                  <span className="text-2xl font-bold text-yellow-300">150</span>
-                </div>
-                
-                <div className="flex gap-3 mt-4">
-                  <button
-                    onClick={() => navigate('/products')}
-                    className="flex-1 bg-white text-primary-700 py-3 rounded-xl font-semibold hover:bg-gray-100 transition-colors flex items-center justify-center gap-2 text-sm"
-                  >
-                    <ShoppingBag className="w-4 h-4" />
-                    Shop More
-                  </button>
-                  <button
-                    onClick={() => navigate('/')}
-                    className="flex-1 bg-primary-500 text-white py-3 rounded-xl font-semibold hover:bg-primary-400 transition-colors flex items-center justify-center gap-2 text-sm"
-                  >
-                    <Home className="w-4 h-4" />
-                    Home
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Recommended Products */}
-            <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6">
-              <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                <Heart className="w-4 h-4 text-red-500" />
-                You might also like
-              </h3>
+              )}
               
-              <div className="space-y-3">
-                {[1, 2].map((item) => (
-                  <div key={item} className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer">
-                    <div className="w-16 h-16 bg-gradient-to-br from-primary-100 to-secondary-100 rounded-lg"></div>
-                    <div className="flex-1">
-                      <h4 className="font-medium text-sm">Premium Gift Box</h4>
-                      <p className="text-xs text-gray-500">Starting at ₹999</p>
-                      <div className="flex items-center gap-1 mt-1">
-                        {[...Array(5)].map((_, i) => (
-                          <Star key={i} className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                        ))}
-                      </div>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-gray-400" />
-                  </div>
-                ))}
-              </div>
+              {order.special_requests && (
+                <div className="mt-4 pt-4 border-t">
+                  <p className="text-sm text-gray-500">Special Requests</p>
+                  <p className="text-gray-700 mt-1">{order.special_requests}</p>
+                </div>
+              )}
             </div>
+          </motion.div>
+
+          {/* Order Status */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="bg-white rounded-xl shadow-lg p-6 md:col-span-2"
+          >
+            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+              <Clock className="w-5 h-5 text-purple-600" />
+              Order Status
+            </h2>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+              {[
+                { status: 'Confirmed', icon: CheckCircle, active: true },
+                { status: 'Processing', icon: Package, active: true },
+                { status: 'Shipped', icon: Truck, active: false },
+                { status: 'Delivered', icon: Gift, active: false },
+              ].map((step, index) => (
+                <div key={step.status} className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    step.active ? 'bg-green-100' : 'bg-gray-100'
+                  }`}>
+                    <step.icon className={`w-5 h-5 ${
+                      step.active ? 'text-green-600' : 'text-gray-400'
+                    }`} />
+                  </div>
+                  <div>
+                    <p className={`font-medium ${
+                      step.active ? 'text-green-700' : 'text-gray-500'
+                    }`}>{step.status}</p>
+                    <p className="text-xs text-gray-400">
+                      {index === 0 ? 'Just now' : 
+                       index === 1 ? 'Within 24h' :
+                       index === 2 ? '1-2 days' : '3-5 days'}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {order.tracking_number && (
+              <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                <p className="text-sm text-blue-800">Tracking Number: {order.tracking_number}</p>
+              </div>
+            )}
           </motion.div>
         </div>
 
-        {/* Footer Note */}
+        {/* Footer */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 1 }}
-          className="text-center mt-12 text-sm text-gray-500"
+          transition={{ delay: 0.6 }}
+          className="text-center mt-8 text-sm text-gray-500"
         >
           <p>A confirmation email has been sent to {order.customer_email}</p>
           <p className="mt-1">For any queries, contact support@gftd.com</p>
