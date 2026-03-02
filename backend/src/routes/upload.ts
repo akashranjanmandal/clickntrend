@@ -1,7 +1,8 @@
 import express from 'express';
 import multer from 'multer';
-import { supabase } from '../utils/supabase';
 import { requireAuth } from '../middleware/auth';
+import { PutObjectCommand } from "@aws-sdk/client-s3";
+import { r2 } from "../utils/r2";
 
 const router = express.Router();
 
@@ -35,19 +36,17 @@ router.post('/product-images', requireAuth, upload.array('images', 5), async (re
     const uploadPromises = files.map(async (file, index) => {
       const fileExtension = file.originalname.split('.').pop();
       const fileName = `products/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExtension}`;
-      
-      const { error } = await supabase.storage
-        .from('giftshop')
-        .upload(fileName, file.buffer, {
-          contentType: file.mimetype,
-          cacheControl: '3600',
-        });
 
-      if (error) throw error;
+      await r2.send(
+        new PutObjectCommand({
+          Bucket: process.env.R2_BUCKET_NAME,
+          Key: fileName,
+          Body: file.buffer,
+          ContentType: file.mimetype,
+        })
+      );
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('giftshop')
-        .getPublicUrl(fileName);
+      const publicUrl = `https://pub-${process.env.R2_ACCOUNT_ID}.r2.dev/${fileName}`;
 
       return {
         url: publicUrl,
@@ -58,11 +57,13 @@ router.post('/product-images', requireAuth, upload.array('images', 5), async (re
 
     const uploadedImages = await Promise.all(uploadPromises);
     res.json({ success: true, images: uploadedImages });
+
   } catch (error: any) {
     console.error('❌ Upload error:', error);
     res.status(500).json({ error: error.message });
   }
 });
+
 
 // ========== CUSTOMIZATION IMAGE UPLOAD ==========
 router.post('/customization', upload.single('image'), async (req, res) => {
@@ -77,27 +78,27 @@ router.post('/customization', upload.single('image'), async (req, res) => {
     
     const fileExtension = file.originalname.split('.').pop();
     const fileName = `customizations/${productId}/${Date.now()}.${fileExtension}`;
-    
-    const { error } = await supabase.storage
-      .from('giftshop')
-      .upload(fileName, file.buffer, {
-        contentType: file.mimetype,
-        cacheControl: '3600',
-      });
 
-    if (error) throw error;
+    await r2.send(
+      new PutObjectCommand({
+        Bucket: process.env.R2_BUCKET_NAME,
+        Key: fileName,
+        Body: file.buffer,
+        ContentType: file.mimetype,
+      })
+    );
 
-    const { data: { publicUrl } } = supabase.storage
-      .from('giftshop')
-      .getPublicUrl(fileName);
+    const publicUrl = `https://pub-${process.env.R2_ACCOUNT_ID}.r2.dev/${fileName}`;
 
     console.log('✅ Customization image uploaded:', publicUrl);
     res.json({ success: true, image_url: publicUrl });
+
   } catch (error: any) {
     console.error('❌ Upload error:', error);
     res.status(500).json({ error: error.message });
   }
 });
+
 
 // ========== HERO MEDIA UPLOAD ==========
 router.post('/hero', requireAuth, upload.single('media'), async (req, res) => {
@@ -111,21 +112,24 @@ router.post('/hero', requireAuth, upload.single('media'), async (req, res) => {
     const isVideo = file.mimetype.startsWith('video/');
     const fileExtension = file.originalname.split('.').pop();
     const fileName = `hero/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExtension}`;
-    
-    const { error } = await supabase.storage
-      .from('giftshop')
-      .upload(fileName, file.buffer, {
-        contentType: file.mimetype,
-        cacheControl: '3600',
-      });
 
-    if (error) throw error;
+    await r2.send(
+      new PutObjectCommand({
+        Bucket: process.env.R2_BUCKET_NAME,
+        Key: fileName,
+        Body: file.buffer,
+        ContentType: file.mimetype,
+      })
+    );
 
-    const { data: { publicUrl } } = supabase.storage
-      .from('giftshop')
-      .getPublicUrl(fileName);
+    const publicUrl = `https://pub-${process.env.R2_ACCOUNT_ID}.r2.dev/${fileName}`;
 
-    res.json({ success: true, media_url: publicUrl, media_type: isVideo ? 'video' : 'image' });
+    res.json({ 
+      success: true, 
+      media_url: publicUrl, 
+      media_type: isVideo ? 'video' : 'image' 
+    });
+
   } catch (error: any) {
     console.error('❌ Upload error:', error);
     res.status(500).json({ error: error.message });
