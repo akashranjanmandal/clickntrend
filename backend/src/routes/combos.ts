@@ -27,22 +27,41 @@ router.get('/', async (req, res) => {
 // Create custom combo (public - no auth required)
 router.post('/custom', async (req, res) => {
   try {
-    const { name, description, products, total_price, special_requests } = req.body;
+    const { 
+      name, 
+      description, 
+      products, 
+      subtotal,
+      discount_percentage,
+      discount_amount,
+      total_price, 
+      special_requests,
+      item_count 
+    } = req.body;
 
-    console.log('Creating custom combo:', { name, products: products?.length });
+    console.log('Creating custom combo:', { 
+      name, 
+      products: products?.length,
+      items: item_count,
+      discount: `${discount_percentage}%`
+    });
 
     // Validate input
     if (!products || products.length === 0) {
       return res.status(400).json({ error: 'At least one product is required' });
     }
 
-    // Create custom combo
+    // Create custom combo with discount info
     const { data: customCombo, error: comboError } = await supabase
       .from('custom_combos')
       .insert({
         name: name || 'Custom Combo',
         description: description || '',
+        subtotal,
+        discount_percentage,
+        discount_amount,
         total_price,
+        item_count,
         special_requests,
         status: 'pending',
         created_at: new Date().toISOString()

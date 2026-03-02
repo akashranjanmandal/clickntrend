@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   Package, Sparkles, ChevronRight,
-  Users, X, Plus, Minus, Tag, Gift, Search, Save
+  Users, X, Plus, Minus, Tag, Gift, Search, Save,
+  Percent, Award, TrendingDown
 } from 'lucide-react';
 import { Product, Category, Gender } from '../types';
 import toast from 'react-hot-toast';
 import { getImageUrl, formatCurrency } from '../utils/helpers';
 import { apiFetch } from '../config';
-import CategoryCard from '../components/CategoryCard'; // Import CategoryCard
+import CategoryCard from '../components/CategoryCard';
 
 const CustomCombo: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -32,6 +33,15 @@ const CustomCombo: React.FC = () => {
   
   // UI state
   const [loading, setLoading] = useState(true);
+
+  // Discount tiers configuration
+  const discountTiers = [
+    { minItems: 0, maxItems: 2, discount: 0, label: 'No Discount' },
+    { minItems: 3, maxItems: 4, discount: 10, label: '10% OFF' },
+    { minItems: 5, maxItems: 5, discount: 15, label: '15% OFF' },
+    { minItems: 6, maxItems: 9, discount: 25, label: '25% OFF' },
+    { minItems: 10, maxItems: 10, discount: 30, label: '30% OFF' }
+  ];
 
   useEffect(() => {
     fetchData();
@@ -112,10 +122,23 @@ const CustomCombo: React.FC = () => {
   };
 
   const addToCombo = (product: Product) => {
+    const totalItems = getTotalItems();
+    
+    // Check if adding this product would exceed the 10-item limit
+    if (totalItems >= 10) {
+      toast.error('Maximum 10 items allowed in a combo');
+      return;
+    }
+    
     setSelectedProducts(prev => {
       const newMap = new Map(prev);
       const existing = newMap.get(product.id);
       if (existing) {
+        // Check if increasing quantity would exceed limit
+        if (totalItems + 1 > 10) {
+          toast.error('Maximum 10 items allowed in a combo');
+          return prev;
+        }
         newMap.set(product.id, { product, quantity: existing.quantity + 1 });
       } else {
         newMap.set(product.id, { product, quantity: 1 });
@@ -138,6 +161,18 @@ const CustomCombo: React.FC = () => {
       removeFromCombo(productId);
       return;
     }
+    
+    const totalItems = getTotalItems();
+    const currentItem = selectedProducts.get(productId);
+    const currentQuantity = currentItem?.quantity || 0;
+    const quantityDiff = quantity - currentQuantity;
+    
+    // Check if updating quantity would exceed limit
+    if (totalItems + quantityDiff > 10) {
+      toast.error('Maximum 10 items allowed in a combo');
+      return;
+    }
+    
     setSelectedProducts(prev => {
       const newMap = new Map(prev);
       const existing = newMap.get(productId);
@@ -148,12 +183,42 @@ const CustomCombo: React.FC = () => {
     });
   };
 
-  const calculateTotal = () => {
+  const getTotalItems = (): number => {
+    let total = 0;
+    selectedProducts.forEach(item => {
+      total += item.quantity;
+    });
+    return total;
+  };
+
+  const getCurrentDiscountTier = () => {
+    const totalItems = getTotalItems();
+    return discountTiers.find(tier => 
+      totalItems >= tier.minItems && totalItems <= tier.maxItems
+    ) || discountTiers[0];
+  };
+
+  const calculateSubtotal = () => {
     let total = 0;
     selectedProducts.forEach(item => {
       total += item.product.price * item.quantity;
     });
     return total;
+  };
+
+  const calculateDiscount = () => {
+    const subtotal = calculateSubtotal();
+    const tier = getCurrentDiscountTier();
+    return (subtotal * tier.discount) / 100;
+  };
+
+  const calculateTotal = () => {
+    return calculateSubtotal() - calculateDiscount();
+  };
+
+  const getNextDiscountTier = () => {
+    const totalItems = getTotalItems();
+    return discountTiers.find(tier => tier.minItems > totalItems);
   };
 
   const saveCombo = async () => {
@@ -170,8 +235,12 @@ const CustomCombo: React.FC = () => {
           id: item.product.id,
           quantity: item.quantity
         })),
+        subtotal: calculateSubtotal(),
+        discount_percentage: getCurrentDiscountTier().discount,
+        discount_amount: calculateDiscount(),
         total_price: calculateTotal(),
-        special_requests: specialRequests
+        special_requests: specialRequests,
+        item_count: getTotalItems()
       };
 
       const response = await apiFetch('/api/combos/custom', {
@@ -193,6 +262,9 @@ const CustomCombo: React.FC = () => {
 
   const filteredProducts = getFilteredProducts();
   const displayProducts = showSearchResults ? searchResults : filteredProducts;
+  const currentTier = getCurrentDiscountTier();
+  const nextTier = getNextDiscountTier();
+  const totalItems = getTotalItems();
 
   if (loading) {
     return (
@@ -226,7 +298,7 @@ const CustomCombo: React.FC = () => {
       <div className="grid lg:grid-cols-3 gap-8">
         {/* Left Side - Product Selection */}
         <div className="lg:col-span-2">
-          {/* Search Bar - Same as Home page */}
+          {/* Search Bar */}
           <div className="mb-6">
             <div className="relative">
               <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -252,7 +324,7 @@ const CustomCombo: React.FC = () => {
             </div>
           </div>
 
-          {/* Navigation - Same as Home page */}
+          {/* Navigation */}
           <section className="mb-8 bg-white border rounded-xl p-4">
             <div className="flex items-center gap-2 text-sm flex-wrap">
               <button
@@ -284,7 +356,7 @@ const CustomCombo: React.FC = () => {
             </div>
           </section>
 
-          {/* Categories Grid - Using CategoryCard exactly like Home page */}
+          {/* Categories Grid */}
           {!selectedCategory && !showSearchResults && (
             <section className="mb-8">
               <h2 className="text-2xl font-serif font-bold mb-6">Choose a Category</h2>
@@ -305,7 +377,7 @@ const CustomCombo: React.FC = () => {
             </section>
           )}
 
-          {/* Gender Filter - Same as Home page */}
+          {/* Gender Filter */}
           {selectedCategory && !showSearchResults && (
             <section className="mb-8">
               <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
@@ -372,7 +444,8 @@ const CustomCombo: React.FC = () => {
                           </span>
                           <button
                             onClick={() => addToCombo(product)}
-                            className="px-4 py-2 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy text-sm"
+                            disabled={totalItems >= 10}
+                            className="px-4 py-2 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             Add
                           </button>
@@ -407,6 +480,39 @@ const CustomCombo: React.FC = () => {
               <Package className="h-5 w-5 text-premium-gold" />
               Your Combo
             </h2>
+
+            {/* Discount Banner */}
+            {totalItems > 0 && (
+              <div className="mb-6 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <Percent className="h-5 w-5 text-purple-600" />
+                  <span className="font-semibold text-purple-700">Auto Discount Applied!</span>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Items:</span>
+                    <span className="font-medium">{totalItems} / 10</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Discount:</span>
+                    <span className="font-bold text-premium-gold">{currentTier.discount}% OFF</span>
+                  </div>
+                  {nextTier && (
+                    <div className="mt-2 p-2 bg-white rounded-lg text-xs">
+                      <p className="text-gray-600">
+                        Add {nextTier.minItems - totalItems} more item{nextTier.minItems - totalItems > 1 ? 's' : ''} to get {nextTier.discount}% OFF!
+                      </p>
+                      <div className="w-full bg-gray-200 h-1.5 rounded-full mt-2">
+                        <div 
+                          className="bg-premium-gold h-1.5 rounded-full transition-all"
+                          style={{ width: `${(totalItems / nextTier.minItems) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Combo Name */}
             <div className="mb-4">
@@ -446,7 +552,8 @@ const CustomCombo: React.FC = () => {
                         <span className="w-8 text-center text-sm">{quantity}</span>
                         <button
                           onClick={() => updateQuantity(product.id, quantity + 1)}
-                          className="p-1 hover:bg-white rounded"
+                          disabled={totalItems >= 10}
+                          className="p-1 hover:bg-white rounded disabled:opacity-50"
                         >
                           <Plus className="h-3 w-3" />
                         </button>
@@ -463,15 +570,27 @@ const CustomCombo: React.FC = () => {
               )}
             </div>
 
-            {/* Total */}
-            <div className="mb-4 p-4 bg-gray-50 rounded-lg">
-              <div className="flex justify-between items-center">
-                <span className="font-medium">Total:</span>
-                <span className="text-2xl font-bold text-premium-gold">
-                  {formatCurrency(calculateTotal())}
-                </span>
+            {/* Price Breakdown */}
+            {selectedProducts.size > 0 && (
+              <div className="mb-4 p-4 bg-gray-50 rounded-lg space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Subtotal:</span>
+                  <span>{formatCurrency(calculateSubtotal())}</span>
+                </div>
+                {currentTier.discount > 0 && (
+                  <div className="flex justify-between text-sm text-green-600">
+                    <span>Discount ({currentTier.discount}%):</span>
+                    <span>-{formatCurrency(calculateDiscount())}</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center pt-2 border-t">
+                  <span className="font-medium">Total:</span>
+                  <span className="text-2xl font-bold text-premium-gold">
+                    {formatCurrency(calculateTotal())}
+                  </span>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Special Requests */}
             <div className="mb-6">
@@ -494,6 +613,11 @@ const CustomCombo: React.FC = () => {
               <Save className="h-5 w-5" />
               Save Combo
             </button>
+
+            {/* Items Counter */}
+            <p className="text-center text-xs text-gray-500 mt-4">
+              {totalItems} / 10 items selected
+            </p>
           </div>
         </div>
       </div>
