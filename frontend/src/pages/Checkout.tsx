@@ -129,7 +129,7 @@ const Checkout: React.FC = () => {
     setLoading(true);
 
     try {
-      await apiFetch('/api/orders/cod', {
+      const response = await apiFetch('/api/orders/cod', {
         method: 'POST',
         body: JSON.stringify({
           items,
@@ -144,10 +144,17 @@ const Checkout: React.FC = () => {
         }),
       });
 
-      alert('Order placed successfully!');
-      clearCart();
-      navigate('/');
-    } catch {
+      // Check if response contains order_id
+      if (response && response.order_id) {
+        // Clear cart and redirect to order confirmation
+        clearCart();
+        navigate(`/order-confirmation?orderId=${response.order_id}`);
+      } else {
+        // Fallback to home if no order_id
+        clearCart();
+        navigate('/');
+      }
+    } catch (error) {
       alert('Failed to place order. Please try again.');
     } finally {
       setLoading(false);
@@ -211,14 +218,14 @@ const Checkout: React.FC = () => {
               }),
             });
 
-            if (verify.success) {
-              alert('🎉 Payment successful! Order confirmed.');
+            if (verify.success && verify.order_id) {
+              // Clear cart and redirect to order confirmation with the order ID
               clearCart();
-              navigate('/');
+              navigate(`/order-confirmation?orderId=${verify.order_id}`);
             } else {
               alert('Payment verification failed.');
             }
-          } catch {
+          } catch (error) {
             alert('Payment verification failed.');
           }
         },
@@ -273,7 +280,6 @@ const Checkout: React.FC = () => {
     );
   }
 
-  /* ---------------- UI (UPDATED WITH SHOP MORE) ---------------- */
   return (
     <div className="container mx-auto px-4 py-6 md:py-12">
       <div className="max-w-6xl mx-auto">
@@ -296,7 +302,7 @@ const Checkout: React.FC = () => {
             <div className="bg-white rounded-xl md:rounded-2xl shadow-lg p-4 md:p-6 sticky top-20">
               <h2 className="text-xl md:text-2xl font-serif font-semibold mb-4 md:mb-6">Order Summary</h2>
               
-              {/* Free Shipping Progress Bar - NEW */}
+              {/* Free Shipping Progress Bar */}
               <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-green-50 rounded-xl border border-blue-100">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
@@ -323,7 +329,7 @@ const Checkout: React.FC = () => {
                   />
                 </div>
                 
-                {/* Shop More Button - NEW */}
+                {/* Shop More Button */}
                 {shippingCharge > 0 && (
                   <div className="mt-3">
                     <button
@@ -340,7 +346,7 @@ const Checkout: React.FC = () => {
                 )}
               </div>
               
-              {/* Items List - Mobile Optimized */}
+              {/* Items List */}
               <div className="space-y-3 md:space-y-4 mb-4 md:mb-6 max-h-[300px] md:max-h-96 overflow-y-auto">
                 {items.map((item, index) => (
                   <div key={item.id} className="flex items-center justify-between py-2 border-b">
@@ -357,7 +363,7 @@ const Checkout: React.FC = () => {
                 ))}
               </div>
 
-              {/* Price Breakdown - Mobile Optimized */}
+              {/* Price Breakdown */}
               <div className="space-y-2 md:space-y-3 pt-3 md:pt-4 border-t">
                 <div className="flex justify-between text-sm md:text-base">
                   <span className="text-gray-600">Subtotal:</span>
@@ -386,29 +392,16 @@ const Checkout: React.FC = () => {
                   <span className="text-premium-gold">{formatCurrency(grandTotal)}</span>
                 </div>
               </div>
-
-              {/* Shop More Link - Alternative */}
-              {shippingCharge > 0 && (
-                <div className="mt-4 pt-4 border-t text-center">
-                  <button
-                    onClick={() => navigate('/products')}
-                    className="text-premium-gold hover:text-premium-burgundy font-medium inline-flex items-center gap-2"
-                  >
-                    <ShoppingBag className="h-4 w-4" />
-                    Continue Shopping
-                  </button>
-                </div>
-              )}
             </div>
           </div>
 
-          {/* Customer Details Form - Mobile First */}
+          {/* Customer Details Form */}
           <div className="order-2 lg:order-2">
             <div className="bg-white rounded-xl md:rounded-2xl shadow-lg p-4 md:p-6">
               <h2 className="text-xl md:text-2xl font-serif font-semibold mb-4 md:mb-6">Shipping Details</h2>
               
               <div className="space-y-3 md:space-y-4">
-                {/* Name & Email - Stack on Mobile */}
+                {/* Name & Email */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                   <div>
                     <label className="block text-xs md:text-sm font-medium mb-1 md:mb-2">Full Name *</label>
@@ -466,7 +459,7 @@ const Checkout: React.FC = () => {
                   />
                 </div>
 
-                {/* City, State, Pincode - Stack on Mobile */}
+                {/* City, State, Pincode */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-xs md:text-sm font-medium mb-1 md:mb-2">City *</label>
@@ -509,7 +502,7 @@ const Checkout: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Coupon Section - Mobile Optimized */}
+                {/* Coupon Section */}
                 <div className="border-t pt-3 md:pt-4 mt-3 md:mt-4">
                   <h3 className="font-medium mb-2 md:mb-3 flex items-center text-sm md:text-base">
                     <Tag className="h-4 w-4 mr-2" />
@@ -559,7 +552,7 @@ const Checkout: React.FC = () => {
                   )}
                 </div>
 
-                {/* Payment Method - Mobile Optimized */}
+                {/* Payment Method */}
                 <div className="border-t pt-3 md:pt-4 mt-3 md:mt-4">
                   <h3 className="font-medium mb-2 md:mb-3 flex items-center text-sm md:text-base">
                     <Wallet className="h-4 w-4 mr-2" />
