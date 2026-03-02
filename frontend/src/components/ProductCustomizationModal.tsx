@@ -62,35 +62,17 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({ p
     });
 
     try {
-      // Try different endpoint paths
-      const endpoints = [
-        '/api/upload/customization',
-        '/upload/customization',
-        '/api/customization/upload'
-      ];
+      // ✅ CORRECT ENDPOINT - matches your backend
+      const endpoint = '/api/customization';
       
-      let response = null;
-      let lastError = null;
+      console.log(`Trying endpoint: ${endpoint}`);
+      const response = await apiFetch(endpoint, {
+        method: 'POST',
+        body: formData,
+        headers: {} // Important: Let browser set content-type for FormData
+      });
       
-      for (const endpoint of endpoints) {
-        try {
-          console.log(`Trying endpoint: ${endpoint}`);
-          response = await apiFetch(endpoint, {
-            method: 'POST',
-            body: formData,
-            headers: {} // Important: Let browser set content-type for FormData
-          });
-          console.log(`Success with endpoint: ${endpoint}`, response);
-          break; // Exit loop if successful
-        } catch (error) {
-          console.log(`Failed with endpoint: ${endpoint}`, error);
-          lastError = error;
-        }
-      }
-      
-      if (!response) {
-        throw lastError || new Error('All endpoints failed');
-      }
+      console.log('Upload successful:', response);
       
       if (!response.image_url && !response.url) {
         console.error('Unexpected response format:', response);
