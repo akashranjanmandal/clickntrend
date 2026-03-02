@@ -3,7 +3,7 @@ import { X, Upload, Camera, Type, Image as ImageIcon, Minus, Plus } from 'lucide
 import { Product, CustomizationData } from '../types';
 import { useCart } from '../context/CartContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { apiFetch } from '../config';
+import { publicFetch } from '../utils/apiFetch'; // Import publicFetch instead of apiFetch
 import toast from 'react-hot-toast';
 
 interface ProductCustomizationModalProps {
@@ -62,14 +62,14 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({ p
     });
 
     try {
-      // ✅ CORRECT ENDPOINT - matches your backend
+      // Use publicFetch instead of apiFetch
       const endpoint = '/api/customization';
       
       console.log(`Trying endpoint: ${endpoint}`);
-      const response = await apiFetch(endpoint, {
+      const response = await publicFetch(endpoint, {  // Changed to publicFetch
         method: 'POST',
         body: formData,
-        headers: {} // Important: Let browser set content-type for FormData
+        headers: {} // Let browser set content-type for FormData
       });
       
       console.log('Upload successful:', response);
@@ -88,6 +88,8 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({ p
         toast.error('Server rejected the upload. Please check file format.');
       } else if (error.message?.includes('413')) {
         toast.error('File too large. Please upload a smaller image.');
+      } else if (error.message?.includes('429')) {
+        toast.error('Too many uploads. Please try again later.');
       } else if (error.message?.includes('500')) {
         toast.error('Server error. Please try again later.');
       } else {
