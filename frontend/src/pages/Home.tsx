@@ -79,7 +79,7 @@ const useBackNavigation = (
   return { showExitToast };
 };
 
-// Animation variants - FIXED: transition goes inside animate/initial
+// Animation variants
 const fadeInUpVariants = {
   initial: { opacity: 0, y: 60 },
   animate: { 
@@ -471,10 +471,10 @@ const getFilteredProducts = () => {
         )}
       </motion.div>
 
-      {/* Search Section */}
+      {/* Search Section - High z-index */}
       <motion.section
         variants={fadeInUpVariants}
-        className="relative -mt-16 sm:-mt-24 z-20 pb-12 sm:pb-20"
+        className="relative -mt-16 sm:-mt-24 z-50 pb-12 sm:pb-20"
       >
         <div className="container mx-auto px-3 sm:px-4">
           <motion.div
@@ -536,14 +536,14 @@ const getFilteredProducts = () => {
                 </motion.button>
               </motion.div>
 
-              {/* Search Results Dropdown */}
+              {/* Search Results Dropdown - Very high z-index */}
               <AnimatePresence>
                 {showSearchResults && (
                   <motion.div
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
-                    className="absolute top-full left-0 right-0 mt-2 bg-white/80 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-xl border border-white/20 max-h-80 sm:max-h-96 overflow-y-auto z-50"
+                    className="absolute top-full left-0 right-0 mt-2 bg-white/80 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-xl border border-white/20 max-h-80 sm:max-h-96 overflow-y-auto z-[100]"
                   >
                     {searchLoading ? (
                       <div className="p-6 sm:p-8 text-center">
@@ -604,10 +604,10 @@ const getFilteredProducts = () => {
         </div>
       </motion.section>
 
-      {/* Navigation */}
+      {/* Navigation - Medium z-index */}
       <motion.section
         variants={fadeInUpVariants}
-        className="py-4 sm:py-8 bg-white/50 backdrop-blur-sm sticky top-0 z-30 border-b border-gray-200"
+        className="py-4 sm:py-8 bg-white/50 backdrop-blur-sm sticky top-0 z-40 border-b border-gray-200"
       >
         <div className="container mx-auto px-3 sm:px-4">
           <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm flex-wrap">
@@ -699,7 +699,8 @@ const getFilteredProducts = () => {
                     name={category.name}
                     icon={category.icon || '🎁'}
                     icon_type={category.icon_type || 'lucide'}
-                    color={category.color || 'from-premium-gold/20 to-premium-cream'}                    hover_effect={category.hover_effect}
+                    color={category.color || 'from-premium-gold/20 to-premium-cream'}
+                    hover_effect={category.hover_effect}
                     count={products.filter(p => p.category === category.name).length}
                     onClick={() => handleCategorySelect(category)}
                   />
@@ -827,20 +828,20 @@ const getFilteredProducts = () => {
                   className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4"
                 >
                   {filteredProducts.map((product, index) => (
-  <motion.div
-    key={product.id}
-    variants={scaleInVariants}
-    custom={index}
-    whileHover={{ y: -5 }}
-    onClick={() => {
-      console.log('Product clicked:', product);
-      handleProductClick(product);
-    }}
-    className="cursor-pointer"
-  >
-    <ProductCard product={product} />
-  </motion.div>
-))}
+                    <motion.div
+                      key={product.id}
+                      variants={scaleInVariants}
+                      custom={index}
+                      whileHover={{ y: -5 }}
+                      onClick={() => {
+                        console.log('Product clicked:', product);
+                        handleProductClick(product);
+                      }}
+                      className="cursor-pointer"
+                    >
+                      <ProductCard product={product} />
+                    </motion.div>
+                  ))}
                 </motion.div>
               ) : (
                 <motion.div 

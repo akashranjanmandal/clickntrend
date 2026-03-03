@@ -234,7 +234,7 @@ const Layout: React.FC = () => {
               </p>
               <div className="flex gap-3">
                 <a 
-                  href="#" 
+                  href="https://www.facebook.com/profile.php?id=61588448025395" 
                   className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center hover:bg-premium-gold transition-colors"
                   target="_blank"
                   rel="noopener noreferrer"
@@ -243,7 +243,7 @@ const Layout: React.FC = () => {
                   <Facebook className="h-5 w-5" />
                 </a>
                 <a 
-                  href="#" 
+                  href="https://www.instagram.com/gftd_gifts/" 
                   className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center hover:bg-premium-gold transition-colors"
                   target="_blank"
                   rel="noopener noreferrer"
@@ -252,7 +252,7 @@ const Layout: React.FC = () => {
                   <Instagram className="h-5 w-5" />
                 </a>
                 <a 
-                  href="#" 
+                  href="https://x.com/gftd_gifting" 
                   className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center hover:bg-premium-gold transition-colors"
                   target="_blank"
                   rel="noopener noreferrer"
@@ -261,7 +261,7 @@ const Layout: React.FC = () => {
                   <XIcon className="h-5 w-5" />
                 </a>
                 <a 
-                  href="#" 
+                  href="https://www.youtube.com/@gftd_gifting" 
                   className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center hover:bg-premium-gold transition-colors"
                   target="_blank"
                   rel="noopener noreferrer"
