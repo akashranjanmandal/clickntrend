@@ -80,7 +80,15 @@ console.log('✅ /api/popups');
 
 app.use('/api/social-proof', socialProofRoutes);
 console.log('✅ /api/social-proof');
+// Add this line - mount combo routes under admin as well
+app.use('/api/admin/combos', comboRoutes);
+console.log('✅ /api/admin/combos');
 
+app.use('/api/admin/hero', adminHeroRoutes);
+console.log('✅ /api/admin/hero');
+
+app.use('/api/admin/popups', adminPopupRoutes);
+console.log('✅ /api/admin/popups');
 /* ===================== ADMIN APIs ===================== */
 app.use('/api/admin', adminRoutes);
 console.log('✅ /api/admin');

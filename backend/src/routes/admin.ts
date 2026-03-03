@@ -181,7 +181,87 @@ router.delete('/products/:id', requireAuth, async (req: Request, res: Response) 
     res.status(500).json({ error: error.message });
   }
 });
+// ========== PRODUCT CATEGORIES ROUTES ==========
 
+// Delete all categories from a product
+router.delete('/products/:id/categories', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    const { error } = await supabase
+      .from('product_categories')
+      .delete()
+      .eq('product_id', id);
+
+    if (error) {
+      console.error('Error deleting product categories:', error);
+      throw error;
+    }
+
+    res.json({ success: true, message: 'All categories removed from product' });
+  } catch (error: any) {
+    console.error('Error deleting product categories:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Add categories to a product
+router.post('/products/:id/categories', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { categories } = req.body;
+
+    if (!categories || !Array.isArray(categories) || categories.length === 0) {
+      return res.status(400).json({ error: 'No categories provided' });
+    }
+
+    const productCategories = categories.map((c: any) => ({
+      product_id: id,
+      category_id: c.category_id
+    }));
+
+    const { data, error } = await supabase
+      .from('product_categories')
+      .insert(productCategories)
+      .select(`
+        *,
+        category:categories (*)
+      `);
+
+    if (error) {
+      console.error('Error adding categories to product:', error);
+      throw error;
+    }
+
+    res.json({ success: true, categories: data });
+  } catch (error: any) {
+    console.error('Error adding categories to product:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get categories for a specific product
+router.get('/products/:id/categories', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    const { data, error } = await supabase
+      .from('product_categories')
+      .select(`
+        category_id,
+        category:categories (*)
+      `)
+      .eq('product_id', id);
+
+    if (error) throw error;
+    
+    const categories = data.map((item: any) => item.category);
+    res.json(categories);
+  } catch (error: any) {
+    console.error('Error fetching product categories:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
 // ========== CATEGORIES ========== //
 
 // Get all categories for admin
