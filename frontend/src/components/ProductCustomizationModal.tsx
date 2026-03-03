@@ -252,6 +252,13 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
     e.stopPropagation();
   };
 
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    // Only close if clicking directly on the backdrop
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4">
@@ -259,7 +266,7 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          onClick={onClose}
+          onClick={handleBackdropClick}
           className="absolute inset-0 bg-black/70"
         />
 
@@ -273,7 +280,11 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
         >
           <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex justify-between items-center z-10">
             <h2 className="text-lg sm:text-xl font-serif font-bold">Customize Your Gift</h2>
-            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full">
+            <button onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onClose();
+            }} className="p-2 hover:bg-gray-100 rounded-full">
               <X className="h-5 w-5" />
             </button>
           </div>
@@ -408,6 +419,7 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
                                 updateTextLine(idx, e.target.value);
                               }}
                               onClick={(e) => e.stopPropagation()}
+                              onMouseDown={(e) => e.stopPropagation()}
                               onKeyDown={(e) => e.stopPropagation()}
                               maxLength={maxChars}
                               placeholder={`Enter text (max ${maxChars} chars)`}
@@ -479,6 +491,7 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
                                   className="p-1.5 hover:bg-gray-100 rounded"
                                   title="Download"
                                   onClick={(e) => e.stopPropagation()}
+                                  onMouseDown={(e) => e.stopPropagation()}
                                 >
                                   <Download className="h-4 w-4 text-blue-600" />
                                 </a>
@@ -489,6 +502,7 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
                                   className="p-1.5 hover:bg-gray-100 rounded"
                                   title="View"
                                   onClick={(e) => e.stopPropagation()}
+                                  onMouseDown={(e) => e.stopPropagation()}
                                 >
                                   <Eye className="h-4 w-4 text-gray-600" />
                                 </a>
@@ -500,6 +514,7 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
                                 e.stopPropagation();
                                 removeImage(idx);
                               }}
+                              onMouseDown={(e) => e.stopPropagation()}
                               disabled={img.uploading}
                               className="p-1.5 hover:bg-red-100 text-red-500 rounded disabled:opacity-50"
                               title="Remove"
@@ -517,6 +532,7 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
                             accept="image/jpeg,image/png,image/webp,image/jpg"
                             onChange={handleImageUpload}
                             onClick={(e) => e.stopPropagation()}
+                            onMouseDown={(e) => e.stopPropagation()}
                             multiple
                             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                           />
@@ -567,6 +583,7 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
                           e.stopPropagation();
                           setQuantity(Math.max(1, quantity - 1));
                         }}
+                        onMouseDown={(e) => e.stopPropagation()}
                         className="px-3 py-1.5 hover:bg-gray-100 text-sm"
                       >
                         <Minus className="h-3 w-3" />
@@ -580,6 +597,7 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
                           e.stopPropagation();
                           setQuantity(quantity + 1);
                         }}
+                        onMouseDown={(e) => e.stopPropagation()}
                         className="px-3 py-1.5 hover:bg-gray-100 text-sm"
                       >
                         <Plus className="h-3 w-3" />
@@ -591,6 +609,7 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
                 {/* Action Button */}
                 <button
                   onClick={handleSubmit}
+                  onMouseDown={(e) => e.stopPropagation()}
                   disabled={uploading}
                   className="w-full py-4 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
