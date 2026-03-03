@@ -85,7 +85,7 @@ const HeroManager: React.FC = () => {
         setUploadProgress(prev => Math.min(prev + 10, 90));
       }, 200);
 
-      const response = await fetch('/api/hero/upload', {
+      const response = await fetch('https://clickntrend.onrender.com/api/hero/upload', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
