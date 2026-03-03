@@ -265,152 +265,194 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
   );
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (selectedProducts.length === 0) {
-      toast.error('Please add at least one product to the combo');
-      return;
+  e.preventDefault();
+  
+  // Validation
+  if (selectedProducts.length === 0) {
+    toast.error('Please add at least one product to the combo');
+    return;
+  }
+
+  if (selectedCategories.length === 0) {
+    toast.error('Please select at least one category for this combo');
+    return;
+  }
+
+  setLoading(true);
+  
+  try {
+    const token = localStorage.getItem('admin_token');
+    const baseUrl = import.meta.env.VITE_API_URL || '';
+    
+    // Upload image if selected
+    let imageUrl = comboData.image_url;
+    if (imageFile) {
+      const uploadedUrl = await uploadImage();
+      if (uploadedUrl) {
+        imageUrl = uploadedUrl;
+      } else {
+        throw new Error('Failed to upload image');
+      }
     }
 
-    if (selectedCategories.length === 0) {
-      toast.error('Please select at least one category for this combo');
-      return;
-    }
+    // Prepare combo payload (NO category field here - categories are handled separately)
+    const comboPayload = {
+      name: comboData.name.trim(),
+      description: comboData.description.trim(),
+      discount_percentage: comboData.discount_percentage ? parseInt(comboData.discount_percentage) : null,
+      discount_price: comboData.discount_price ? parseFloat(comboData.discount_price) : null,
+      image_url: imageUrl || '',
+      is_active: comboData.is_active
+    };
 
-    setLoading(true);
-    try {
-      const token = localStorage.getItem('admin_token');
-      const baseUrl = import.meta.env.VITE_API_URL || '';
-      
-      // Upload image if selected
-      let imageUrl = comboData.image_url;
-      if (imageFile) {
-        const uploadedUrl = await uploadImage();
-        if (uploadedUrl) {
-          imageUrl = uploadedUrl;
-        }
+    console.log('Saving combo:', comboPayload);
+
+    let comboId: string;
+
+    if (combo) {
+      // ========== UPDATE EXISTING COMBO ==========
+      const updateResponse = await fetch(`${baseUrl}/api/admin/combos/${combo.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(comboPayload),
+      });
+
+      if (!updateResponse.ok) {
+        const errorData = await updateResponse.json().catch(() => ({ message: 'Failed to update combo' }));
+        throw new Error(errorData.message || errorData.error || 'Failed to update combo');
       }
 
-      // Create combo payload (without category field - we'll use junction table)
-      const comboPayload = {
-        name: comboData.name,
-        description: comboData.description,
-        discount_percentage: comboData.discount_percentage ? parseInt(comboData.discount_percentage) : null,
-        discount_price: comboData.discount_price ? parseFloat(comboData.discount_price) : null,
-        image_url: imageUrl || '',
-        is_active: comboData.is_active
+      const updateResult = await updateResponse.json();
+      comboId = combo.id;
+      
+      console.log('Combo updated successfully:', comboId);
+
+      // Delete existing products
+      const deleteProductsResponse = await fetch(`${baseUrl}/api/admin/combos/${comboId}/products`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      if (!deleteProductsResponse.ok) {
+        console.warn('Failed to delete existing products, but continuing...');
+      }
+
+      // Delete existing categories
+      const deleteCategoriesResponse = await fetch(`${baseUrl}/api/admin/combos/${comboId}/categories`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      if (!deleteCategoriesResponse.ok) {
+        console.warn('Failed to delete existing categories, but continuing...');
+      }
+      
+    } else {
+      // ========== CREATE NEW COMBO ==========
+      const createResponse = await fetch(`${baseUrl}/api/admin/combos`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(comboPayload),
+      });
+
+      if (!createResponse.ok) {
+        const errorData = await createResponse.json().catch(() => ({ message: 'Failed to create combo' }));
+        throw new Error(errorData.message || errorData.error || 'Failed to create combo');
+      }
+
+      const result = await createResponse.json();
+      comboId = result.combo?.id || result.id;
+      
+      console.log('Combo created successfully:', comboId);
+    }
+
+    // ========== ADD PRODUCTS TO COMBO ==========
+    if (selectedProducts.length > 0) {
+      const productsPayload = {
+        products: selectedProducts.map(p => ({
+          product_id: p.id,
+          quantity: p.quantity
+        }))
       };
 
-      console.log('Saving combo:', comboPayload);
+      console.log('Adding products to combo:', productsPayload);
 
-      let comboId;
-      
-      if (combo) {
-        // UPDATE existing combo
-        const updateResponse = await fetch(`${baseUrl}/api/admin/combos/${combo.id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          body: JSON.stringify(comboPayload),
-        });
+      const productsResponse = await fetch(`${baseUrl}/api/admin/combos/${comboId}/products`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(productsPayload),
+      });
 
-        if (!updateResponse.ok) {
-          const error = await updateResponse.json();
-          throw new Error(error.message || 'Failed to update combo');
-        }
-        
-        comboId = combo.id;
-        
-        // Delete existing products
-        await fetch(`${baseUrl}/api/admin/combos/${comboId}/products`, {
-          method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
-
-        // Delete existing categories
-        await fetch(`${baseUrl}/api/admin/combos/${comboId}/categories`, {
-          method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
-        
-      } else {
-        // CREATE new combo
-        const createResponse = await fetch(`${baseUrl}/api/admin/combos`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          body: JSON.stringify(comboPayload),
-        });
-
-        if (!createResponse.ok) {
-          const error = await createResponse.json();
-          throw new Error(error.message || 'Failed to create combo');
-        }
-
-        const result = await createResponse.json();
-        comboId = result.combo?.id || result.id;
+      if (!productsResponse.ok) {
+        const errorData = await productsResponse.json().catch(() => ({ message: 'Failed to add products' }));
+        throw new Error(errorData.message || errorData.error || 'Failed to add products');
       }
 
-      // Add products to combo
-      if (selectedProducts.length > 0) {
-        const productsPayload = {
-          products: selectedProducts.map(p => ({
-            product_id: p.id,
-            quantity: p.quantity
-          }))
-        };
-
-        const productsResponse = await fetch(`${baseUrl}/api/admin/combos/${comboId}/products`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          body: JSON.stringify(productsPayload),
-        });
-
-        if (!productsResponse.ok) {
-          const error = await productsResponse.json();
-          throw new Error(error.message || 'Failed to add products');
-        }
-      }
-
-      // Add categories to combo
-      if (selectedCategories.length > 0) {
-        const categoriesPayload = {
-          categories: selectedCategories.map(categoryId => ({
-            category_id: categoryId
-          }))
-        };
-
-        const categoriesResponse = await fetch(`${baseUrl}/api/admin/combos/${comboId}/categories`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          body: JSON.stringify(categoriesPayload),
-        });
-
-        if (!categoriesResponse.ok) {
-          const error = await categoriesResponse.json();
-          throw new Error(error.message || 'Failed to add categories');
-        }
-      }
-
-      toast.success(combo ? 'Combo updated successfully!' : 'Combo created successfully!');
-      onSuccess();
-      onClose();
-    } catch (error: any) {
-      console.error('Save combo error:', error);
-      toast.error(`Error: ${error.message}`);
-    } finally {
-      setLoading(false);
+      const productsResult = await productsResponse.json();
+      console.log(`Added ${productsResult.products?.length || 0} products to combo`);
     }
-  };
+
+    // ========== ADD CATEGORIES TO COMBO ==========
+    if (selectedCategories.length > 0) {
+      const categoriesPayload = {
+        categories: selectedCategories.map(categoryId => ({
+          category_id: categoryId
+        }))
+      };
+
+      console.log('Adding categories to combo:', categoriesPayload);
+
+      const categoriesResponse = await fetch(`${baseUrl}/api/admin/combos/${comboId}/categories`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(categoriesPayload),
+      });
+
+      if (!categoriesResponse.ok) {
+        const errorData = await categoriesResponse.json().catch(() => ({ message: 'Failed to add categories' }));
+        throw new Error(errorData.message || errorData.error || 'Failed to add categories');
+      }
+
+      const categoriesResult = await categoriesResponse.json();
+      console.log(`Added ${categoriesResult.categories?.length || 0} categories to combo`);
+    }
+
+    // ========== SUCCESS ==========
+    toast.success(combo ? 'Combo updated successfully!' : 'Combo created successfully!');
+    onSuccess();
+    onClose();
+
+  } catch (error: any) {
+    console.error('Save combo error:', error);
+    
+    // Handle specific error cases
+    if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+      toast.error('Network error. Please check your connection.');
+    } else if (error.message.includes('401')) {
+      toast.error('Unauthorized. Please login again.');
+      // Optionally redirect to login
+      // window.location.href = '/admin/login';
+    } else if (error.message.includes('404')) {
+      toast.error('API endpoint not found. Please check server configuration.');
+    } else {
+      toast.error(`Error: ${error.message}`);
+    }
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">

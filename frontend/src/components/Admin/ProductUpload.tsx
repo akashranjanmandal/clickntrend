@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Camera, Upload, Users, RefreshCw, Image as ImageIcon, FileText } from 'lucide-react';
+import { X, Plus, Camera, Upload, Users, RefreshCw, Image as ImageIcon, FileText, ChevronDown } from 'lucide-react';
+import { Category } from '../../types';
 import { apiFetch } from '../../config';
 import MultiImageUpload from './MultiImageUpload';
+import toast from 'react-hot-toast';
 
 interface ProductUploadProps {
   onClose: () => void;
@@ -10,14 +12,15 @@ interface ProductUploadProps {
 
 const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => {
   const [loading, setLoading] = useState(false);
-  const [categories, setCategories] = useState<string[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [productImages, setProductImages] = useState<{ url: string; is_primary: boolean }[]>([]);
   const [previewCount, setPreviewCount] = useState(5);
 
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    category: '',
     subcategory: '',
     gender: 'unisex',
     price: '',
@@ -88,7 +91,7 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
       const data = await apiFetch('/api/admin/categories', {
         headers: { 'Authorization': `Bearer ${token}` },
       });
-      setCategories(data.map((c: any) => c.name));
+      setCategories(data || []);
     } catch (error) {
       console.error('Error fetching categories:', error);
     }
@@ -96,6 +99,16 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
 
   const handleImagesUploaded = (images: { url: string; is_primary: boolean }[]) => {
     setProductImages(images);
+  };
+
+  const toggleCategory = (categoryId: string) => {
+    setSelectedCategories(prev => {
+      if (prev.includes(categoryId)) {
+        return prev.filter(id => id !== categoryId);
+      } else {
+        return [...prev, categoryId];
+      }
+    });
   };
 
   // Calculate savings
@@ -106,8 +119,14 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Validation
     if (productImages.length === 0) {
-      alert('Please upload at least one product image');
+      toast.error('Please upload at least one product image');
+      return;
+    }
+
+    if (selectedCategories.length === 0) {
+      toast.error('Please select at least one category');
       return;
     }
 
@@ -115,16 +134,15 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
 
     try {
       const token = localStorage.getItem('admin_token');
+      const baseUrl = import.meta.env.VITE_API_URL || '';
       
       // Get primary image URL
       const primaryImage = productImages.find(img => img.is_primary) || productImages[0];
       
-      // Prepare data for insert
+      // Prepare product data (NO category field - categories handled separately)
       const productData: any = {
-        name: formData.name,
-        description: formData.description,
-        category: formData.category,
-        subcategory: formData.subcategory || null,
+        name: formData.name.trim(),
+        description: formData.description.trim(),
         gender: formData.gender,
         price: parseFloat(formData.price),
         stock_quantity: parseInt(formData.stock_quantity),
@@ -137,13 +155,17 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
         social_proof_end_count: parseInt(formData.social_proof_end_count),
       };
 
-      // Only add optional fields if they have values
+      // Add optional fields
       if (formData.original_price) {
         productData.original_price = parseFloat(formData.original_price);
       }
       
       if (formData.discount_percentage) {
         productData.discount_percentage = parseInt(formData.discount_percentage);
+      }
+      
+      if (formData.subcategory) {
+        productData.subcategory = formData.subcategory;
       }
       
       // Add customization fields
@@ -156,7 +178,7 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
         productData.max_customization_lines = parseInt(formData.max_customization_lines);
       }
       
-      // Add additional_images as an array
+      // Add additional images
       const additionalImageUrls = productImages
         .filter(img => !img.is_primary)
         .map(img => img.url);
@@ -165,7 +187,9 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
         productData.additional_images = additionalImageUrls;
       }
 
-      const baseUrl = import.meta.env.VITE_API_URL || '';
+      console.log('Creating product:', productData);
+
+      // CREATE PRODUCT
       const response = await fetch(`${baseUrl}/api/admin/products`, {
         method: 'POST',
         headers: {
@@ -180,12 +204,37 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
         throw new Error(errorData.message || errorData.error || 'Failed to create product');
       }
 
-      alert('Product added successfully!');
+      const result = await response.json();
+      const productId = result.product?.id || result.id;
+
+      // Add categories
+      if (selectedCategories.length > 0) {
+        const categoriesPayload = {
+          categories: selectedCategories.map(id => ({ category_id: id }))
+        };
+
+        const categoriesResponse = await fetch(`${baseUrl}/api/admin/products/${productId}/categories`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify(categoriesPayload),
+        });
+
+        if (!categoriesResponse.ok) {
+          const errorData = await categoriesResponse.json().catch(() => ({ message: 'Failed to add categories' }));
+          throw new Error(errorData.message || errorData.error || 'Failed to add categories');
+        }
+      }
+
+      toast.success('Product added successfully!');
       onSuccess();
       onClose();
+
     } catch (error: any) {
       console.error('Create error:', error);
-      alert(`Error: ${error.message}`);
+      toast.error(`Error: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -225,19 +274,68 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
                 />
               </div>
 
+              {/* Multiple Categories Selection */}
               <div>
-                <label className="block text-sm font-medium mb-2">Category *</label>
-                <select
-                  value={formData.category}
-                  onChange={(e) => setFormData({...formData, category: e.target.value})}
-                  className="w-full px-4 py-3 border rounded-lg focus:border-premium-gold focus:outline-none"
-                  required
-                >
-                  <option value="">Select Category</option>
-                  {categories.map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
+                <label className="block text-sm font-medium mb-2">Categories *</label>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
+                    className="w-full px-4 py-3 border rounded-lg focus:border-premium-gold focus:outline-none text-left flex items-center justify-between bg-white"
+                  >
+                    <span className="truncate">
+                      {selectedCategories.length === 0 
+                        ? 'Select categories' 
+                        : `${selectedCategories.length} category${selectedCategories.length > 1 ? 's' : ''} selected`}
+                    </span>
+                    <ChevronDown className={`h-5 w-5 transition-transform ${showCategoryDropdown ? 'rotate-180' : ''}`} />
+                  </button>
+                  
+                  {showCategoryDropdown && (
+                    <div className="absolute z-10 mt-1 w-full bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      {categories.map(category => (
+                        <label
+                          key={category.id}
+                          className="flex items-center px-4 py-2 hover:bg-gray-50 cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedCategories.includes(category.id)}
+                            onChange={() => toggleCategory(category.id)}
+                            className="h-4 w-4 text-premium-gold rounded border-gray-300 focus:ring-premium-gold"
+                          />
+                          <span className="ml-3 flex-1">{category.name}</span>
+                          {category.icon && (
+                            <span className="text-xl">{category.icon}</span>
+                          )}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {selectedCategories.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    {selectedCategories.map(catId => {
+                      const category = categories.find(c => c.id === catId);
+                      return category ? (
+                        <span
+                          key={catId}
+                          className="inline-flex items-center px-3 py-1 bg-premium-cream text-premium-burgundy rounded-full text-sm"
+                        >
+                          {category.icon && <span className="mr-1">{category.icon}</span>}
+                          {category.name}
+                          <button
+                            type="button"
+                            onClick={() => toggleCategory(catId)}
+                            className="ml-2 hover:text-premium-gold"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      ) : null;
+                    })}
+                  </div>
+                )}
               </div>
 
               <div>

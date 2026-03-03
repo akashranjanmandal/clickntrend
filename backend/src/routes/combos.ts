@@ -272,7 +272,7 @@ router.get('/admin/:id', requireAuth, async (req, res) => {
   }
 });
 
-// Create combo (admin)
+// Create combo (admin) - WITHOUT category field
 router.post('/', requireAuth, async (req, res) => {
   try {
     const { name, description, discount_percentage, discount_price, image_url, is_active } = req.body;
@@ -310,7 +310,7 @@ router.post('/', requireAuth, async (req, res) => {
   }
 });
 
-// Update combo (admin)
+// Update combo (admin) - WITHOUT category field
 router.put('/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
@@ -349,7 +349,7 @@ router.delete('/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
     
-    // First delete related records (cascade should handle this, but being explicit)
+    // First delete related records
     await supabase.from('combo_products').delete().eq('combo_id', id);
     await supabase.from('combo_categories').delete().eq('combo_id', id);
     
@@ -607,12 +607,19 @@ router.get('/available-products', requireAuth, async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('products')
-      .select('*')
+      .select('*, product_categories(category:categories(*))')
       .eq('is_active', true)
       .order('name');
 
     if (error) throw error;
-    res.json(data);
+    
+    // Transform to include categories
+    const transformedData = data.map(product => ({
+      ...product,
+      categories: product.product_categories?.map((pc: any) => pc.category) || []
+    }));
+    
+    res.json(transformedData);
   } catch (error: any) {
     console.error('Error fetching available products:', error);
     res.status(500).json({ error: error.message });
@@ -668,7 +675,7 @@ router.post('/:id/duplicate', requireAuth, async (req, res) => {
         discount_percentage: originalCombo.discount_percentage,
         discount_price: originalCombo.discount_price,
         image_url: originalCombo.image_url,
-        is_active: false, // Make copies inactive by default
+        is_active: false,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
