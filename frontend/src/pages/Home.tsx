@@ -679,10 +679,9 @@ const Home: React.FC = () => {
                 >
                   <CategoryCard
                     name={category.name}
-                    icon={category.icon}
+                    icon={category.icon || '🎁'}
                     icon_type={category.icon_type || 'lucide'}
-                    color={category.color}
-                    hover_effect={category.hover_effect}
+                    color={category.color || 'from-premium-gold/20 to-premium-cream'}                    hover_effect={category.hover_effect}
                     count={products.filter(p => p.category === category.name).length}
                     onClick={() => handleCategorySelect(category)}
                   />

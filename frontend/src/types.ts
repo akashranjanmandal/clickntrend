@@ -123,11 +123,18 @@ export interface CartItem {
   description?: string;
 }
 
-// Extended interface for combo items
 export interface ComboCartItem extends CartItem {
   combo_id: string;
-  combo_name?: string;
-  is_combo_item?: boolean;
+  combo_name: string;
+  is_combo_item: boolean;
+  combo_products: Array<{
+    id: string;
+    name: string;
+    quantity: number;
+    price: number;
+    image_url: string;
+    customization?: CustomizationData;
+  }>;
 }
 
 
