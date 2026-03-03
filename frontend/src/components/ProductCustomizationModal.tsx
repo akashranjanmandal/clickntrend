@@ -18,7 +18,13 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
   onCustomizeComplete 
 }) => {
   const { addItem } = useCart();
-  const [textLines, setTextLines] = useState<string[]>(['']);
+  
+  // Initialize with empty arrays based on admin settings
+  const [textLines, setTextLines] = useState<string[]>(() => {
+    // Create array with empty strings for each allowed line
+    return Array(product.max_customization_lines || 1).fill('');
+  });
+  
   const [customImages, setCustomImages] = useState<{ file: File | null; preview: string | null; url?: string; uploading?: boolean }[]>([]);
   const [uploading, setUploading] = useState(false);
   const [quantity, setQuantity] = useState(1);
@@ -68,23 +74,6 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
   const removeImage = (index: number) => {
     const updated = customImages.filter((_, i) => i !== index);
     setCustomImages(updated);
-  };
-
-  const addTextLine = () => {
-    if (textLines.length < maxLines) {
-      setTextLines([...textLines, '']);
-    } else {
-      toast.error(`Maximum ${maxLines} text lines allowed`);
-    }
-  };
-
-  const removeTextLine = (index: number) => {
-    if (textLines.length > 1) {
-      const updated = textLines.filter((_, i) => i !== index);
-      setTextLines(updated);
-    } else {
-      setTextLines(['']);
-    }
   };
 
   const updateTextLine = (index: number, value: string) => {
@@ -178,6 +167,7 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
       e.stopPropagation();
     }
     
+    // Filter out empty text lines but keep the structure
     const nonEmptyTextLines = textLines.filter(line => line.trim() !== '');
     
     let imageUrls: string[] = [];
@@ -333,172 +323,151 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
 
               {/* Right side - Customization options */}
               <div className="lg:w-1/2 space-y-6" onClick={handleModalClick}>
-                {/* Custom Text Lines */}
-                <div className="bg-gray-50 p-4 rounded-lg" onClick={handleModalClick}>
-                  <div className="flex items-center justify-between mb-3">
-                    <label className="block text-sm font-medium flex items-center gap-1.5">
-                      <FileText className="h-4 w-4 text-premium-gold" />
-                      <span>Add Custom Text <span className="text-gray-500">({textLines.length}/{maxLines})</span></span>
-                    </label>
-                    {textLines.length < maxLines && (
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          addTextLine();
-                        }}
-                        className="text-xs bg-premium-gold text-white px-3 py-1 rounded-full hover:bg-premium-burgundy flex items-center gap-1"
-                      >
-                        <Plus className="h-3 w-3" />
-                        Add Line
-                      </button>
-                    )}
-                  </div>
-                  
-                  <div className="space-y-3 max-h-60 overflow-y-auto pr-1" onClick={handleModalClick}>
-                    {textLines.map((line, idx) => (
-                      <div key={idx} className="flex items-start gap-2" onClick={handleModalClick}>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-xs font-medium text-gray-500">Line {idx + 1}</span>
-                            <span className="text-xs text-gray-400">{line.length}/{maxChars}</span>
+                {/* Custom Text Lines - Dynamic based on admin settings */}
+                {maxLines > 0 && (
+                  <div className="bg-gray-50 p-4 rounded-lg" onClick={handleModalClick}>
+                    <div className="flex items-center justify-between mb-3">
+                      <label className="block text-sm font-medium flex items-center gap-1.5">
+                        <FileText className="h-4 w-4 text-premium-gold" />
+                        <span>Add Custom Text <span className="text-gray-500">({maxLines} line{maxLines > 1 ? 's' : ''} available)</span></span>
+                      </label>
+                    </div>
+                    
+                    <div className="space-y-3 max-h-60 overflow-y-auto pr-1" onClick={handleModalClick}>
+                      {textLines.map((line, idx) => (
+                        <div key={idx} className="flex items-start gap-2" onClick={handleModalClick}>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-xs font-medium text-gray-500">Line {idx + 1}</span>
+                              <span className="text-xs text-gray-400">{line.length}/{maxChars}</span>
+                            </div>
+                            <input
+                              type="text"
+                              value={line}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                updateTextLine(idx, e.target.value);
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => e.stopPropagation()}
+                              maxLength={maxChars}
+                              placeholder={`Enter text (max ${maxChars} chars)`}
+                              className="w-full px-3 py-2 text-sm border rounded-lg focus:border-premium-gold focus:outline-none"
+                            />
                           </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Custom Images - Dynamic based on admin settings */}
+                {maxImages > 0 && (
+                  <div className="bg-gray-50 p-4 rounded-lg" onClick={handleModalClick}>
+                    <div className="flex items-center justify-between mb-3">
+                      <label className="block text-sm font-medium flex items-center gap-1.5">
+                        <ImageIcon className="h-4 w-4 text-premium-gold" />
+                        <span>Add Custom Images <span className="text-gray-500">({customImages.length}/{maxImages} uploaded)</span></span>
+                      </label>
+                    </div>
+
+                    <div className="space-y-3 max-h-80 overflow-y-auto pr-1" onClick={handleModalClick}>
+                      {customImages.map((img, idx) => (
+                        <div key={idx} className="flex items-center gap-3 p-3 bg-white rounded-lg border" onClick={handleModalClick}>
+                          <div className="w-12 h-12 rounded overflow-hidden flex-shrink-0 border">
+                            <img
+                              src={img.preview || ''}
+                              alt={`Preview ${idx + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{img.file?.name || `Image ${idx + 1}`}</p>
+                            {img.file && (
+                              <p className="text-xs text-gray-500">
+                                {(img.file.size / 1024 / 1024).toFixed(2)} MB
+                              </p>
+                            )}
+                            {img.url && (
+                              <p className="text-xs text-green-600 flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 bg-green-600 rounded-full"></span>
+                                Uploaded
+                              </p>
+                            )}
+                            {img.uploading && (
+                              <p className="text-xs text-blue-600 flex items-center gap-1">
+                                <div className="animate-spin rounded-full h-3 w-3 border border-blue-600 border-t-transparent"></div>
+                                Uploading...
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            {img.url && (
+                              <>
+                                <a
+                                  href={img.url}
+                                  download
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="p-1.5 hover:bg-gray-100 rounded"
+                                  title="Download"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <Download className="h-4 w-4 text-blue-600" />
+                                </a>
+                                <a
+                                  href={img.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="p-1.5 hover:bg-gray-100 rounded"
+                                  title="View"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <Eye className="h-4 w-4 text-gray-600" />
+                                </a>
+                              </>
+                            )}
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                removeImage(idx);
+                              }}
+                              disabled={img.uploading}
+                              className="p-1.5 hover:bg-red-100 text-red-500 rounded disabled:opacity-50"
+                              title="Remove"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+
+                      {customImages.length < maxImages && (
+                        <div className="relative" onClick={handleModalClick}>
                           <input
-                            type="text"
-                            value={line}
-                            onChange={(e) => {
-                              e.stopPropagation();
-                              updateTextLine(idx, e.target.value);
-                            }}
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp,image/jpg"
+                            onChange={handleImageUpload}
                             onClick={(e) => e.stopPropagation()}
-                            onKeyDown={(e) => e.stopPropagation()}
-                            maxLength={maxChars}
-                            placeholder={`Enter text (max ${maxChars} chars)`}
-                            className="w-full px-3 py-2 text-sm border rounded-lg focus:border-premium-gold focus:outline-none"
+                            multiple
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                           />
-                        </div>
-                        {textLines.length > 1 && (
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              removeTextLine(idx);
-                            }}
-                            className="p-2 text-red-500 hover:bg-red-50 rounded-lg mt-6"
-                          >
-                            <Minus className="h-4 w-4" />
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Custom Images */}
-                <div className="bg-gray-50 p-4 rounded-lg" onClick={handleModalClick}>
-                  <div className="flex items-center justify-between mb-3">
-                    <label className="block text-sm font-medium flex items-center gap-1.5">
-                      <ImageIcon className="h-4 w-4 text-premium-gold" />
-                      <span>Add Custom Images <span className="text-gray-500">({customImages.length}/{maxImages})</span></span>
-                    </label>
-                  </div>
-
-                  <div className="space-y-3 max-h-80 overflow-y-auto pr-1" onClick={handleModalClick}>
-                    {customImages.map((img, idx) => (
-                      <div key={idx} className="flex items-center gap-3 p-3 bg-white rounded-lg border" onClick={handleModalClick}>
-                        <div className="w-12 h-12 rounded overflow-hidden flex-shrink-0 border">
-                          <img
-                            src={img.preview || ''}
-                            alt={`Preview ${idx + 1}`}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{img.file?.name || `Image ${idx + 1}`}</p>
-                          {img.file && (
-                            <p className="text-xs text-gray-500">
-                              {(img.file.size / 1024 / 1024).toFixed(2)} MB
+                          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-premium-gold transition-colors">
+                            <Camera className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                            <p className="text-sm text-gray-600">Click or drag to upload images</p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              PNG, JPG up to 10MB each • Max {maxImages} images
                             </p>
-                          )}
-                          {img.url && (
-                            <p className="text-xs text-green-600 flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 bg-green-600 rounded-full"></span>
-                              Uploaded
+                            <p className="text-xs text-premium-gold mt-2">
+                              You can select multiple files at once
                             </p>
-                          )}
-                          {img.uploading && (
-                            <p className="text-xs text-blue-600 flex items-center gap-1">
-                              <div className="animate-spin rounded-full h-3 w-3 border border-blue-600 border-t-transparent"></div>
-                              Uploading...
-                            </p>
-                          )}
+                          </div>
                         </div>
-                        <div className="flex items-center gap-1">
-                          {img.url && (
-                            <>
-                              <a
-                                href={img.url}
-                                download
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="p-1.5 hover:bg-gray-100 rounded"
-                                title="Download"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <Download className="h-4 w-4 text-blue-600" />
-                              </a>
-                              <a
-                                href={img.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="p-1.5 hover:bg-gray-100 rounded"
-                                title="View"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <Eye className="h-4 w-4 text-gray-600" />
-                              </a>
-                            </>
-                          )}
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              removeImage(idx);
-                            }}
-                            disabled={img.uploading}
-                            className="p-1.5 hover:bg-red-100 text-red-500 rounded disabled:opacity-50"
-                            title="Remove"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-
-                    {customImages.length < maxImages && (
-                      <div className="relative" onClick={handleModalClick}>
-                        <input
-                          type="file"
-                          accept="image/jpeg,image/png,image/webp,image/jpg"
-                          onChange={handleImageUpload}
-                          onClick={(e) => e.stopPropagation()}
-                          multiple
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                        />
-                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-premium-gold transition-colors">
-                          <Camera className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                          <p className="text-sm text-gray-600">Click or drag to upload images</p>
-                          <p className="text-xs text-gray-500 mt-1">
-                            PNG, JPG up to 10MB each • Max {maxImages} images
-                          </p>
-                          <p className="text-xs text-premium-gold mt-2">
-                            You can select multiple files at once
-                          </p>
-                        </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Price Breakdown */}
                 <div className="border-t pt-4" onClick={handleModalClick}>

@@ -5,13 +5,25 @@ import {
   Users, X, Plus, Minus, Tag, Gift, Search,
   Percent, ShoppingCart, Image as ImageIcon, Type
 } from 'lucide-react';
-import { Product, Category, Gender, CustomizationData } from '../types';
+import { Product, Category, Gender, CustomizationData, CartItem } from '../types';
 import toast from 'react-hot-toast';
 import { getImageUrl, formatCurrency } from '../utils/helpers';
 import { apiFetch } from '../config';
 import CategoryCard from '../components/CategoryCard';
 import { useCart } from '../context/CartContext';
 import ProductCustomizationModal from '../components/ProductCustomizationModal';
+
+// Extended interface for combo cart item
+interface ComboCartItem extends CartItem {
+  combo_id: string;
+  combo_name: string;
+  is_combo_item: boolean;
+  combo_items?: Array<{
+    productId: string;
+    quantity: number;
+    customization?: CustomizationData;
+  }>;
+}
 
 const CustomCombo: React.FC = () => {
   const { addItem } = useCart();
@@ -134,6 +146,7 @@ const CustomCombo: React.FC = () => {
   };
 
   const handleAddToCombo = (product: Product) => {
+    // Check if product is customizable
     if (product.is_customizable) {
       setPendingProductToAdd(product);
       setShowCustomizationModal(true);
@@ -145,6 +158,7 @@ const CustomCombo: React.FC = () => {
   const addProductToCombo = (product: Product, customization?: CustomizationData) => {
     const totalItems = getTotalItems();
     
+    // Check if adding this product would exceed the 10-item limit
     if (totalItems >= 10) {
       toast.error('Maximum 10 items allowed in a combo');
       return;
@@ -154,6 +168,7 @@ const CustomCombo: React.FC = () => {
       const newMap = new Map(prev);
       const existing = newMap.get(product.id);
       if (existing) {
+        // Check if increasing quantity would exceed limit
         if (totalItems + 1 > 10) {
           toast.error('Maximum 10 items allowed in a combo');
           return prev;
@@ -201,6 +216,7 @@ const CustomCombo: React.FC = () => {
     const currentQuantity = currentItem?.quantity || 0;
     const quantityDiff = quantity - currentQuantity;
     
+    // Check if updating quantity would exceed limit
     if (totalItems + quantityDiff > 10) {
       toast.error('Maximum 10 items allowed in a combo');
       return;
@@ -220,6 +236,7 @@ const CustomCombo: React.FC = () => {
     const item = selectedProducts.get(productId);
     if (item && item.product.is_customizable) {
       setPendingProductToAdd(item.product);
+      // Remove the item first, then open customization modal
       removeFromCombo(productId);
       setShowCustomizationModal(true);
     }
@@ -271,37 +288,52 @@ const CustomCombo: React.FC = () => {
     }
 
     try {
+      // Create a unique combo ID
       const comboId = `combo-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
       const defaultComboName = `Custom Combo (${new Date().toLocaleDateString()})`;
       const finalComboName = comboName.trim() || defaultComboName;
       
-      selectedProducts.forEach((item, productId) => {
-        const itemPrice = item.product.price + (item.product.customization_price || 0);
-        
-        for (let i = 0; i < item.quantity; i++) {
-          addItem({
-            id: `${comboId}-${productId}-${i}-${Date.now()}`,
-            name: item.product.name,
-            price: itemPrice,
-            quantity: 1,
-            image_url: item.product.image_url,
-            type: 'product',
-            category: item.product.category,
-            customization: item.customization,
-            combo_id: comboId,
-            combo_name: finalComboName,
-            is_combo_item: true
-          });
-        }
-      });
+      // Create a single combo item that contains all products
+      const comboItems = Array.from(selectedProducts.values()).map(item => ({
+        productId: item.product.id,
+        quantity: item.quantity,
+        customization: item.customization,
+        name: item.product.name,
+        price: item.product.price + (item.product.customization_price || 0),
+        image_url: item.product.image_url
+      }));
+
+      // Create a single cart item for the entire combo
+      const comboCartItem: ComboCartItem = {
+        id: comboId,
+        name: finalComboName,
+        price: calculateTotal(),
+        quantity: 1,
+        image_url: products[0]?.image_url || '', // Use first product image as combo image
+        type: 'combo',
+        combo_id: comboId,
+        combo_name: finalComboName,
+        is_combo_item: true,
+        combo_items: comboItems.map(item => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          customization: item.customization
+        })),
+        description: `Custom combo with ${selectedProducts.size} product${selectedProducts.size > 1 ? 's' : ''}`
+      };
+
+      // Add the single combo item to cart
+      addItem(comboCartItem);
 
       toast.success(
         <div>
           <strong>Combo added to cart!</strong>
           <p className="text-sm mt-1">{finalComboName}</p>
+          <p className="text-xs mt-1">{selectedProducts.size} items • {formatCurrency(calculateTotal())}</p>
         </div>
       );
       
+      // Clear the combo
       setSelectedProducts(new Map());
       setComboName('');
       setSpecialRequests('');
