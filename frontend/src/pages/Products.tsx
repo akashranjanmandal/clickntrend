@@ -78,7 +78,7 @@ const Products: React.FC = () => {
 
     if (selectedCategories.length > 0) {
       filtered = filtered.filter(product =>
-        selectedCategories.includes(product.category)
+        selectedCategories.includes(product.category || '') // Fixed: Added fallback for undefined category
       );
     }
 
@@ -102,7 +102,9 @@ const Products: React.FC = () => {
         filtered.sort((a, b) => b.price - a.price);
         break;
       case 'newest':
-        filtered.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        filtered.sort((a, b) => 
+          new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime() // Fixed: Added fallback for undefined created_at
+        );
         break;
       default:
         break;
@@ -120,11 +122,21 @@ const Products: React.FC = () => {
   };
 
   const clearFilters = () => {
-    setPriceRange([0, Math.max(...products.map(p => p.price), 50000)]);
+    const maxPrice = products.length > 0 
+      ? Math.max(...products.map(p => p.price), 50000)
+      : 50000;
+    setPriceRange([0, maxPrice]);
     setSelectedCategories([]);
     setSelectedGender('all');
     setSelectedSubcategory('all');
   };
+
+  // Get unique categories with proper filtering
+  const uniqueCategories = [...new Set(
+    products
+      .map(p => p.category)
+      .filter((category): category is string => category !== undefined && category !== null) // Fixed: Filter out undefined categories
+  )];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -249,7 +261,7 @@ const Products: React.FC = () => {
                       <div>
                         <h4 className="font-medium text-sm mb-2">Categories</h4>
                         <div className="space-y-1.5">
-                          {[...new Set(products.map(p => p.category))].map(category => (
+                          {uniqueCategories.map(category => (
                             <label key={category} className="flex items-center justify-between cursor-pointer text-sm">
                               <div className="flex items-center space-x-2">
                                 <input
@@ -366,7 +378,7 @@ const Products: React.FC = () => {
                 <div>
                   <h4 className="font-medium text-sm mb-2">Categories</h4>
                   <div className="space-y-1.5">
-                    {[...new Set(products.map(p => p.category))].map(category => (
+                    {uniqueCategories.map(category => (
                       <label key={category} className="flex items-center justify-between cursor-pointer text-sm">
                         <div className="flex items-center space-x-2">
                           <input
