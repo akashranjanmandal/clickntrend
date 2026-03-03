@@ -5,10 +5,23 @@ import { formatCurrency, getImageUrl } from '../utils/helpers';
 import { useCart } from '../context/CartContext';
 import ProductDetailsModal from './ProductDetailsModal';
 import ProductCustomizationModal from './ProductCustomizationModal';
+import SocialProof from './SocialProof';
 import { apiFetch } from '../config';
 
 interface ProductCardProps {
   product: Product;
+}
+
+interface SocialProofData {
+  text_template: string;
+  count: number;
+  initial_count: number;
+  end_count: number;
+  is_enabled: boolean;
+  stats: {
+    views: number;
+    purchases: number;
+  };
 }
 
 const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
@@ -16,65 +29,57 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const [showDetails, setShowDetails] = useState(false);
   const [showCustomization, setShowCustomization] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
-  const [purchaseCount, setPurchaseCount] = useState<number>(() => {
-    if (product.social_proof_enabled) {
-      const initial = product.social_proof_initial_count || 5;
-      const end = product.social_proof_end_count || 15;
-      return Math.floor(Math.random() * (end - initial + 1)) + initial;
-    }
-    return 0;
-  });
+  const [socialProof, setSocialProof] = useState<SocialProofData | null>(null);
 
   useEffect(() => {
     const fetchSocialProof = async () => {
+      if (!product.social_proof_enabled) return;
+      
       try {
         const data = await apiFetch(`/api/social-proof/${product.id}`).catch(() => null);
         if (data && data.is_enabled) {
-          if (data.count) {
-            setPurchaseCount(data.count);
-          }
-          
-          await apiFetch('/api/social-proof/track-view', {
-            method: 'POST',
-            body: JSON.stringify({ product_id: product.id })
-          }).catch(() => {});
+          setSocialProof(data);
         }
       } catch (error) {
         console.error('Error fetching social proof:', error);
       }
     };
 
-    if (product.social_proof_enabled) {
-      fetchSocialProof();
-      
-      const interval = setInterval(() => {
-        setPurchaseCount(prev => {
-          const initial = product.social_proof_initial_count || 5;
-          const end = product.social_proof_end_count || 15;
-          return Math.floor(Math.random() * (end - initial + 1)) + initial;
-        });
-      }, 8000);
+    fetchSocialProof();
+    
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchSocialProof, 30000);
 
-      return () => clearInterval(interval);
-    }
-  }, [product.id, product.social_proof_enabled, product.social_proof_initial_count, product.social_proof_end_count]);
+    return () => clearInterval(interval);
+  }, [product.id, product.social_proof_enabled]);
 
   const handleCardClick = (e: React.MouseEvent) => {
-    // Prevent opening modal if clicking on the add to cart button
     if ((e.target as HTMLElement).closest('button')) {
       return;
     }
     setShowDetails(true);
   };
 
-  const handleQuickAdd = (e: React.MouseEvent) => {
+  const handleQuickAdd = async (e: React.MouseEvent) => {
     e.stopPropagation();
     
+    // Track purchase
     if (product.social_proof_enabled) {
-      apiFetch('/api/social-proof/track-purchase', {
-        method: 'POST',
-        body: JSON.stringify({ product_id: product.id })
-      }).catch(() => {});
+      try {
+        await apiFetch('/api/social-proof/track-purchase', {
+          method: 'POST',
+          body: JSON.stringify({ product_id: product.id })
+        }).catch(() => {});
+        
+        // Update local count
+        setSocialProof(prev => {
+          if (!prev) return prev;
+          const newCount = Math.min(prev.count + 1, prev.end_count);
+          return { ...prev, count: newCount };
+        });
+      } catch (error) {
+        console.error('Error tracking purchase:', error);
+      }
     }
 
     addItem({
@@ -135,15 +140,15 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           )}
         </div>
         
-        {/* Social Proof Banner */}
-        {product.social_proof_enabled && (
+        {/* Social Proof Banner inside card */}
+        {product.social_proof_enabled && socialProof && socialProof.count > 0 && (
           <div className="bg-gradient-to-r from-orange-50 to-red-50 px-2 sm:px-3 py-1 sm:py-1.5 border-b border-premium-gold/10">
             <p className="text-[10px] sm:text-xs text-premium-burgundy font-medium flex items-center gap-1">
               <span className="relative flex h-1.5 w-1.5 sm:h-2 sm:w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 sm:h-2 sm:w-2 bg-red-500"></span>
               </span>
-              {purchaseCount} people viewing
+              {socialProof.text_template.replace('{count}', socialProof.count.toString())}
             </p>
           </div>
         )}
