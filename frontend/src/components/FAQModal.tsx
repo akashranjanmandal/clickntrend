@@ -76,7 +76,7 @@ const FAQModal: React.FC<FAQModalProps> = ({ isOpen, onClose }) => {
     {
       id: '10',
       question: 'How do I contact customer support?',
-      answer: 'You can reach us via email at support@gftd.in or call us at +91 98765 43210. Our support team is available 24/7.',
+      answer: 'You can reach us via email at care@gftd.in or call us at +91 8240398515. Our support team is available 24/7.',
       category: 'general'
     }
   ];
@@ -197,7 +197,7 @@ const FAQModal: React.FC<FAQModalProps> = ({ isOpen, onClose }) => {
               </h3>
               <div className="grid md:grid-cols-2 gap-4">
                 <a
-                  href="mailto:support@gftd.in"
+                  href="mailto:care@gftd.in"
                   className="flex items-center gap-3 p-4 bg-white rounded-lg hover:shadow-md transition-shadow"
                 >
                   <div className="p-3 bg-premium-gold/10 rounded-full">
@@ -205,11 +205,11 @@ const FAQModal: React.FC<FAQModalProps> = ({ isOpen, onClose }) => {
                   </div>
                   <div>
                     <p className="font-medium">Email Us</p>
-                    <p className="text-sm text-gray-500">support@gftd.in</p>
+                    <p className="text-sm text-gray-500">care@gftd.in</p>
                   </div>
                 </a>
                 <a
-                  href="tel:+919876543210"
+                  href="tel:+918240398515"
                   className="flex items-center gap-3 p-4 bg-white rounded-lg hover:shadow-md transition-shadow"
                 >
                   <div className="p-3 bg-premium-gold/10 rounded-full">
@@ -217,7 +217,7 @@ const FAQModal: React.FC<FAQModalProps> = ({ isOpen, onClose }) => {
                   </div>
                   <div>
                     <p className="font-medium">Call Us</p>
-                    <p className="text-sm text-gray-500">+91 98765 43210</p>
+                    <p className="text-sm text-gray-500">+91 8240398515</p>
                   </div>
                 </a>
               </div>

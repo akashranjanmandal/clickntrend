@@ -249,7 +249,7 @@ export default function OrderConfirmation() {
     doc.setTextColor(150, 150, 150)
     doc.setFont('helvetica', 'normal')
     doc.text('GFTD - Premium Gifts', pageWidth / 2, finalY + 40, { align: 'center' })
-    doc.text('contact@gftd.com | +91 9876543210', pageWidth / 2, finalY + 45, { align: 'center' })
+    doc.text('care@gftd.com | +91 8240398515', pageWidth / 2, finalY + 45, { align: 'center' })
     doc.text('Mumbai, India', pageWidth / 2, finalY + 50, { align: 'center' })
     
     doc.save(`GFTD_Invoice_${displayOrderId.replace('#', '_')}.pdf`)

@@ -176,13 +176,13 @@ const ReturnPolicyModal: React.FC<ReturnPolicyModalProps> = ({ isOpen, onClose }
                 Contact our support team for assistance:
               </p>
               <div className="mt-3 space-y-2">
-                <a href="mailto:returns@gftd.in" className="flex items-center gap-2 text-premium-gold">
+                <a href="mailto:care@gftd.in" className="flex items-center gap-2 text-premium-gold">
                   <Mail className="h-4 w-4" />
-                  returns@gftd.in
+                  care@gftd.in
                 </a>
-                <a href="tel:+919876543210" className="flex items-center gap-2 text-premium-gold">
+                <a href="tel:+918240398515" className="flex items-center gap-2 text-premium-gold">
                   <Phone className="h-4 w-4" />
-                  +91 98765 43210
+                  +91 8240398515
                 </a>
               </div>
             </div>

@@ -192,11 +192,11 @@ const Layout: React.FC = () => {
               {/* Mobile Contact Info */}
               <div className="mt-4 pt-4 border-t border-premium-gold/20">
                 <div className="space-y-2 px-4">
-                  <a href="tel:+919876543210" className="flex items-center gap-2 text-sm text-premium-cream/70 hover:text-premium-gold">
+                  <a href="tel:+918240398515" className="flex items-center gap-2 text-sm text-premium-cream/70 hover:text-premium-gold">
                     <Phone className="h-4 w-4" />
                     +91 82 403 98515
                   </a>
-                  <a href="mailto:support@gftd.in" className="flex items-center gap-2 text-sm text-premium-cream/70 hover:text-premium-gold">
+                  <a href="mailto:care@gftd.in" className="flex items-center gap-2 text-sm text-premium-cream/70 hover:text-premium-gold">
                     <Mail className="h-4 w-4" />
                     care@gftd.in
                   </a>
