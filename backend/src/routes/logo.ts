@@ -2,6 +2,8 @@ import express from 'express';
 import { supabase, supabasePublic } from '../utils/supabase';
 import { requireAuth } from '../middleware/auth';
 import multer from 'multer';
+import { r2 } from '../utils/r2';
+import { PutObjectCommand } from '@aws-sdk/client-s3';
 
 const router = express.Router();
 
@@ -80,34 +82,26 @@ router.post('/admin/upload-logo', requireAuth, upload.single('image'), async (re
 
     const file = req.file;
     const type = req.body.type || 'logo';
-    
-    // Generate unique filename
+
     const fileExtension = file.originalname.split('.').pop();
-    const fileName = `${type}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExtension}`;
-    
-    // Log file info for debugging
-    console.log('Uploading file:', {
-      name: file.originalname,
-      size: file.size,
-      type: file.mimetype,
-      extension: fileExtension
-    });
-    
-    // Upload to Supabase Storage
-    const { data, error } = await supabase.storage
-      .from('giftshop')
-      .upload(fileName, file.buffer, {
-        contentType: file.mimetype,
-        cacheControl: '3600',
-        upsert: false
-      });
+    const fileName = `logos/${type}/${Date.now()}-${Math.random()
+      .toString(36)
+      .substring(7)}.${fileExtension}`;
 
-    if (error) throw error;
+    console.log('Uploading logo to R2:', fileName);
 
-    // Get public URL
-    const { data: { publicUrl } } = supabase.storage
-      .from('giftshop')
-      .getPublicUrl(fileName);
+    // ✅ Upload to R2
+    await r2.send(
+      new PutObjectCommand({
+        Bucket: process.env.R2_BUCKET_NAME!,
+        Key: fileName,
+        Body: file.buffer,
+        ContentType: file.mimetype,
+      })
+    );
+
+    // ✅ Generate Public URL
+    const publicUrl = `${process.env.R2_PUBLIC_URL}/${fileName}`;
 
     res.json({
       success: true,
@@ -115,8 +109,9 @@ router.post('/admin/upload-logo', requireAuth, upload.single('image'), async (re
       file_name: fileName,
       file_type: file.mimetype
     });
+
   } catch (error: any) {
-    console.error('Upload error:', error);
+    console.error('❌ Logo upload error:', error);
     res.status(500).json({ error: error.message });
   }
 });
