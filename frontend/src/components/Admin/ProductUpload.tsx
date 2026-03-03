@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Camera, Upload, Users, RefreshCw } from 'lucide-react';
+import { X, Plus, Camera, Upload, Users, RefreshCw, Image as ImageIcon, FileText } from 'lucide-react';
 import { apiFetch } from '../../config';
 import MultiImageUpload from './MultiImageUpload';
 
@@ -28,38 +28,38 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
     is_customizable: false,
     customization_price: '0',
     max_customization_characters: '50',
+    max_customization_images: '10',
+    max_customization_lines: '10',
     social_proof_enabled: true,
     social_proof_text: '🔺{count} People are viewing this right now',
     social_proof_initial_count: '5',
     social_proof_end_count: '15',
   });
-// Replace both discount calculation useEffects with this single, controlled approach
-useEffect(() => {
-  const price = parseFloat(formData.price) || 0;
-  const originalPrice = parseFloat(formData.original_price) || 0;
-  const discountPercent = parseFloat(formData.discount_percentage) || 0;
 
-  // Mode 1: User changed price or original price -> calculate discount
-  if (originalPrice > 0 && price > 0 && originalPrice > price) {
-    const calculatedDiscount = Math.round(((originalPrice - price) / originalPrice) * 100);
-    // Only update if it's different to avoid loops
-    if (calculatedDiscount !== discountPercent) {
-      setFormData(prev => ({ ...prev, discount_percentage: calculatedDiscount.toString() }));
+  useEffect(() => {
+    const price = parseFloat(formData.price) || 0;
+    const originalPrice = parseFloat(formData.original_price) || 0;
+    const discountPercent = parseFloat(formData.discount_percentage) || 0;
+
+    // Mode 1: User changed price or original price -> calculate discount
+    if (originalPrice > 0 && price > 0 && originalPrice > price) {
+      const calculatedDiscount = Math.round(((originalPrice - price) / originalPrice) * 100);
+      if (calculatedDiscount !== discountPercent) {
+        setFormData(prev => ({ ...prev, discount_percentage: calculatedDiscount.toString() }));
+      }
+    } 
+    // Mode 2: User changed discount percentage -> calculate price
+    else if (originalPrice > 0 && discountPercent > 0 && discountPercent <= 100) {
+      const calculatedPrice = originalPrice - (originalPrice * discountPercent / 100);
+      if (Math.abs(calculatedPrice - price) > 0.01) {
+        setFormData(prev => ({ ...prev, price: calculatedPrice.toFixed(2) }));
+      }
     }
-  } 
-  // Mode 2: User changed discount percentage -> calculate price
-  else if (originalPrice > 0 && discountPercent > 0 && discountPercent <= 100) {
-    const calculatedPrice = originalPrice - (originalPrice * discountPercent / 100);
-    // Only update if it's different to avoid loops
-    if (Math.abs(calculatedPrice - price) > 0.01) {
-      setFormData(prev => ({ ...prev, price: calculatedPrice.toFixed(2) }));
+    // Mode 3: No original price, don't auto-calculate
+    else if (originalPrice === 0) {
+      // Keep manual entry mode
     }
-  }
-  // Mode 3: No original price, don't auto-calculate
-  else if (originalPrice === 0) {
-    // Keep manual entry mode
-  }
-}, [formData.price, formData.original_price, formData.discount_percentage]);
+  }, [formData.price, formData.original_price, formData.discount_percentage]);
 
   // Update preview count when initial/end counts change
   useEffect(() => {
@@ -152,6 +152,8 @@ useEffect(() => {
       if (formData.is_customizable) {
         productData.customization_price = parseFloat(formData.customization_price);
         productData.max_customization_characters = parseInt(formData.max_customization_characters);
+        productData.max_customization_images = parseInt(formData.max_customization_images);
+        productData.max_customization_lines = parseInt(formData.max_customization_lines);
       }
       
       // Add additional_images as an array
@@ -191,7 +193,7 @@ useEffect(() => {
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-serif font-semibold">Add New Product</h2>
@@ -238,7 +240,6 @@ useEffect(() => {
                 </select>
               </div>
 
-              {/* Subcategory Field */}
               <div>
                 <label className="block text-sm font-medium mb-2">Subcategory (Optional)</label>
                 <input
@@ -263,9 +264,8 @@ useEffect(() => {
                 </select>
               </div>
 
-              {/* SKU Field - New */}
               <div>
-                <label className="block text-sm font-medium mb-2">SKU (Stock Keeping Unit) *</label>
+                <label className="block text-sm font-medium mb-2">SKU *</label>
                 <input
                   type="text"
                   value={formData.sku}
@@ -303,7 +303,6 @@ useEffect(() => {
                 />
               </div>
 
-              {/* Discount % - Auto-calculated */}
               <div>
                 <label className="block text-sm font-medium mb-2">Discount %</label>
                 <input
@@ -316,9 +315,6 @@ useEffect(() => {
                   placeholder="Auto-calculated"
                   readOnly
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  Auto-calculated from price difference
-                </p>
               </div>
 
               <div>
@@ -408,7 +404,6 @@ useEffect(() => {
                       className="w-full px-4 py-3 border rounded-lg"
                       placeholder="5"
                     />
-                    <p className="text-xs text-gray-500 mt-1">Starting number</p>
                   </div>
 
                   <div>
@@ -423,7 +418,6 @@ useEffect(() => {
                       className="w-full px-4 py-3 border rounded-lg"
                       placeholder="15"
                     />
-                    <p className="text-xs text-gray-500 mt-1">Maximum number</p>
                   </div>
 
                   <div>
@@ -433,9 +427,6 @@ useEffect(() => {
                     <div className="px-4 py-3 bg-gray-50 border rounded-lg text-sm font-medium text-premium-gold">
                       {formData.social_proof_text.replace('{count}', previewCount.toString())}
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Count varies between {formData.social_proof_initial_count} and {formData.social_proof_end_count}
-                    </p>
                     <button
                       type="button"
                       onClick={refreshPreview}
@@ -451,7 +442,10 @@ useEffect(() => {
 
             {/* Customization Options */}
             <div className="border-t pt-4 mt-4">
-              <h3 className="text-lg font-semibold mb-4">Customization Options</h3>
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <ImageIcon className="h-5 w-5 text-premium-gold" />
+                Customization Options
+              </h3>
               
               <div className="flex items-center gap-3 mb-4">
                 <input
@@ -467,7 +461,7 @@ useEffect(() => {
               </div>
 
               {formData.is_customizable && (
-                <div className="grid md:grid-cols-2 gap-4">
+                <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div>
                     <label className="block text-sm font-medium mb-2">
                       Customization Price (₹)
@@ -484,8 +478,9 @@ useEffect(() => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Max Characters
+                    <label className="block text-sm font-medium mb-2 flex items-center gap-1">
+                      <FileText className="h-4 w-4" />
+                      Max Characters/Line
                     </label>
                     <input
                       type="number"
@@ -495,6 +490,38 @@ useEffect(() => {
                       max="200"
                       className="w-full px-4 py-3 border rounded-lg"
                       placeholder="50"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2 flex items-center gap-1">
+                      <FileText className="h-4 w-4" />
+                      Max Text Lines
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.max_customization_lines}
+                      onChange={(e) => setFormData({...formData, max_customization_lines: e.target.value})}
+                      min="1"
+                      max="20"
+                      className="w-full px-4 py-3 border rounded-lg"
+                      placeholder="10"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2 flex items-center gap-1">
+                      <ImageIcon className="h-4 w-4" />
+                      Max Images
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.max_customization_images}
+                      onChange={(e) => setFormData({...formData, max_customization_images: e.target.value})}
+                      min="1"
+                      max="30"
+                      className="w-full px-4 py-3 border rounded-lg"
+                      placeholder="10"
                     />
                   </div>
                 </div>

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Minus, Search, Package, Trash2, Save, Upload, Camera, Filter, Tag } from 'lucide-react';
-import { Product, Combo } from '../../types';
+import { X, Plus, Minus, Search, Package, Trash2, Save, Upload, Camera, Filter, Tag, ChevronDown, Check } from 'lucide-react';
+import { Product, Combo, Category } from '../../types';
 import { formatCurrency, getImageUrl } from '../../utils/helpers';
 import { apiFetch } from '../../config';
+import toast from 'react-hot-toast';
 
 interface ComboManagerProps {
   combo?: Combo | null;
@@ -14,33 +15,24 @@ interface ComboProduct extends Product {
   quantity: number;
 }
 
-interface Category {
-  id: string;
-  name: string;
-  description?: string;
-  icon?: string;
-  color?: string;
-  display_order?: number;
-  is_active?: boolean;
-}
-
 const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
   const [selectedGender, setSelectedGender] = useState<string>('all');
   const [genders, setGenders] = useState<{name: string, display_name: string}[]>([]);
   const [selectedProducts, setSelectedProducts] = useState<ComboProduct[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   
   const [comboData, setComboData] = useState({
     name: '',
     description: '',
-    category: '', // Add category for the combo itself
     discount_percentage: '',
     discount_price: '',
     image_url: '',
@@ -110,12 +102,22 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
     setComboData({
       name: combo.name || '',
       description: combo.description || '',
-      category: combo.category || '', // Load combo's category - this was causing the error
       discount_percentage: combo.discount_percentage?.toString() || '',
       discount_price: combo.discount_price?.toString() || '',
       image_url: combo.image_url || '',
       is_active: combo.is_active !== undefined ? combo.is_active : true,
     });
+
+    // Load categories
+    if (combo.categories && combo.categories.length > 0) {
+      setSelectedCategories(combo.categories.map(c => c.id));
+    } else if (combo.category) {
+      // For backward compatibility, find category ID by name
+      const category = categories.find(c => c.name === combo.category);
+      if (category) {
+        setSelectedCategories([category.id]);
+      }
+    }
 
     if (combo.image_url) {
       setImagePreview(combo.image_url);
@@ -135,7 +137,7 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 5 * 1024 * 1024) {
-        alert('Image size should be less than 5MB');
+        toast.error('Image size should be less than 5MB');
         return;
       }
       setImageFile(file);
@@ -169,6 +171,7 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
       return data.image_url;
     } catch (error) {
       console.error('Upload error:', error);
+      toast.error('Failed to upload image');
       return null;
     } finally {
       setUploadingImage(false);
@@ -185,6 +188,7 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
       }
       return [...prev, { ...product, quantity: 1 }];
     });
+    toast.success(`Added ${product.name} to combo`);
   };
 
   const removeFromCombo = (productId: string) => {
@@ -220,30 +224,55 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
     return total;
   };
 
-  // Filter products by category, gender, and search term
+  const toggleCategory = (categoryId: string) => {
+    setSelectedCategories(prev => {
+      if (prev.includes(categoryId)) {
+        return prev.filter(id => id !== categoryId);
+      } else {
+        return [...prev, categoryId];
+      }
+    });
+  };
+
+  // Filter products by multiple categories, gender, and search term
   const filteredProducts = products.filter(product => {
-    const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
+    // Handle category filter - if 'all' or if product has any of the selected filter categories
+    const matchesCategory = selectedCategoryFilter === 'all' || 
+      (product.categories && product.categories.some(c => c.id === selectedCategoryFilter)) ||
+      product.category === selectedCategoryFilter; // For backward compatibility
+    
     const matchesGender = selectedGender === 'all' || product.gender === selectedGender;
     const matchesSearch = 
       product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.category.toLowerCase().includes(searchTerm.toLowerCase());
+      (product.categories && product.categories.some(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()))) ||
+      product.category?.toLowerCase().includes(searchTerm.toLowerCase());
     
     return matchesCategory && matchesGender && matchesSearch;
   });
 
-  // Get unique categories from products for the filter
-  const availableCategories = [...new Set(products.map(p => p.category))].sort();
+  // Get all categories from products for filter (including legacy single category)
+  const availableCategories = [
+    ...new Set([
+      ...products.flatMap(p => p.categories?.map(c => c.name) || []),
+      ...products.map(p => p.category).filter(Boolean)
+    ])
+  ].sort();
+
+  // Get category objects for filter
+  const filterCategories = categories.filter(cat => 
+    availableCategories.includes(cat.name)
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedProducts.length === 0) {
-      alert('Please add at least one product to the combo');
+      toast.error('Please add at least one product to the combo');
       return;
     }
 
-    if (!comboData.category) {
-      alert('Please select a category for this combo');
+    if (selectedCategories.length === 0) {
+      toast.error('Please select at least one category for this combo');
       return;
     }
 
@@ -261,11 +290,10 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
         }
       }
 
-      // Create combo payload WITH category
+      // Create combo payload (without category field - we'll use junction table)
       const comboPayload = {
         name: comboData.name,
         description: comboData.description,
-        category: comboData.category, // Include category
         discount_percentage: comboData.discount_percentage ? parseInt(comboData.discount_percentage) : null,
         discount_price: comboData.discount_price ? parseFloat(comboData.discount_price) : null,
         image_url: imageUrl || '',
@@ -299,6 +327,12 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
           method: 'DELETE',
           headers: { 'Authorization': `Bearer ${token}` },
         });
+
+        // Delete existing categories
+        await fetch(`${baseUrl}/api/admin/combos/${comboId}/categories`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
         
       } else {
         // CREATE new combo
@@ -317,7 +351,7 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
         }
 
         const result = await createResponse.json();
-        comboId = result.combo.id;
+        comboId = result.combo?.id || result.id;
       }
 
       // Add products to combo
@@ -344,12 +378,35 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
         }
       }
 
-      alert(combo ? 'Combo updated successfully!' : 'Combo created successfully!');
+      // Add categories to combo
+      if (selectedCategories.length > 0) {
+        const categoriesPayload = {
+          categories: selectedCategories.map(categoryId => ({
+            category_id: categoryId
+          }))
+        };
+
+        const categoriesResponse = await fetch(`${baseUrl}/api/admin/combos/${comboId}/categories`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify(categoriesPayload),
+        });
+
+        if (!categoriesResponse.ok) {
+          const error = await categoriesResponse.json();
+          throw new Error(error.message || 'Failed to add categories');
+        }
+      }
+
+      toast.success(combo ? 'Combo updated successfully!' : 'Combo created successfully!');
       onSuccess();
       onClose();
     } catch (error: any) {
       console.error('Save combo error:', error);
-      alert(`Error: ${error.message}`);
+      toast.error(`Error: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -431,19 +488,68 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
                   />
                 </div>
 
+                {/* Multiple Categories Selection */}
                 <div>
-                  <label className="block text-sm font-medium mb-2">Category *</label>
-                  <select
-                    value={comboData.category}
-                    onChange={(e) => setComboData({...comboData, category: e.target.value})}
-                    required
-                    className="w-full px-4 py-3 border rounded-lg focus:border-premium-gold focus:outline-none"
-                  >
-                    <option value="">Select a category</option>
-                    {categories.map(cat => (
-                      <option key={cat.id} value={cat.name}>{cat.name}</option>
-                    ))}
-                  </select>
+                  <label className="block text-sm font-medium mb-2">Categories *</label>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
+                      className="w-full px-4 py-3 border rounded-lg focus:border-premium-gold focus:outline-none text-left flex items-center justify-between bg-white"
+                    >
+                      <span className="truncate">
+                        {selectedCategories.length === 0 
+                          ? 'Select categories' 
+                          : `${selectedCategories.length} category${selectedCategories.length > 1 ? 's' : ''} selected`}
+                      </span>
+                      <ChevronDown className={`h-5 w-5 transition-transform ${showCategoryDropdown ? 'rotate-180' : ''}`} />
+                    </button>
+                    
+                    {showCategoryDropdown && (
+                      <div className="absolute z-10 mt-1 w-full bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                        {categories.map(category => (
+                          <label
+                            key={category.id}
+                            className="flex items-center px-4 py-2 hover:bg-gray-50 cursor-pointer"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedCategories.includes(category.id)}
+                              onChange={() => toggleCategory(category.id)}
+                              className="h-4 w-4 text-premium-gold rounded border-gray-300 focus:ring-premium-gold"
+                            />
+                            <span className="ml-3 flex-1">{category.name}</span>
+                            {category.icon && (
+                              <span className="text-xl">{category.icon}</span>
+                            )}
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {selectedCategories.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-3">
+                      {selectedCategories.map(catId => {
+                        const category = categories.find(c => c.id === catId);
+                        return category ? (
+                          <span
+                            key={catId}
+                            className="inline-flex items-center px-3 py-1 bg-premium-cream text-premium-burgundy rounded-full text-sm"
+                          >
+                            {category.icon && <span className="mr-1">{category.icon}</span>}
+                            {category.name}
+                            <button
+                              type="button"
+                              onClick={() => toggleCategory(catId)}
+                              className="ml-2 hover:text-premium-gold"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </span>
+                        ) : null;
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -509,10 +615,17 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
                             <p className="text-sm text-gray-600">
                               {formatCurrency(product.price)} × {product.quantity}
                             </p>
-                            <div className="flex gap-2 mt-1">
-                              <span className="px-2 py-0.5 bg-gray-100 text-xs rounded">
-                                {product.category}
-                              </span>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {product.categories?.map(cat => (
+                                <span key={cat.id} className="px-2 py-0.5 bg-gray-100 text-xs rounded">
+                                  {cat.name}
+                                </span>
+                              ))}
+                              {product.category && !product.categories && (
+                                <span className="px-2 py-0.5 bg-gray-100 text-xs rounded">
+                                  {product.category}
+                                </span>
+                              )}
                               {product.gender && (
                                 <span className="px-2 py-0.5 bg-blue-50 text-blue-700 text-xs rounded capitalize">
                                   {product.gender}
@@ -589,13 +702,16 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
                   <div className="relative">
                     <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <select
-                      value={selectedCategory}
-                      onChange={(e) => setSelectedCategory(e.target.value)}
+                      value={selectedCategoryFilter}
+                      onChange={(e) => setSelectedCategoryFilter(e.target.value)}
                       className="pl-10 pr-8 py-2 border rounded-lg focus:border-premium-gold focus:outline-none appearance-none bg-white min-w-[180px]"
                     >
                       <option value="all">All Categories</option>
-                      {availableCategories.map(cat => (
-                        <option key={cat} value={cat}>{cat}</option>
+                      {filterCategories.map(cat => (
+                        <option key={cat.id} value={cat.id}>
+                          {cat.icon && <span>{cat.icon} </span>}
+                          {cat.name}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -655,10 +771,18 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
                           <p className="text-xs text-gray-600 line-clamp-2 mt-1">
                             {product.description}
                           </p>
-                          <div className="flex items-center gap-2 mt-2">
-                            <span className="px-2 py-0.5 bg-gray-100 text-gray-800 rounded text-xs">
-                              {product.category}
-                            </span>
+                          <div className="flex flex-wrap items-center gap-1 mt-2">
+                            {product.categories?.map(cat => (
+                              <span key={cat.id} className="px-2 py-0.5 bg-gray-100 text-gray-800 rounded text-xs">
+                                {cat.icon && <span className="mr-1">{cat.icon}</span>}
+                                {cat.name}
+                              </span>
+                            ))}
+                            {product.category && !product.categories && (
+                              <span className="px-2 py-0.5 bg-gray-100 text-gray-800 rounded text-xs">
+                                {product.category}
+                              </span>
+                            )}
                             {product.gender && (
                               <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs capitalize">
                                 {product.gender}
@@ -690,7 +814,7 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
               </button>
               <button
                 type="submit"
-                disabled={loading || selectedProducts.length === 0 || !comboData.category}
+                disabled={loading || selectedProducts.length === 0 || selectedCategories.length === 0}
                 className="px-6 py-3 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
               >
                 {loading ? (

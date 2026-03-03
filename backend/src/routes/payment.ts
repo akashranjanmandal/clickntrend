@@ -3,6 +3,7 @@ import Razorpay from 'razorpay';
 import crypto from 'crypto';
 import config from '../config';
 import { supabase } from '../utils/supabase';
+import { sendOrderConfirmationEmail, sendAdminNotification } from '../services/gmailService';
 
 const router = express.Router();
 
@@ -69,6 +70,24 @@ router.post('/verify-payment', async (req, res) => {
       });
     }
 
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(order_data.email)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid email format'
+      });
+    }
+
+    // Validate phone number (10 digits)
+    const phoneRegex = /^\d{10}$/;
+    if (!phoneRegex.test(order_data.phone.replace(/\D/g, ''))) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid phone number. Please enter 10 digits'
+      });
+    }
+
     const body = razorpay_order_id + "|" + razorpay_payment_id;
     const expectedSignature = crypto
       .createHmac('sha256', config.razorpayKeySecret)
@@ -89,18 +108,18 @@ router.post('/verify-payment', async (req, res) => {
         razorpay_signature,
         items: order_data.items,
         subtotal: order_data.subtotal,
-        shipping_charge: order_data.shipping_charge,
-        coupon_code: order_data.coupon_code,
-        coupon_discount: order_data.coupon_discount,
+        shipping_charge: order_data.shipping_charge || 0,
+        coupon_code: order_data.coupon_code || null,
+        coupon_discount: order_data.coupon_discount || 0,
         total_amount: order_data.total_amount,
-        customer_name: order_data.name,
-        customer_email: order_data.email,
-        customer_phone: order_data.phone,
+        customer_name: order_data.name.trim(),
+        customer_email: order_data.email.trim().toLowerCase(),
+        customer_phone: order_data.phone.replace(/\D/g, ''),
         special_requests: order_data.specialRequests || '',
-        shipping_address: order_data.address,
-        shipping_city: order_data.city,
-        shipping_state: order_data.state,
-        shipping_pincode: order_data.pincode,
+        shipping_address: order_data.address.trim(),
+        shipping_city: order_data.city.trim(),
+        shipping_state: order_data.state.trim(),
+        shipping_pincode: order_data.pincode.trim(),
         shipping_country: 'India',
         payment_method: 'online',
         status: 'paid',
@@ -122,7 +141,7 @@ router.post('/verify-payment', async (req, res) => {
         throw error;
       }
 
-      console.log('✅ Order saved to database:', order.id);
+      console.log('✅ Order saved to database:', order.id, 'Custom ID:', order.custom_order_id);
 
       // Track coupon usage if applicable
       if (order_data.coupon_code && order_data.coupon_discount > 0) {
@@ -130,7 +149,7 @@ router.post('/verify-payment', async (req, res) => {
           const { data: coupon } = await supabase
             .from('coupons')
             .select('id')
-            .eq('code', order_data.coupon_code)
+            .eq('code', order_data.coupon_code.toUpperCase())
             .single();
 
           if (coupon) {
@@ -152,20 +171,75 @@ router.post('/verify-payment', async (req, res) => {
               })
               .eq('id', coupon.id);
             
-            console.log('✅ Coupon usage tracked');
+            console.log('✅ Coupon usage tracked for order:', order.id);
           }
         } catch (couponError) {
-          console.error('Error tracking coupon:', couponError);
+          console.error('⚠️ Error tracking coupon:', couponError);
+          // Don't fail the order if coupon tracking fails
         }
       }
+
+      // Send email confirmation to customer (non-blocking)
+      console.log('📧 Sending confirmation email to:', order.customer_email);
+      
+      // Prepare order data for email
+      const emailOrderData = {
+        id: order.id,
+        custom_order_id: order.custom_order_id,
+        customer_email: order.customer_email,
+        customer_name: order.customer_name,
+        customer_phone: order.customer_phone,
+        items: order.items,
+        subtotal: order.subtotal,
+        shipping_charge: order.shipping_charge,
+        coupon_discount: order.coupon_discount,
+        total_amount: order.total_amount,
+        payment_method: 'online',
+        shipping_address: order.shipping_address,
+        shipping_city: order.shipping_city,
+        shipping_state: order.shipping_state,
+        shipping_pincode: order.shipping_pincode,
+        special_requests: order.special_requests,
+        created_at: order.created_at
+      };
+
+      // Send emails asynchronously - don't await to not delay response
+      Promise.allSettled([
+        // Send customer confirmation
+        sendOrderConfirmationEmail(emailOrderData).then(result => {
+          if (result.success) {
+            console.log('✅ Customer email sent for order:', order.custom_order_id);
+          } else {
+            console.error('❌ Failed to send customer email:', result.error);
+          }
+        }),
+        
+        // Send admin notification
+        sendAdminNotification(emailOrderData).then(() => {
+          console.log('✅ Admin notification sent for order:', order.custom_order_id);
+        }).catch(err => {
+          console.error('❌ Failed to send admin notification:', err);
+        })
+      ]).then(results => {
+        console.log('📧 Email sending completed for order:', order.custom_order_id, 
+                   'Results:', results.map(r => r.status));
+      });
 
       console.log('=== PAYMENT VERIFICATION END ===');
       
       res.json({ 
         success: true, 
         message: 'Payment verified successfully',
-        order_id: order.id,
-        payment_id: razorpay_payment_id
+        order: {
+          id: order.id,
+          custom_order_id: order.custom_order_id,
+          tracking_id: order.custom_order_id,
+          payment_id: razorpay_payment_id,
+          amount: order.total_amount,
+          customer_name: order.customer_name,
+          customer_email: order.customer_email,
+          created_at: order.created_at
+        }
       });
     } else {
       console.log('❌ Invalid payment signature');
@@ -183,5 +257,107 @@ router.post('/verify-payment', async (req, res) => {
     });
   }
 });
+
+// Get payment details by order ID
+router.get('/order/:orderId', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    
+    const { data, error } = await supabase
+      .from('orders')
+      .select('razorpay_order_id, razorpay_payment_id, payment_method, status, total_amount, custom_order_id')
+      .eq('razorpay_order_id', orderId)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return res.status(404).json({ error: 'Order not found' });
+      }
+      throw error;
+    }
+
+    res.json(data);
+  } catch (error: any) {
+    console.error('Error fetching payment:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Refund payment (admin only)
+router.post('/refund/:paymentId', async (req, res) => {
+  try {
+    const { paymentId } = req.params;
+    const { amount, notes } = req.body;
+
+    // Validate payment exists in our database
+    const { data: order, error: orderError } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('razorpay_payment_id', paymentId)
+      .single();
+
+    if (orderError) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    // Process refund with Razorpay
+    const refund = await razorpay.payments.refund(paymentId, {
+      amount: amount ? Math.round(amount * 100) : undefined, // Convert to paise if amount specified
+      notes: {
+        order_id: order.id,
+        custom_order_id: order.custom_order_id,
+        reason: notes || 'Customer requested refund'
+      }
+    });
+
+    // Update order status in database
+    await supabase
+      .from('orders')
+      .update({
+        status: 'refunded',
+        refund_data: refund,
+        refunded_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', order.id);
+
+    console.log('✅ Refund processed for order:', order.custom_order_id);
+
+    // Send refund confirmation email (non-blocking)
+    try {
+      const emailOrderData = {
+        id: order.id,
+        custom_order_id: order.custom_order_id,
+        customer_email: order.customer_email,
+        customer_name: order.customer_name,
+        items: order.items,
+        total_amount: amount || order.total_amount,
+        refund_amount: amount || order.total_amount,
+        refund_id: refund.id,
+        created_at: new Date().toISOString()
+      };
+
+      // You can create a refund email template if needed
+      // await sendRefundConfirmationEmail(emailOrderData);
+    } catch (emailError) {
+      console.error('Failed to send refund email:', emailError);
+    }
+
+    res.json({
+      success: true,
+      message: 'Refund processed successfully',
+      refund
+    });
+
+  } catch (error: any) {
+    console.error('Refund error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to process refund',
+      details: error.message 
+    });
+  }
+});
+
 
 export default router;

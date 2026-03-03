@@ -11,7 +11,7 @@ const storage = multer.memoryStorage();
 const upload = multer({
   storage,
   limits: { 
-    fileSize: 5 * 1024 * 1024, // 5MB
+    fileSize: 10 * 1024 * 1024, // 10MB (increased from 5MB)
   },
   fileFilter: (req, file, cb) => {
     const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
@@ -64,8 +64,7 @@ router.post('/product-images', requireAuth, upload.array('images', 5), async (re
   }
 });
 
-
-// ========== CUSTOMIZATION IMAGE UPLOAD ==========
+// ========== CUSTOMIZATION IMAGE UPLOAD (Single) ==========
 router.post('/customization', upload.single('image'), async (req, res) => {
   console.log('🎨 POST /api/upload/customization - Uploading customization image');
   try {
@@ -75,9 +74,10 @@ router.post('/customization', upload.single('image'), async (req, res) => {
 
     const file = req.file;
     const productId = req.body.product_id || 'temp';
+    const index = req.body.index || '0';
     
     const fileExtension = file.originalname.split('.').pop();
-    const fileName = `customizations/${productId}/${Date.now()}.${fileExtension}`;
+    const fileName = `customizations/${productId}/${Date.now()}-${index}-${Math.random().toString(36).substring(7)}.${fileExtension}`;
 
     await r2.send(
       new PutObjectCommand({
@@ -99,6 +99,45 @@ router.post('/customization', upload.single('image'), async (req, res) => {
   }
 });
 
+// ========== CUSTOMIZATION IMAGES UPLOAD (Multiple) ==========
+router.post('/customizations', upload.array('images', 20), async (req, res) => {
+  console.log('🎨 POST /api/upload/customizations - Uploading multiple customization images');
+  try {
+    const files = req.files as Express.Multer.File[];
+    
+    if (!files || files.length === 0) {
+      return res.status(400).json({ error: 'No files uploaded' });
+    }
+
+    const productId = req.body.product_id || 'temp';
+    const uploadedUrls = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const fileExtension = file.originalname.split('.').pop();
+      const fileName = `customizations/${productId}/${Date.now()}-${i}-${Math.random().toString(36).substring(7)}.${fileExtension}`;
+
+      await r2.send(
+        new PutObjectCommand({
+          Bucket: process.env.R2_BUCKET_NAME,
+          Key: fileName,
+          Body: file.buffer,
+          ContentType: file.mimetype,
+        })
+      );
+
+      const publicUrl = `https://pub-${process.env.R2_ACCOUNT_ID}.r2.dev/${fileName}`;
+      uploadedUrls.push(publicUrl);
+    }
+
+    console.log(`✅ ${uploadedUrls.length} customization images uploaded`);
+    res.json({ success: true, image_urls: uploadedUrls });
+
+  } catch (error: any) {
+    console.error('❌ Upload error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // ========== HERO MEDIA UPLOAD ==========
 router.post('/hero', requireAuth, upload.single('media'), async (req, res) => {

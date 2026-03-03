@@ -1,3 +1,4 @@
+import toast from 'react-hot-toast';
 import React, { useState, useEffect } from 'react';
 import { 
   LogOut, Package, DollarSign, TrendingUp, Eye, 
@@ -6,7 +7,8 @@ import {
   BarChart3, Shield, Printer, XCircle, Tag, Copy,
   Image as ImageIcon, Star, Video, Gift, ChevronDown,
   ChevronUp, ChevronsLeft, ChevronsRight, ArrowUpDown,
-  Loader, Filter, CreditCard, Truck, CheckCircle, X, Users
+  Loader, Filter, CreditCard, Truck, CheckCircle, X, Users,
+  FileText, DownloadCloud, ExternalLink
 } from 'lucide-react';
 import { Order, Product, Combo, ComboProduct } from '../../types';
 import CategoryManager from './CategoryManager';
@@ -39,6 +41,7 @@ const AdminPanel: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [editingCombo, setEditingCombo] = useState<Combo | null>(null);
   const [copySuccess, setCopySuccess] = useState<string>('');
+  const [downloadingAll, setDownloadingAll] = useState(false);
 
   // Filter dropdown states
   const [showFilters, setShowFilters] = useState(false);
@@ -188,15 +191,15 @@ const AdminPanel: React.FC = () => {
     
     let filtered = [...products];
     
-    // Apply search filter
-    if (searchQuery.trim() !== '') {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(product => 
-        product.name.toLowerCase().includes(query) ||
-        product.description.toLowerCase().includes(query) ||
-        product.category.toLowerCase().includes(query)
-      );
-    }
+ // Apply search filter
+if (searchQuery.trim() !== '') {
+  const query = searchQuery.toLowerCase();
+  filtered = filtered.filter(product => 
+    product.name.toLowerCase().includes(query) ||
+    product.description.toLowerCase().includes(query) ||
+    (product.category || '').toLowerCase().includes(query) 
+  );
+}
     
     // Apply category filter
     if (productCategoryFilter !== 'all') {
@@ -236,8 +239,8 @@ const AdminPanel: React.FC = () => {
           comparison = (a.stock_quantity || 0) - (b.stock_quantity || 0);
           break;
         case 'category':
-          comparison = a.category.localeCompare(b.category);
-          break;
+  comparison = (a.category || '').localeCompare(b.category || '');
+  break;
         case 'gender':
           comparison = (a.gender || 'unisex').localeCompare(b.gender || 'unisex');
           break;
@@ -514,6 +517,30 @@ const AdminPanel: React.FC = () => {
     navigator.clipboard.writeText(text);
     setCopySuccess(text);
     setTimeout(() => setCopySuccess(''), 2000);
+  };
+
+  const downloadAllImages = async (imageUrls: string[]) => {
+    setDownloadingAll(true);
+    try {
+      // Download images one by one with slight delay
+      for (let i = 0; i < imageUrls.length; i++) {
+        const url = imageUrls[i];
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `custom-image-${i + 1}.jpg`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        // Small delay between downloads
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+      toast.success(`Downloaded ${imageUrls.length} images`);
+    } catch (error) {
+      console.error('Error downloading images:', error);
+      toast.error('Failed to download some images');
+    } finally {
+      setDownloadingAll(false);
+    }
   };
 
   const exportOrdersCSV = () => {
@@ -1992,10 +2019,10 @@ const AdminPanel: React.FC = () => {
         {activeTab === 'logo' && <LogoManager />}
       </div>
 
-      {/* Order Details Modal with Customization Display */}
+      {/* Order Details Modal with Enhanced Customization Display */}
       {selectedOrder && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-serif font-semibold">Order Details</h2>
@@ -2119,53 +2146,101 @@ const AdminPanel: React.FC = () => {
                             </p>
                           </div>
                           
-                          {/* Show customization data if exists */}
+                          {/* Enhanced Customization Display with Multiple Images and Text Lines */}
                           {item.customization && (
-                            <div className="mt-3 pt-3 border-t border-gray-200">
-                              <p className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
+                            <div className="mt-4 pt-3 border-t border-gray-200">
+                              <p className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-1">
                                 <ImageIcon className="h-4 w-4" />
-                                Customization:
+                                Customization Details:
                               </p>
-                              {item.customization.text && (
-                                <div className="flex items-center gap-2 mb-2 bg-white p-2 rounded-lg border">
-                                  <span className="text-xs text-gray-500">Text:</span>
-                                  <code className="bg-gray-100 px-3 py-1.5 rounded text-sm font-mono flex-1">
-                                    {item.customization.text}
-                                  </code>
-                                  <button
-                                    onClick={() => copyToClipboard(item.customization.text)}
-                                    className="p-1.5 hover:bg-gray-200 rounded transition-colors"
-                                    title="Copy text"
-                                  >
-                                    <Copy className="h-4 w-4" />
-                                  </button>
-                                  {copySuccess === item.customization.text && (
-                                    <span className="text-xs text-green-600">Copied!</span>
-                                  )}
+                              
+                              {/* Multiple Text Lines */}
+                              {item.customization.text_lines && item.customization.text_lines.length > 0 && (
+                                <div className="mb-4">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="text-xs font-medium text-gray-500 flex items-center gap-1">
+                                      <FileText className="h-3 w-3" />
+                                      Text Lines ({item.customization.text_lines.length}):
+                                    </span>
+                                  </div>
+                                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                                    {item.customization.text_lines.map((line: string, lineIdx: number) => (
+                                      <div key={lineIdx} className="flex items-center gap-2 bg-white p-2 rounded-lg border">
+                                        <span className="text-xs text-gray-500 w-12">Line {lineIdx + 1}:</span>
+                                        <code className="bg-gray-100 px-3 py-1.5 rounded text-sm font-mono flex-1 break-all">
+                                          {line}
+                                        </code>
+                                        <button
+                                          onClick={() => copyToClipboard(line)}
+                                          className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+                                          title="Copy text"
+                                        >
+                                          <Copy className="h-4 w-4" />
+                                        </button>
+                                        {copySuccess === line && (
+                                          <span className="text-xs text-green-600">Copied!</span>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
                                 </div>
                               )}
-                              {item.customization.image_url && (
-                                <div className="flex items-center gap-2 bg-white p-2 rounded-lg border">
-                                  <span className="text-xs text-gray-500">Image:</span>
-                                  <a
-                                    href={item.customization.image_url}
-                                    download
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors"
-                                  >
-                                    <Download className="h-4 w-4" />
-                                    <span className="text-sm">Download</span>
-                                  </a>
-                                  <a
-                                    href={item.customization.image_url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="p-1.5 hover:bg-gray-100 rounded"
-                                    title="View"
-                                  >
-                                    <Eye className="h-4 w-4" />
-                                  </a>
+                              
+                              {/* Multiple Images */}
+                              {item.customization.image_urls && item.customization.image_urls.length > 0 && (
+                                <div>
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="text-xs font-medium text-gray-500 flex items-center gap-1">
+                                      <ImageIcon className="h-3 w-3" />
+                                      Images ({item.customization.image_urls.length}):
+                                    </span>
+                                    {item.customization.image_urls.length > 1 && (
+                                      <button
+                                        onClick={() => downloadAllImages(item.customization.image_urls)}
+                                        disabled={downloadingAll}
+                                        className="text-xs bg-premium-gold text-white px-2 py-1 rounded hover:bg-premium-burgundy flex items-center gap-1 disabled:opacity-50"
+                                      >
+                                        {downloadingAll ? (
+                                          <Loader className="h-3 w-3 animate-spin" />
+                                        ) : (
+                                          <DownloadCloud className="h-3 w-3" />
+                                        )}
+                                        <span>Download All</span>
+                                      </button>
+                                    )}
+                                  </div>
+                                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-60 overflow-y-auto p-1">
+                                    {item.customization.image_urls.map((imgUrl: string, imgIdx: number) => (
+                                      <div key={imgIdx} className="relative group border rounded-lg overflow-hidden aspect-square">
+                                        <img 
+                                          src={imgUrl} 
+                                          alt={`Custom ${imgIdx + 1}`}
+                                          className="w-full h-full object-cover"
+                                        />
+                                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                          <a
+                                            href={imgUrl}
+                                            download
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="p-1.5 bg-white rounded hover:bg-gray-100"
+                                            title="Download"
+                                          >
+                                            <Download className="h-4 w-4" />
+                                          </a>
+                                          <a
+                                            href={imgUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="p-1.5 bg-white rounded hover:bg-gray-100"
+                                            title="View"
+                                          >
+                                            <ExternalLink className="h-4 w-4" />
+                                          </a>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
                                 </div>
                               )}
                             </div>

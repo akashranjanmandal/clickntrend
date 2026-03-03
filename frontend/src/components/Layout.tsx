@@ -194,11 +194,11 @@ const Layout: React.FC = () => {
                 <div className="space-y-2 px-4">
                   <a href="tel:+919876543210" className="flex items-center gap-2 text-sm text-premium-cream/70 hover:text-premium-gold">
                     <Phone className="h-4 w-4" />
-                    +91 98765 43210
+                    +91 82 403 98515
                   </a>
                   <a href="mailto:support@gftd.in" className="flex items-center gap-2 text-sm text-premium-cream/70 hover:text-premium-gold">
                     <Mail className="h-4 w-4" />
-                    support@gftd.in
+                    care@gftd.in
                   </a>
                 </div>
               </div>
@@ -350,10 +350,6 @@ const Layout: React.FC = () => {
                 Contact
               </h3>
               <ul className="space-y-3 text-premium-cream/70">
-                <li className="flex items-start gap-3">
-                  <MapPin className="h-5 w-5 flex-shrink-0 mt-0.5" />
-                  <span>14 Satyen Roy Branch Road, Behala, Kolkata - 700034</span>
-                </li>
                 <li className="flex items-center gap-3">
                   <Phone className="h-5 w-5 flex-shrink-0" />
                   <a href="tel:+918240398515" className="hover:text-premium-gold transition-colors">

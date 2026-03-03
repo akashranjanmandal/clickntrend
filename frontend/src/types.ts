@@ -7,7 +7,8 @@ export interface Product {
   discount_percentage?: number;
   image_url: string;
   additional_images?: string[];
-  category: string;
+  categories?: Category[];
+  category?: string; 
   subcategory?: string;
   gender: 'men' | 'women' | 'unisex';
   stock_quantity: number;
@@ -15,15 +16,23 @@ export interface Product {
   is_customizable: boolean;
   customization_price?: number;
   max_customization_characters?: number;
+  max_customization_images?: number;
+  max_customization_lines?: number;
   is_active: boolean;
   created_at: string;
   updated_at: string;
   
   social_proof_enabled: boolean;
   social_proof_text: string;
-  social_proof_initial_count: number;  // New field for starting count
-  social_proof_end_count: number;      // New field for maximum count
-  
+  social_proof_initial_count: number;
+  social_proof_end_count: number;
+}
+
+export interface CustomizationData {
+  text_lines?: string[];      
+  image_urls?: string[];       
+  image_paths?: string[];
+  preview_urls?: string[];
 }
 
 export interface Combo {
@@ -33,7 +42,8 @@ export interface Combo {
   discount_percentage?: number;
   discount_price?: number;
   image_url?: string;
-  category?: string;
+  categories?: Category[]; 
+  category?: string; 
   is_active: boolean;
   combo_products?: ComboProduct[];
   products?: ComboProduct[];
@@ -56,18 +66,19 @@ export interface Review {
   created_at: string;
   product?: { name: string };
 }
-
 export interface Category {
   id: string;
   name: string;
-  description: string;
-  icon: string;
+  description?: string;
+  icon?: string;
   icon_type?: 'emoji' | 'lucide';
-  color: string;
+  color?: string;
   hover_effect?: string;
   display_order: number;
   is_active: boolean;
   gender?: 'men' | 'women' | 'unisex';
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface HeroContent {
@@ -112,16 +123,17 @@ export interface CartItem {
   description?: string;
 }
 
-export interface CustomizationData {
-  text?: string;
-  image_url?: string;
-  image_path?: string;
-  preview_url?: string;
+// Extended interface for combo items
+export interface ComboCartItem extends CartItem {
+  combo_id: string;
+  combo_name?: string;
+  is_combo_item?: boolean;
 }
+
 
 export interface Order {
   id: string;
-  custom_order_id?: string; // Add this line
+  custom_order_id?: string;
   razorpay_order_id?: string;
   razorpay_payment_id?: string;
   razorpay_signature?: string;
