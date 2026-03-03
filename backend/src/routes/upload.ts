@@ -46,7 +46,7 @@ router.post('/product-images', requireAuth, upload.array('images', 5), async (re
         })
       );
 
-      const publicUrl = `https://pub-${process.env.R2_ACCOUNT_ID}.r2.dev/${fileName}`;
+      const publicUrl = `${process.env.R2_PUBLIC_URL}/${fileName}`;
 
       return {
         url: publicUrl,
