@@ -2,6 +2,8 @@ import express, { Request, Response } from "express";
 import multer from 'multer';
 import { supabase } from '../utils/supabase';
 import { requireAuth } from '../middleware/auth';
+import { r2 } from '../utils/r2';
+import { PutObjectCommand } from '@aws-sdk/client-s3';
 
 const router = express.Router();
 const storage = multer.memoryStorage();
@@ -27,44 +29,31 @@ const upload = multer({
 // Upload product/combo image
 router.post('/upload-image', requireAuth, upload.single('image'), async (req: Request, res: Response) => {
   try {
-    console.log('Upload request received');
-    
     if (!req.file) {
-      console.log('No file in request');
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
     const file = req.file;
-    console.log('File received:', file.originalname, file.size, file.mimetype);
 
-    // Generate unique filename
     const fileExtension = file.originalname.split('.').pop();
-    const fileName = `product-${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExtension}`;
-    
-    console.log('Uploading to Supabase:', fileName);
+    const fileName = `product-${Date.now()}-${Math.random()
+      .toString(36)
+      .substring(7)}.${fileExtension}`;
 
-    // Upload to Supabase Storage
-    const { data, error } = await supabase.storage
-      .from('giftshop')
-      .upload(fileName, file.buffer, {
-        contentType: file.mimetype,
-        cacheControl: '3600',
-        upsert: false
-      });
+    console.log('Uploading to R2:', fileName);
 
-    if (error) {
-      console.error('Supabase upload error:', error);
-      throw error;
-    }
+    // ✅ Upload to R2
+    await r2.send(
+      new PutObjectCommand({
+        Bucket: process.env.R2_BUCKET_NAME!,
+        Key: `products/${fileName}`,
+        Body: file.buffer,
+        ContentType: file.mimetype,
+      })
+    );
 
-    console.log('Upload successful, getting public URL');
-
-    // Get public URL
-    const { data: { publicUrl } } = supabase.storage
-      .from('giftshop')
-      .getPublicUrl(fileName);
-
-    console.log('Public URL:', publicUrl);
+    // ✅ Public URL
+    const publicUrl = `${process.env.R2_PUBLIC_URL}/products/${fileName}`;
 
     res.json({
       success: true,
@@ -72,11 +61,11 @@ router.post('/upload-image', requireAuth, upload.single('image'), async (req: Re
       file_name: fileName,
       message: 'Image uploaded successfully'
     });
+
   } catch (error: any) {
     console.error('Upload error:', error);
-    res.status(500).json({ 
-      error: error.message || 'Failed to upload image',
-      details: error.toString()
+    res.status(500).json({
+      error: error.message || 'Failed to upload image'
     });
   }
 });

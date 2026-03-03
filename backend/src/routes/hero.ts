@@ -69,4 +69,21 @@ router.post('/upload', requireAuth, upload.single('media'), async (req, res) => 
   }
 });
 
+router.get('/', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('hero_content')
+      .select('*')
+      .order('display_order', { ascending: true });
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json(data ?? []);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;
