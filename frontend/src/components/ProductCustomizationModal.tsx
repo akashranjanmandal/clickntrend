@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Upload, Camera, Type, Image as ImageIcon, Minus, Plus, Download, Eye, Trash2, FileText } from 'lucide-react';
+import { X, Upload, Camera, Type, Image as ImageIcon, Minus, Plus, Download, Eye, Trash2, FileText, AlertCircle } from 'lucide-react';
 import { Product, CustomizationData } from '../types';
 import { useCart } from '../context/CartContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -28,10 +28,14 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
   const [customImages, setCustomImages] = useState<{ file: File | null; preview: string | null; url?: string; uploading?: boolean }[]>([]);
   const [uploading, setUploading] = useState(false);
   const [quantity, setQuantity] = useState(1);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
   const maxImages = product.max_customization_images || 10;
   const maxLines = product.max_customization_lines || 10;
   const maxChars = product.max_customization_characters || 50;
+
+  // Check if customization is required
+  const isCustomizationRequired = product.is_customizable === true;
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.preventDefault();
@@ -66,6 +70,8 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
       reader.onloadend = () => {
         const preview = reader.result as string;
         setCustomImages(prev => [...prev, { file, preview, url: undefined, uploading: false }]);
+        // Clear validation errors when user adds images
+        setValidationErrors(prev => prev.filter(err => !err.includes('image')));
       };
       reader.readAsDataURL(file);
     });
@@ -80,6 +86,28 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
     const updated = [...textLines];
     updated[index] = value;
     setTextLines(updated);
+    // Clear validation errors when user adds text
+    if (value.trim() !== '') {
+      setValidationErrors(prev => prev.filter(err => !err.includes('text')));
+    }
+  };
+
+  const validateCustomization = (): boolean => {
+    const errors: string[] = [];
+    
+    // Check if at least one text line is filled
+    const hasText = textLines.some(line => line.trim() !== '');
+    if (maxLines > 0 && !hasText) {
+      errors.push('Please add at least one line of custom text');
+    }
+    
+    // Check if at least one image is uploaded
+    if (maxImages > 0 && customImages.length === 0) {
+      errors.push('Please upload at least one custom image');
+    }
+    
+    setValidationErrors(errors);
+    return errors.length === 0;
   };
 
   const uploadCustomImages = async (): Promise<string[]> => {
@@ -167,6 +195,12 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
       e.stopPropagation();
     }
     
+    // Validate customization if required
+    if (isCustomizationRequired && !validateCustomization()) {
+      toast.error('Please complete all customization requirements');
+      return;
+    }
+    
     // Filter out empty text lines but keep the structure
     const nonEmptyTextLines = textLines.filter(line => line.trim() !== '');
     
@@ -245,6 +279,23 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
           </div>
 
           <div className="p-4 sm:p-6" onClick={handleModalClick}>
+            {/* Validation Errors Display */}
+            {validationErrors.length > 0 && (
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h3 className="font-medium text-red-800 mb-1">Customization Required</h3>
+                    <ul className="list-disc list-inside text-sm text-red-700">
+                      {validationErrors.map((error, index) => (
+                        <li key={index}>{error}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="flex flex-col lg:flex-row gap-6">
               {/* Left side - Preview */}
               <div className="lg:w-1/2" onClick={handleModalClick}>
@@ -329,7 +380,15 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
                     <div className="flex items-center justify-between mb-3">
                       <label className="block text-sm font-medium flex items-center gap-1.5">
                         <FileText className="h-4 w-4 text-premium-gold" />
-                        <span>Add Custom Text <span className="text-gray-500">({maxLines} line{maxLines > 1 ? 's' : ''} available)</span></span>
+                        <span>
+                          Add Custom Text 
+                          <span className="text-gray-500 ml-1">
+                            ({maxLines} line{maxLines > 1 ? 's' : ''} available)
+                          </span>
+                          {isCustomizationRequired && (
+                            <span className="ml-2 text-xs text-red-500">*Required</span>
+                          )}
+                        </span>
                       </label>
                     </div>
                     
@@ -367,7 +426,15 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
                     <div className="flex items-center justify-between mb-3">
                       <label className="block text-sm font-medium flex items-center gap-1.5">
                         <ImageIcon className="h-4 w-4 text-premium-gold" />
-                        <span>Add Custom Images <span className="text-gray-500">({customImages.length}/{maxImages} uploaded)</span></span>
+                        <span>
+                          Add Custom Images 
+                          <span className="text-gray-500 ml-1">
+                            ({customImages.length}/{maxImages} uploaded)
+                          </span>
+                          {isCustomizationRequired && (
+                            <span className="ml-2 text-xs text-red-500">*Required</span>
+                          )}
+                        </span>
                       </label>
                     </div>
 

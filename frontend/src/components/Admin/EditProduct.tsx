@@ -138,130 +138,148 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
     });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+ const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  
+  // Validation
+  if (productImages.length === 0) {
+    toast.error('Please upload at least one product image');
+    return;
+  }
+
+  if (selectedCategories.length === 0) {
+    toast.error('Please select at least one category');
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    const token = localStorage.getItem('admin_token');
+    const baseUrl = import.meta.env.VITE_API_URL || '';
     
-    // Validation
-    if (productImages.length === 0) {
-      toast.error('Please upload at least one product image');
-      return;
+    // Get primary image URL
+    const primaryImage = productImages.find(img => img.is_primary) || productImages[0];
+    
+    // Prepare product data
+    const productData: any = {
+      name: formData.name.trim(),
+      description: formData.description.trim(),
+      gender: formData.gender,
+      price: parseFloat(formData.price),
+      stock_quantity: parseInt(formData.stock_quantity),
+      sku: formData.sku,
+      image_url: primaryImage.url,
+      social_proof_enabled: formData.social_proof_enabled,
+      social_proof_text: formData.social_proof_text,
+      social_proof_initial_count: parseInt(formData.social_proof_initial_count),
+      social_proof_end_count: parseInt(formData.social_proof_end_count),
+      updated_at: new Date().toISOString()
+    };
+
+    // Add optional fields
+    if (formData.original_price) {
+      productData.original_price = parseFloat(formData.original_price);
+    }
+    
+    if (formData.discount_percentage) {
+      productData.discount_percentage = parseInt(formData.discount_percentage);
+    }
+    
+    // Add customization fields
+    productData.is_customizable = formData.is_customizable;
+    
+    if (formData.is_customizable) {
+      productData.customization_price = parseFloat(formData.customization_price);
+      productData.max_customization_characters = parseInt(formData.max_customization_characters);
+      productData.max_customization_images = parseInt(formData.max_customization_images);
+      productData.max_customization_lines = parseInt(formData.max_customization_lines);
+    }
+    
+    // Add additional images
+    const additionalImageUrls = productImages
+      .filter(img => !img.is_primary)
+      .map(img => img.url);
+    
+    if (additionalImageUrls.length > 0) {
+      productData.additional_images = additionalImageUrls;
+    }
+    
+    productData.is_active = formData.is_active;
+
+    console.log('Updating product:', productData);
+
+    // UPDATE PRODUCT
+    const response = await fetch(`${baseUrl}/api/admin/products/${product.id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(productData),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('Product update error:', errorData);
+      throw new Error(errorData.message || errorData.error || 'Failed to update product');
     }
 
-    if (selectedCategories.length === 0) {
-      toast.error('Please select at least one category');
-      return;
+    console.log('Product updated successfully');
+
+    // ========== DELETE EXISTING CATEGORIES ==========
+    console.log('Deleting existing categories for product:', product.id);
+    const deleteResponse = await fetch(`${baseUrl}/api/admin/products/${product.id}/categories`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+
+    if (!deleteResponse.ok) {
+      const errorData = await deleteResponse.json();
+      console.error('Delete categories error:', errorData);
+      // Don't throw here, continue to add new categories
+    } else {
+      console.log('Existing categories deleted successfully');
     }
 
-    setLoading(true);
-
-    try {
-      const token = localStorage.getItem('admin_token');
-      const baseUrl = import.meta.env.VITE_API_URL || '';
-      
-      // Get primary image URL
-      const primaryImage = productImages.find(img => img.is_primary) || productImages[0];
-      
-      // Prepare product data (NO category field - categories handled separately)
-      const productData: any = {
-        name: formData.name.trim(),
-        description: formData.description.trim(),
-        gender: formData.gender,
-        price: parseFloat(formData.price),
-        stock_quantity: parseInt(formData.stock_quantity),
-        sku: formData.sku,
-        image_url: primaryImage.url,
-        social_proof_enabled: formData.social_proof_enabled,
-        social_proof_text: formData.social_proof_text,
-        social_proof_initial_count: parseInt(formData.social_proof_initial_count),
-        social_proof_end_count: parseInt(formData.social_proof_end_count),
-        updated_at: new Date().toISOString()
+    // ========== ADD NEW CATEGORIES ==========
+    if (selectedCategories.length > 0) {
+      const categoriesPayload = {
+        categories: selectedCategories.map(id => ({ category_id: id }))
       };
 
-      // Add optional fields
-      if (formData.original_price) {
-        productData.original_price = parseFloat(formData.original_price);
-      }
-      
-      if (formData.discount_percentage) {
-        productData.discount_percentage = parseInt(formData.discount_percentage);
-      }
-      
-      // Add customization fields
-      productData.is_customizable = formData.is_customizable;
-      
-      if (formData.is_customizable) {
-        productData.customization_price = parseFloat(formData.customization_price);
-        productData.max_customization_characters = parseInt(formData.max_customization_characters);
-        productData.max_customization_images = parseInt(formData.max_customization_images);
-        productData.max_customization_lines = parseInt(formData.max_customization_lines);
-      }
-      
-      // Add additional images
-      const additionalImageUrls = productImages
-        .filter(img => !img.is_primary)
-        .map(img => img.url);
-      
-      if (additionalImageUrls.length > 0) {
-        productData.additional_images = additionalImageUrls;
-      }
-      
-      productData.is_active = formData.is_active;
+      console.log('Adding categories to product - Payload:', categoriesPayload);
 
-      console.log('Updating product:', productData);
-
-      // UPDATE PRODUCT
-      const response = await fetch(`${baseUrl}/api/admin/products/${product.id}`, {
-        method: 'PUT',
+      const categoriesResponse = await fetch(`${baseUrl}/api/admin/products/${product.id}/categories`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify(productData),
+        body: JSON.stringify(categoriesPayload),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Failed to update product' }));
-        throw new Error(errorData.message || errorData.error || 'Failed to update product');
+      if (!categoriesResponse.ok) {
+        const errorData = await categoriesResponse.json();
+        console.error('Categories response error:', errorData);
+        throw new Error(errorData.message || errorData.error || 'Failed to add categories');
       }
 
-      // Delete existing categories
-      await fetch(`${baseUrl}/api/admin/products/${product.id}/categories`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
-
-      // Add new categories
-      if (selectedCategories.length > 0) {
-        const categoriesPayload = {
-          categories: selectedCategories.map(id => ({ category_id: id }))
-        };
-
-        const categoriesResponse = await fetch(`${baseUrl}/api/admin/products/${product.id}/categories`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          body: JSON.stringify(categoriesPayload),
-        });
-
-        if (!categoriesResponse.ok) {
-          const errorData = await categoriesResponse.json().catch(() => ({ message: 'Failed to add categories' }));
-          throw new Error(errorData.message || errorData.error || 'Failed to add categories');
-        }
-      }
-
-      toast.success('Product updated successfully!');
-      onSuccess();
-      onClose();
-
-    } catch (error: any) {
-      console.error('Update error:', error);
-      toast.error(`Error: ${error.message}`);
-    } finally {
-      setLoading(false);
+      const categoriesResult = await categoriesResponse.json();
+      console.log('Categories added successfully:', categoriesResult);
     }
-  };
+
+    toast.success('Product updated successfully!');
+    onSuccess();
+    onClose();
+
+  } catch (error: any) {
+    console.error('Update error:', error);
+    toast.error(`Error: ${error.message}`);
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Generate a random preview count between initial and end
   const getRandomPreviewCount = () => {

@@ -264,7 +264,7 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
     availableCategories.includes(cat.name)
   );
 
-  const handleSubmit = async (e: React.FormEvent) => {
+const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
   
   // Validation
@@ -295,7 +295,7 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
       }
     }
 
-    // Prepare combo payload (NO category field here - categories are handled separately)
+    // Prepare combo payload
     const comboPayload = {
       name: comboData.name.trim(),
       description: comboData.description.trim(),
@@ -310,7 +310,7 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
     let comboId: string;
 
     if (combo) {
-      // ========== UPDATE EXISTING COMBO ==========
+      // UPDATE EXISTING COMBO
       const updateResponse = await fetch(`${baseUrl}/api/admin/combos/${combo.id}`, {
         method: 'PUT',
         headers: {
@@ -321,37 +321,15 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
       });
 
       if (!updateResponse.ok) {
-        const errorData = await updateResponse.json().catch(() => ({ message: 'Failed to update combo' }));
+        const errorData = await updateResponse.json();
         throw new Error(errorData.message || errorData.error || 'Failed to update combo');
       }
 
-      const updateResult = await updateResponse.json();
       comboId = combo.id;
-      
       console.log('Combo updated successfully:', comboId);
-
-      // Delete existing products
-      const deleteProductsResponse = await fetch(`${baseUrl}/api/admin/combos/${comboId}/products`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
-
-      if (!deleteProductsResponse.ok) {
-        console.warn('Failed to delete existing products, but continuing...');
-      }
-
-      // Delete existing categories
-      const deleteCategoriesResponse = await fetch(`${baseUrl}/api/admin/combos/${comboId}/categories`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
-
-      if (!deleteCategoriesResponse.ok) {
-        console.warn('Failed to delete existing categories, but continuing...');
-      }
       
     } else {
-      // ========== CREATE NEW COMBO ==========
+      // CREATE NEW COMBO
       const createResponse = await fetch(`${baseUrl}/api/admin/combos`, {
         method: 'POST',
         headers: {
@@ -362,18 +340,23 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
       });
 
       if (!createResponse.ok) {
-        const errorData = await createResponse.json().catch(() => ({ message: 'Failed to create combo' }));
+        const errorData = await createResponse.json();
         throw new Error(errorData.message || errorData.error || 'Failed to create combo');
       }
 
       const result = await createResponse.json();
       comboId = result.combo?.id || result.id;
-      
       console.log('Combo created successfully:', comboId);
     }
 
     // ========== ADD PRODUCTS TO COMBO ==========
     if (selectedProducts.length > 0) {
+      // First delete existing products
+      await fetch(`${baseUrl}/api/admin/combos/${comboId}/products`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
       const productsPayload = {
         products: selectedProducts.map(p => ({
           product_id: p.id,
@@ -393,23 +376,29 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
       });
 
       if (!productsResponse.ok) {
-        const errorData = await productsResponse.json().catch(() => ({ message: 'Failed to add products' }));
+        const errorData = await productsResponse.json();
         throw new Error(errorData.message || errorData.error || 'Failed to add products');
       }
 
       const productsResult = await productsResponse.json();
-      console.log(`Added ${productsResult.products?.length || 0} products to combo`);
+      console.log('Products added successfully:', productsResult);
     }
 
     // ========== ADD CATEGORIES TO COMBO ==========
     if (selectedCategories.length > 0) {
+      // First delete existing categories
+      await fetch(`${baseUrl}/api/admin/combos/${comboId}/categories`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
       const categoriesPayload = {
         categories: selectedCategories.map(categoryId => ({
           category_id: categoryId
         }))
       };
 
-      console.log('Adding categories to combo:', categoriesPayload);
+      console.log('Adding categories to combo - Payload:', categoriesPayload);
 
       const categoriesResponse = await fetch(`${baseUrl}/api/admin/combos/${comboId}/categories`, {
         method: 'POST',
@@ -421,34 +410,22 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
       });
 
       if (!categoriesResponse.ok) {
-        const errorData = await categoriesResponse.json().catch(() => ({ message: 'Failed to add categories' }));
+        const errorData = await categoriesResponse.json();
+        console.error('Categories response error:', errorData);
         throw new Error(errorData.message || errorData.error || 'Failed to add categories');
       }
 
       const categoriesResult = await categoriesResponse.json();
-      console.log(`Added ${categoriesResult.categories?.length || 0} categories to combo`);
+      console.log('Categories added successfully:', categoriesResult);
     }
 
-    // ========== SUCCESS ==========
     toast.success(combo ? 'Combo updated successfully!' : 'Combo created successfully!');
     onSuccess();
     onClose();
 
   } catch (error: any) {
     console.error('Save combo error:', error);
-    
-    // Handle specific error cases
-    if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-      toast.error('Network error. Please check your connection.');
-    } else if (error.message.includes('401')) {
-      toast.error('Unauthorized. Please login again.');
-      // Optionally redirect to login
-      // window.location.href = '/admin/login';
-    } else if (error.message.includes('404')) {
-      toast.error('API endpoint not found. Please check server configuration.');
-    } else {
-      toast.error(`Error: ${error.message}`);
-    }
+    toast.error(`Error: ${error.message}`);
   } finally {
     setLoading(false);
   }

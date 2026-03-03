@@ -83,56 +83,84 @@ router.post('/upload-image', requireAuth, upload.single('image'), async (req: Re
 
 // ========== PRODUCTS ========== //
 
-// Get all products for admin
+// Get all products for admin with categories
 router.get('/products', requireAuth, async (req: Request, res: Response) => {
   try {
     const { data, error } = await supabase
       .from('products')
-      .select('*')
+      .select(`
+        *,
+        product_categories (
+          category:categories (*)
+        )
+      `)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    res.json(data);
+    
+    // Transform to include categories array
+    const transformedData = data?.map(product => ({
+      ...product,
+      categories: product.product_categories?.map((pc: any) => pc.category) || []
+    }));
+    
+    res.json(transformedData);
   } catch (error: any) {
+    console.error('Error fetching products:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// Create new product
+// Create new product - WITHOUT category field
 router.post('/products', requireAuth, async (req: Request, res: Response) => {
   try {
     const { 
-      name, description, category, price, original_price, 
+      name, description, price, original_price, 
       discount_percentage, image_url, stock_quantity,
-      is_customizable, customization_price, max_customization_characters,
-      additional_images
+      gender, sku, is_customizable, customization_price, 
+      max_customization_characters, max_customization_images,
+      max_customization_lines, additional_images, subcategory,
+      social_proof_enabled, social_proof_text,
+      social_proof_initial_count, social_proof_end_count,
+      is_active
     } = req.body;
 
-    console.log('Creating product:', { name, category, price, image_url });
+    console.log('Creating product:', { name, price });
 
     const { data, error } = await supabase
       .from('products')
       .insert({
         name,
         description,
-        category,
         price: parseFloat(price),
         original_price: original_price ? parseFloat(original_price) : null,
         discount_percentage: discount_percentage ? parseInt(discount_percentage) : null,
         image_url,
         stock_quantity: parseInt(stock_quantity) || 0,
+        gender: gender || 'unisex',
+        sku,
         is_customizable: is_customizable || false,
         customization_price: customization_price ? parseFloat(customization_price) : 0,
         max_customization_characters: max_customization_characters ? parseInt(max_customization_characters) : 50,
+        max_customization_images: max_customization_images ? parseInt(max_customization_images) : 10,
+        max_customization_lines: max_customization_lines ? parseInt(max_customization_lines) : 10,
         additional_images: additional_images || [],
-        is_active: true,
+        subcategory: subcategory || null,
+        social_proof_enabled: social_proof_enabled !== false,
+        social_proof_text: social_proof_text || '🔺{count} People are Purchasing Right Now',
+        social_proof_initial_count: social_proof_initial_count ? parseInt(social_proof_initial_count) : 5,
+        social_proof_end_count: social_proof_end_count ? parseInt(social_proof_end_count) : 15,
+        is_active: is_active !== undefined ? is_active : true,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase error creating product:', error);
+      throw error;
+    }
     
     console.log('Product created:', data.id);
     res.json({ success: true, product: data });
@@ -142,25 +170,33 @@ router.post('/products', requireAuth, async (req: Request, res: Response) => {
   }
 });
 
-// Update product
+// Update product - WITHOUT category field
 router.put('/products/:id', requireAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const updates = req.body;
     
+    // Remove category fields if they exist (to avoid errors)
+    const { category, categories, ...cleanUpdates } = updates;
+    
     const { data, error } = await supabase
       .from('products')
       .update({
-        ...updates,
+        ...cleanUpdates,
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase error updating product:', error);
+      throw error;
+    }
+    
     res.json({ success: true, product: data });
   } catch (error: any) {
+    console.error('Update product error:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -170,6 +206,9 @@ router.delete('/products/:id', requireAuth, async (req: Request, res: Response) 
   try {
     const { id } = req.params;
     
+    // Delete related categories first
+    await supabase.from('product_categories').delete().eq('product_id', id);
+    
     const { error } = await supabase
       .from('products')
       .delete()
@@ -178,9 +217,11 @@ router.delete('/products/:id', requireAuth, async (req: Request, res: Response) 
     if (error) throw error;
     res.json({ success: true, message: 'Product deleted successfully' });
   } catch (error: any) {
+    console.error('Delete product error:', error);
     res.status(500).json({ error: error.message });
   }
 });
+
 // ========== PRODUCT CATEGORIES ROUTES ==========
 
 // Delete all categories from a product
@@ -262,6 +303,7 @@ router.get('/products/:id/categories', requireAuth, async (req: Request, res: Re
     res.status(500).json({ error: error.message });
   }
 });
+
 // ========== CATEGORIES ========== //
 
 // Get all categories for admin
@@ -274,6 +316,7 @@ router.get('/categories', requireAuth, async (req: Request, res: Response) => {
     if (error) throw error;
     res.json(data || []);
   } catch (error: any) {
+    console.error('Error fetching categories:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -293,6 +336,7 @@ router.post('/categories', requireAuth, async (req: Request, res: Response) => {
     if (error) throw error;
     res.json(data);
   } catch (error: any) {
+    console.error('Error creating category:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -312,6 +356,7 @@ router.put('/categories/:id', requireAuth, async (req: Request, res: Response) =
     if (error) throw error;
     res.json(data);
   } catch (error: any) {
+    console.error('Error updating category:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -326,6 +371,7 @@ router.delete('/categories/:id', requireAuth, async (req: Request, res: Response
     if (error) throw error;
     res.json({ success: true });
   } catch (error: any) {
+    console.error('Error deleting category:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -343,6 +389,7 @@ router.get('/orders', requireAuth, async (req: Request, res: Response) => {
     if (error) throw error;
     res.json(data);
   } catch (error: any) {
+    console.error('Error fetching orders:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -361,6 +408,7 @@ router.get('/orders/:id', requireAuth, async (req: Request, res: Response) => {
     if (error) throw error;
     res.json(data);
   } catch (error: any) {
+    console.error('Error fetching order:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -384,13 +432,14 @@ router.put('/orders/:id', requireAuth, async (req: Request, res: Response) => {
     if (error) throw error;
     res.json({ success: true, order: data });
   } catch (error: any) {
+    console.error('Error updating order:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
 // ========== COMBOS ========== //
 
-// Get all combos for admin
+// Get all combos for admin with categories
 router.get('/combos', requireAuth, async (req: Request, res: Response) => {
   try {
     const { data, error } = await supabase
@@ -400,18 +449,29 @@ router.get('/combos', requireAuth, async (req: Request, res: Response) => {
         combo_products (
           quantity,
           product:products (*)
+        ),
+        combo_categories (
+          category:categories (*)
         )
       `)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    res.json(data);
+    
+    // Transform to include categories array
+    const transformedData = data?.map(combo => ({
+      ...combo,
+      categories: combo.combo_categories?.map((cc: any) => cc.category) || []
+    }));
+    
+    res.json(transformedData);
   } catch (error: any) {
+    console.error('Error fetching combos:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// Create new combo (without products)
+// Create new combo - WITHOUT category field
 router.post('/combos', requireAuth, async (req: Request, res: Response) => {
   try {
     const { 
@@ -449,87 +509,8 @@ router.post('/combos', requireAuth, async (req: Request, res: Response) => {
     res.status(500).json({ error: error.message });
   }
 });
-// In the POST /combos route
-router.post('/combos', requireAuth, async (req: Request, res: Response) => {
-  try {
-    const { 
-      name, description, category, discount_percentage, discount_price,
-      image_url, is_active 
-    } = req.body;
 
-    console.log('Creating combo:', { name, category });
-
-    // Create combo
-    const { data: combo, error: comboError } = await supabase
-      .from('combos')
-      .insert({
-        name,
-        description,
-        category, // Add category
-        discount_percentage: discount_percentage || null,
-        discount_price: discount_price || null,
-        image_url,
-        is_active: is_active !== undefined ? is_active : true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
-      .select()
-      .single();
-
-    if (comboError) {
-      console.error('Error creating combo:', comboError);
-      throw comboError;
-    }
-
-    console.log('Combo created:', combo.id);
-    res.json({ success: true, combo });
-  } catch (error: any) {
-    console.error('Create combo error:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// In the PUT /combos/:id route
-router.put('/combos/:id', requireAuth, async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const { 
-      name, description, category, discount_percentage, discount_price,
-      image_url, is_active 
-    } = req.body;
-
-    console.log('Updating combo:', { id, name, category });
-
-    // Update the combo
-    const { data: combo, error: comboError } = await supabase
-      .from('combos')
-      .update({
-        name,
-        description,
-        category, // Add category
-        discount_percentage: discount_percentage || null,
-        discount_price: discount_price || null,
-        image_url,
-        is_active: is_active !== undefined ? is_active : true,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (comboError) {
-      console.error('Error updating combo:', comboError);
-      throw comboError;
-    }
-
-    console.log('Combo updated:', id);
-    res.json({ success: true, combo });
-  } catch (error: any) {
-    console.error('Update combo error:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-// Update combo (without products)
+// Update combo - WITHOUT category field
 router.put('/combos/:id', requireAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -549,7 +530,7 @@ router.put('/combos/:id', requireAuth, async (req: Request, res: Response) => {
         discount_percentage: discount_percentage ? parseInt(discount_percentage) : null,
         discount_price: discount_price ? parseFloat(discount_price) : null,
         image_url,
-        is_active: is_active !== undefined ? is_active : true,
+        is_active,
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
@@ -574,13 +555,9 @@ router.delete('/combos/:id', requireAuth, async (req: Request, res: Response) =>
   try {
     const { id } = req.params;
     
-    // First delete combo products (due to foreign key constraint)
-    const { error: productsError } = await supabase
-      .from('combo_products')
-      .delete()
-      .eq('combo_id', id);
-
-    if (productsError) throw productsError;
+    // First delete related records
+    await supabase.from('combo_products').delete().eq('combo_id', id);
+    await supabase.from('combo_categories').delete().eq('combo_id', id);
     
     // Then delete the combo
     const { error } = await supabase
@@ -589,9 +566,10 @@ router.delete('/combos/:id', requireAuth, async (req: Request, res: Response) =>
       .eq('id', id);
 
     if (error) throw error;
+
     res.json({ success: true, message: 'Combo deleted successfully' });
   } catch (error: any) {
-    console.error('Delete combo error:', error);
+    console.error('Error deleting combo:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -649,46 +627,6 @@ router.post('/combos/:comboId/products', requireAuth, async (req: Request, res: 
   }
 });
 
-// Update combo products (replace all)
-router.put('/combos/:comboId/products', requireAuth, async (req: Request, res: Response) => {
-  try {
-    const { comboId } = req.params;
-    const { products } = req.body;
-
-    // Start a transaction - delete all existing products first
-    const { error: deleteError } = await supabase
-      .from('combo_products')
-      .delete()
-      .eq('combo_id', comboId);
-
-    if (deleteError) throw deleteError;
-
-    // If no new products, just return success
-    if (!products || !Array.isArray(products) || products.length === 0) {
-      return res.json({ success: true, message: 'All products removed from combo' });
-    }
-
-    // Add new products
-    const comboProducts = products.map((p: any) => ({
-      combo_id: comboId,
-      product_id: p.product_id,
-      quantity: p.quantity || 1
-    }));
-
-    const { data, error: insertError } = await supabase
-      .from('combo_products')
-      .insert(comboProducts)
-      .select();
-
-    if (insertError) throw insertError;
-
-    res.json({ success: true, data });
-  } catch (error: any) {
-    console.error('Error updating combo products:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
 // Delete all products from a combo
 router.delete('/combos/:comboId/products', requireAuth, async (req: Request, res: Response) => {
   try {
@@ -703,6 +641,309 @@ router.delete('/combos/:comboId/products', requireAuth, async (req: Request, res
     res.json({ success: true, message: 'All products removed from combo' });
   } catch (error: any) {
     console.error('Error deleting combo products:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ========== COMBO CATEGORIES ROUTES ==========
+
+// Delete all categories from a combo
+router.delete('/combos/:id/categories', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    const { error } = await supabase
+      .from('combo_categories')
+      .delete()
+      .eq('combo_id', id);
+
+    if (error) {
+      console.error('Error deleting combo categories:', error);
+      throw error;
+    }
+
+    res.json({ success: true, message: 'All categories removed from combo' });
+  } catch (error: any) {
+    console.error('Error deleting combo categories:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Add categories to a combo
+router.post('/combos/:id/categories', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { categories } = req.body;
+
+    if (!categories || !Array.isArray(categories) || categories.length === 0) {
+      return res.status(400).json({ error: 'No categories provided' });
+    }
+
+    const comboCategories = categories.map((c: any) => ({
+      combo_id: id,
+      category_id: c.category_id
+    }));
+
+    const { data, error } = await supabase
+      .from('combo_categories')
+      .insert(comboCategories)
+      .select(`
+        *,
+        category:categories (*)
+      `);
+
+    if (error) {
+      console.error('Error adding categories to combo:', error);
+      throw error;
+    }
+
+    res.json({ success: true, categories: data });
+  } catch (error: any) {
+    console.error('Error adding categories to combo:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get categories for a specific combo
+router.get('/combos/:id/categories', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    const { data, error } = await supabase
+      .from('combo_categories')
+      .select(`
+        category_id,
+        category:categories (*)
+      `)
+      .eq('combo_id', id);
+
+    if (error) throw error;
+    
+    const categories = data.map((item: any) => item.category);
+    res.json(categories);
+  } catch (error: any) {
+    console.error('Error fetching combo categories:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update specific product quantity in combo (admin)
+router.put('/combos/:id/products/:productId', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { id, productId } = req.params;
+    const { quantity } = req.body;
+
+    if (!quantity || quantity < 1) {
+      return res.status(400).json({ error: 'Valid quantity is required' });
+    }
+
+    const { data, error } = await supabase
+      .from('combo_products')
+      .update({ quantity })
+      .eq('combo_id', id)
+      .eq('product_id', productId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating product quantity:', error);
+      throw error;
+    }
+
+    res.json({ success: true, product: data });
+  } catch (error: any) {
+    console.error('Error updating product quantity:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Remove specific product from combo (admin)
+router.delete('/combos/:id/products/:productId', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { id, productId } = req.params;
+
+    const { error } = await supabase
+      .from('combo_products')
+      .delete()
+      .eq('combo_id', id)
+      .eq('product_id', productId);
+
+    if (error) {
+      console.error('Error removing product from combo:', error);
+      throw error;
+    }
+
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error('Error removing product from combo:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get combo statistics (admin)
+router.get('/stats/summary', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { data, error } = await supabase
+      .from('combos')
+      .select('id, name, is_active, combo_products');
+
+    if (error) throw error;
+
+    const stats = {
+      total_combos: data.length,
+      active_combos: data.filter(c => c.is_active).length,
+      inactive_combos: data.filter(c => !c.is_active).length,
+      avg_products_per_combo: data.reduce((acc, combo) => 
+        acc + (combo.combo_products?.length || 0), 0) / (data.length || 1)
+    };
+
+    res.json(stats);
+  } catch (error: any) {
+    console.error('Error fetching combo stats:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Bulk add products to combo (admin)
+router.post('/combos/:id/products/bulk', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { products } = req.body;
+
+    if (!products || !Array.isArray(products)) {
+      return res.status(400).json({ error: 'Products array is required' });
+    }
+
+    const results = await Promise.all(
+      products.map(async (product) => {
+        const { data, error } = await supabase
+          .from('combo_products')
+          .upsert({
+            combo_id: id,
+            product_id: product.product_id,
+            quantity: product.quantity || 1
+          }, { onConflict: 'combo_id,product_id' })
+          .select()
+          .single();
+
+        if (error) throw error;
+        return data;
+      })
+    );
+
+    res.json({ success: true, products: results });
+  } catch (error: any) {
+    console.error('Error bulk adding products:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get available products for combo (admin)
+router.get('/available-products', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { data, error } = await supabase
+      .from('products')
+      .select('*, product_categories(category:categories(*))')
+      .eq('is_active', true)
+      .order('name');
+
+    if (error) throw error;
+    
+    // Transform to include categories
+    const transformedData = data.map(product => ({
+      ...product,
+      categories: product.product_categories?.map((pc: any) => pc.category) || []
+    }));
+    
+    res.json(transformedData);
+  } catch (error: any) {
+    console.error('Error fetching available products:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get all categories for combo filtering (admin)
+router.get('/categories/all', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { data, error } = await supabase
+      .from('categories')
+      .select('*')
+      .eq('is_active', true)
+      .order('display_order');
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error: any) {
+    console.error('Error fetching categories:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Duplicate combo (admin)
+router.post('/combos/:id/duplicate', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    // Get original combo with its products
+    const { data: originalCombo, error: fetchError } = await supabase
+      .from('combos')
+      .select(`
+        *,
+        combo_products (
+          product_id,
+          quantity
+        ),
+        combo_categories (
+          category_id
+        )
+      `)
+      .eq('id', id)
+      .single();
+
+    if (fetchError) throw fetchError;
+
+    // Create new combo based on original
+    const { data: newCombo, error: createError } = await supabase
+      .from('combos')
+      .insert({
+        name: `${originalCombo.name} (Copy)`,
+        description: originalCombo.description,
+        discount_percentage: originalCombo.discount_percentage,
+        discount_price: originalCombo.discount_price,
+        image_url: originalCombo.image_url,
+        is_active: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (createError) throw createError;
+
+    // Copy products
+    if (originalCombo.combo_products?.length > 0) {
+      const productsToCopy = originalCombo.combo_products.map((p: any) => ({
+        combo_id: newCombo.id,
+        product_id: p.product_id,
+        quantity: p.quantity
+      }));
+
+      await supabase.from('combo_products').insert(productsToCopy);
+    }
+
+    // Copy categories
+    if (originalCombo.combo_categories?.length > 0) {
+      const categoriesToCopy = originalCombo.combo_categories.map((c: any) => ({
+        combo_id: newCombo.id,
+        category_id: c.category_id
+      }));
+
+      await supabase.from('combo_categories').insert(categoriesToCopy);
+    }
+
+    res.json({ success: true, combo: newCombo });
+  } catch (error: any) {
+    console.error('Error duplicating combo:', error);
     res.status(500).json({ error: error.message });
   }
 });
