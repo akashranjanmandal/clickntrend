@@ -203,16 +203,34 @@ const Home: React.FC = () => {
     }
   };
 
-  const getFilteredProducts = () => {
-    let filtered = [...products];
-    if (selectedCategory) {
-      filtered = filtered.filter(p => p.category === selectedCategory.name);
-    }
-    if (selectedGender !== 'all') {
-      filtered = filtered.filter(p => p.gender === selectedGender);
-    }
-    return filtered;
-  };
+const getFilteredProducts = () => {
+  let filtered = [...products];
+  
+  if (selectedCategory) {
+    filtered = filtered.filter(p => {
+      // Check multiple possible matches
+      const matchesByName = p.category?.toLowerCase().trim() === selectedCategory.name.toLowerCase().trim();
+      
+      // Check if product has categories array and matches by ID
+      const matchesByCategoryId = p.categories?.some(cat => cat.id === selectedCategory.id);
+      
+      // Check if product has categories array and matches by name
+      const matchesByCategoryName = p.categories?.some(
+        cat => cat.name.toLowerCase().trim() === selectedCategory.name.toLowerCase().trim()
+      );
+      
+      return matchesByName || matchesByCategoryId || matchesByCategoryName;
+    });
+  }
+  
+  if (selectedGender !== 'all') {
+    filtered = filtered.filter(p => 
+      p.gender?.toLowerCase().trim() === selectedGender.toLowerCase().trim()
+    );
+  }
+  
+  return filtered;
+};
 
   const getFilteredCombos = () => {
     if (!selectedCategory && selectedGender === 'all') return combos;
@@ -809,17 +827,20 @@ const Home: React.FC = () => {
                   className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4"
                 >
                   {filteredProducts.map((product, index) => (
-                    <motion.div
-                      key={product.id}
-                      variants={scaleInVariants}
-                      custom={index}
-                      whileHover={{ y: -5 }}
-                      onClick={() => handleProductClick(product)}
-                      className="cursor-pointer"
-                    >
-                      <ProductCard product={product} />
-                    </motion.div>
-                  ))}
+  <motion.div
+    key={product.id}
+    variants={scaleInVariants}
+    custom={index}
+    whileHover={{ y: -5 }}
+    onClick={() => {
+      console.log('Product clicked:', product);
+      handleProductClick(product);
+    }}
+    className="cursor-pointer"
+  >
+    <ProductCard product={product} />
+  </motion.div>
+))}
                 </motion.div>
               ) : (
                 <motion.div 
