@@ -49,7 +49,7 @@ router.post('/upload', requireAuth, upload.single('media'), async (req, res) => 
     );
 
     // ✅ Construct Public URL
-    const publicUrl = `${process.env.R2_PUBLIC_URL}/${fileName}`;
+    const publicUrl = `https://pub-${process.env.R2_ACCOUNT_ID}.r2.dev/${fileName}`;
 
     const posterUrl = isVideo
       ? publicUrl.replace(/\.\w+$/, '-poster.jpg')
