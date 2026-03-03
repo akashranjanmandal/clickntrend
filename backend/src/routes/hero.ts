@@ -41,7 +41,7 @@ router.post('/upload', requireAuth, upload.single('media'), async (req, res) => 
     // ✅ Upload to R2
     await r2.send(
       new PutObjectCommand({
-        Bucket: process.env.R2_BUCKET!,
+        Bucket: process.env.R2_BUCKET_NAME!,
         Key: fileName,
         Body: file.buffer,
         ContentType: file.mimetype,
