@@ -9,7 +9,7 @@ import toast from 'react-hot-toast';
 interface ProductCustomizationModalProps {
   product: Product;
   onClose: () => void;
-  onCustomizeComplete?: (customization: CustomizationData) => void; // New prop for combo builder
+  onCustomizeComplete?: (customization: CustomizationData) => void;
 }
 
 const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({ 
@@ -28,6 +28,9 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
   const maxChars = product.max_customization_characters || 50;
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
@@ -80,7 +83,7 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
       const updated = textLines.filter((_, i) => i !== index);
       setTextLines(updated);
     } else {
-      setTextLines(['']); // Keep at least one empty line
+      setTextLines(['']);
     }
   };
 
@@ -94,7 +97,6 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
     const imagesToUpload = customImages.filter(img => img.file && !img.url);
     
     if (imagesToUpload.length === 0) {
-      // Return existing URLs for already uploaded images
       return customImages
         .filter(img => img.url)
         .map(img => img.url as string);
@@ -102,7 +104,6 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
 
     setUploading(true);
     
-    // Mark images as uploading
     setCustomImages(prev => prev.map(img => 
       img.file && !img.url ? { ...img, uploading: true } : img
     ));
@@ -110,7 +111,6 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
     const uploadedUrls: string[] = [];
 
     try {
-      // Upload images one by one
       for (let i = 0; i < imagesToUpload.length; i++) {
         const image = imagesToUpload[i];
         if (!image.file) continue;
@@ -120,20 +120,12 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
         formData.append('product_id', product.id);
         formData.append('index', i.toString());
 
-        console.log(`Uploading image ${i + 1}/${imagesToUpload.length}:`, {
-          name: image.file.name,
-          type: image.file.type,
-          size: image.file.size
-        });
-
         const endpoint = '/api/upload/customization';
         const response = await publicFetch(endpoint, {
           method: 'POST',
           body: formData,
           headers: {}
         });
-        
-        console.log('Upload successful:', response);
         
         const imageUrl = response.image_url || response.url;
         if (!imageUrl) {
@@ -142,7 +134,6 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
         
         uploadedUrls.push(imageUrl);
         
-        // Update the image object with the URL
         setCustomImages(prev => {
           const updated = [...prev];
           const imgIndex = updated.findIndex(img => img.file === image.file);
@@ -153,7 +144,6 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
         });
       }
       
-      // Include previously uploaded URLs
       const existingUrls = customImages
         .filter(img => img.url && !imagesToUpload.includes(img))
         .map(img => img.url as string);
@@ -162,7 +152,6 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
     } catch (error: any) {
       console.error('Error uploading image:', error);
       
-      // Reset uploading state on error
       setCustomImages(prev => prev.map(img => ({ ...img, uploading: false })));
       
       if (error.message?.includes('400')) {
@@ -183,8 +172,12 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
     }
   };
 
-  const handleSubmit = async () => {
-    // Filter out empty text lines
+  const handleSubmit = async (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
     const nonEmptyTextLines = textLines.filter(line => line.trim() !== '');
     
     let imageUrls: string[] = [];
@@ -195,7 +188,7 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
       
       if (imageUrls.length !== customImages.length) {
         toast.error('Some images failed to upload. Please try again.');
-        return; // Stop if some uploads failed
+        return;
       }
     }
 
@@ -206,13 +199,11 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
       image_paths: imageUrls
     };
 
-    // If onCustomizeComplete is provided (for combo builder), call it and close
     if (onCustomizeComplete) {
       onCustomizeComplete(customization);
       toast.success('Customization saved!');
       onClose();
     } else {
-      // Otherwise, add to cart directly (regular flow)
       const finalPrice = product.price + (product.customization_price || 0);
 
       for (let i = 0; i < quantity; i++) {
@@ -233,6 +224,10 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
     }
   };
 
+  const handleModalClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+  };
+
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4">
@@ -249,6 +244,7 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: '100%' }}
           transition={{ type: 'tween' }}
+          onClick={handleModalClick}
           className="relative bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto"
         >
           <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex justify-between items-center z-10">
@@ -258,10 +254,10 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
             </button>
           </div>
 
-          <div className="p-4 sm:p-6">
+          <div className="p-4 sm:p-6" onClick={handleModalClick}>
             <div className="flex flex-col lg:flex-row gap-6">
               {/* Left side - Preview */}
-              <div className="lg:w-1/2">
+              <div className="lg:w-1/2" onClick={handleModalClick}>
                 <h3 className="font-medium text-sm mb-3">Preview</h3>
                 <div className="space-y-4">
                   {/* Main product image */}
@@ -317,7 +313,11 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
                               </div>
                             )}
                             <button
-                              onClick={() => removeImage(idx)}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                removeImage(idx);
+                              }}
                               disabled={img.uploading}
                               className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-0"
                             >
@@ -332,9 +332,9 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
               </div>
 
               {/* Right side - Customization options */}
-              <div className="lg:w-1/2 space-y-6">
+              <div className="lg:w-1/2 space-y-6" onClick={handleModalClick}>
                 {/* Custom Text Lines */}
-                <div className="bg-gray-50 p-4 rounded-lg">
+                <div className="bg-gray-50 p-4 rounded-lg" onClick={handleModalClick}>
                   <div className="flex items-center justify-between mb-3">
                     <label className="block text-sm font-medium flex items-center gap-1.5">
                       <FileText className="h-4 w-4 text-premium-gold" />
@@ -342,7 +342,11 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
                     </label>
                     {textLines.length < maxLines && (
                       <button
-                        onClick={addTextLine}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          addTextLine();
+                        }}
                         className="text-xs bg-premium-gold text-white px-3 py-1 rounded-full hover:bg-premium-burgundy flex items-center gap-1"
                       >
                         <Plus className="h-3 w-3" />
@@ -351,9 +355,9 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
                     )}
                   </div>
                   
-                  <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+                  <div className="space-y-3 max-h-60 overflow-y-auto pr-1" onClick={handleModalClick}>
                     {textLines.map((line, idx) => (
-                      <div key={idx} className="flex items-start gap-2">
+                      <div key={idx} className="flex items-start gap-2" onClick={handleModalClick}>
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
                             <span className="text-xs font-medium text-gray-500">Line {idx + 1}</span>
@@ -362,7 +366,12 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
                           <input
                             type="text"
                             value={line}
-                            onChange={(e) => updateTextLine(idx, e.target.value)}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              updateTextLine(idx, e.target.value);
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            onKeyDown={(e) => e.stopPropagation()}
                             maxLength={maxChars}
                             placeholder={`Enter text (max ${maxChars} chars)`}
                             className="w-full px-3 py-2 text-sm border rounded-lg focus:border-premium-gold focus:outline-none"
@@ -370,7 +379,11 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
                         </div>
                         {textLines.length > 1 && (
                           <button
-                            onClick={() => removeTextLine(idx)}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              removeTextLine(idx);
+                            }}
                             className="p-2 text-red-500 hover:bg-red-50 rounded-lg mt-6"
                           >
                             <Minus className="h-4 w-4" />
@@ -382,7 +395,7 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
                 </div>
 
                 {/* Custom Images */}
-                <div className="bg-gray-50 p-4 rounded-lg">
+                <div className="bg-gray-50 p-4 rounded-lg" onClick={handleModalClick}>
                   <div className="flex items-center justify-between mb-3">
                     <label className="block text-sm font-medium flex items-center gap-1.5">
                       <ImageIcon className="h-4 w-4 text-premium-gold" />
@@ -390,9 +403,9 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
                     </label>
                   </div>
 
-                  <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+                  <div className="space-y-3 max-h-80 overflow-y-auto pr-1" onClick={handleModalClick}>
                     {customImages.map((img, idx) => (
-                      <div key={idx} className="flex items-center gap-3 p-3 bg-white rounded-lg border">
+                      <div key={idx} className="flex items-center gap-3 p-3 bg-white rounded-lg border" onClick={handleModalClick}>
                         <div className="w-12 h-12 rounded overflow-hidden flex-shrink-0 border">
                           <img
                             src={img.preview || ''}
@@ -430,6 +443,7 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
                                 rel="noopener noreferrer"
                                 className="p-1.5 hover:bg-gray-100 rounded"
                                 title="Download"
+                                onClick={(e) => e.stopPropagation()}
                               >
                                 <Download className="h-4 w-4 text-blue-600" />
                               </a>
@@ -439,13 +453,18 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
                                 rel="noopener noreferrer"
                                 className="p-1.5 hover:bg-gray-100 rounded"
                                 title="View"
+                                onClick={(e) => e.stopPropagation()}
                               >
                                 <Eye className="h-4 w-4 text-gray-600" />
                               </a>
                             </>
                           )}
                           <button
-                            onClick={() => removeImage(idx)}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              removeImage(idx);
+                            }}
                             disabled={img.uploading}
                             className="p-1.5 hover:bg-red-100 text-red-500 rounded disabled:opacity-50"
                             title="Remove"
@@ -457,11 +476,12 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
                     ))}
 
                     {customImages.length < maxImages && (
-                      <div className="relative">
+                      <div className="relative" onClick={handleModalClick}>
                         <input
                           type="file"
                           accept="image/jpeg,image/png,image/webp,image/jpg"
                           onChange={handleImageUpload}
+                          onClick={(e) => e.stopPropagation()}
                           multiple
                           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                         />
@@ -481,7 +501,7 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
                 </div>
 
                 {/* Price Breakdown */}
-                <div className="border-t pt-4">
+                <div className="border-t pt-4" onClick={handleModalClick}>
                   <div className="flex justify-between items-center mb-2 text-sm">
                     <span className="text-gray-600">Base Price:</span>
                     <span className="font-medium">₹{product.price.toLocaleString()}</span>
@@ -502,11 +522,15 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
 
                 {/* Quantity - Only show if NOT in combo mode */}
                 {!onCustomizeComplete && (
-                  <div className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
+                  <div className="flex items-center justify-between bg-gray-50 p-3 rounded-lg" onClick={handleModalClick}>
                     <span className="text-sm font-medium">Quantity:</span>
                     <div className="flex items-center border rounded-lg bg-white">
                       <button
-                        onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setQuantity(Math.max(1, quantity - 1));
+                        }}
                         className="px-3 py-1.5 hover:bg-gray-100 text-sm"
                       >
                         <Minus className="h-3 w-3" />
@@ -515,7 +539,11 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
                         {quantity}
                       </span>
                       <button
-                        onClick={() => setQuantity(quantity + 1)}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setQuantity(quantity + 1);
+                        }}
                         className="px-3 py-1.5 hover:bg-gray-100 text-sm"
                       >
                         <Plus className="h-3 w-3" />

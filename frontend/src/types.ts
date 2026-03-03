@@ -121,11 +121,8 @@ export interface CartItem {
   category?: string;
   customization?: CustomizationData;
   description?: string;
-}
-
-// Extended interface for combo items
-export interface ComboCartItem extends CartItem {
-  combo_id: string;
+  // Combo grouping fields
+  combo_id?: string;
   combo_name?: string;
   is_combo_item?: boolean;
 }
