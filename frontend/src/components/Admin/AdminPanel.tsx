@@ -1,4 +1,3 @@
-import toast from 'react-hot-toast';
 import React, { useState, useEffect } from 'react';
 import { 
   LogOut, Package, DollarSign, TrendingUp, Eye, 
@@ -23,6 +22,7 @@ import ReviewManager from './ReviewManager';
 import HeroManager from './HeroManager';
 import PopupManager from './PopupManager';
 import LogoManager from './LogoManager';
+import toast from 'react-hot-toast';
 
 const AdminPanel: React.FC = () => {
   const { fetchWithAuth } = useApi();
@@ -191,15 +191,15 @@ const AdminPanel: React.FC = () => {
     
     let filtered = [...products];
     
- // Apply search filter
-if (searchQuery.trim() !== '') {
-  const query = searchQuery.toLowerCase();
-  filtered = filtered.filter(product => 
-    product.name.toLowerCase().includes(query) ||
-    product.description.toLowerCase().includes(query) ||
-    (product.category || '').toLowerCase().includes(query) 
-  );
-}
+    // Apply search filter
+    if (searchQuery.trim() !== '') {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(product => 
+        product.name.toLowerCase().includes(query) ||
+        product.description.toLowerCase().includes(query) ||
+        (product.category || '').toLowerCase().includes(query) 
+      );
+    }
     
     // Apply category filter
     if (productCategoryFilter !== 'all') {
@@ -239,8 +239,8 @@ if (searchQuery.trim() !== '') {
           comparison = (a.stock_quantity || 0) - (b.stock_quantity || 0);
           break;
         case 'category':
-  comparison = (a.category || '').localeCompare(b.category || '');
-  break;
+          comparison = (a.category || '').localeCompare(b.category || '');
+          break;
         case 'gender':
           comparison = (a.gender || 'unisex').localeCompare(b.gender || 'unisex');
           break;
@@ -513,26 +513,32 @@ if (searchQuery.trim() !== '') {
     }
   };
 
-  const copyToClipboard = (text: string) => {
+  const copyToClipboard = (text: string, message?: string) => {
     navigator.clipboard.writeText(text);
     setCopySuccess(text);
+    toast.success(message || 'Copied to clipboard!');
     setTimeout(() => setCopySuccess(''), 2000);
   };
 
-  const downloadAllImages = async (imageUrls: string[]) => {
+  const downloadImage = (url: string, filename: string) => {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  const downloadAllImages = async (imageUrls: string[], orderId: string) => {
     setDownloadingAll(true);
     try {
-      // Download images one by one with slight delay
       for (let i = 0; i < imageUrls.length; i++) {
         const url = imageUrls[i];
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `custom-image-${i + 1}.jpg`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+        downloadImage(url, `custom-image-${i + 1}.jpg`);
         // Small delay between downloads
-        await new Promise(resolve => setTimeout(resolve, 500));
+        if (i < imageUrls.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
       }
       toast.success(`Downloaded ${imageUrls.length} images`);
     } catch (error) {
@@ -736,141 +742,141 @@ if (searchQuery.trim() !== '') {
                   <p className="text-sm text-gray-600">Premium Gift Shop Management</p>
                 </div>
               </div>
-          <div className="hidden md:flex items-center space-x-1 ml-8">
-  {/* Dashboard - always visible */}
-  <button
-    onClick={() => setActiveTab('dashboard')}
-    className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
-      activeTab === 'dashboard'
-        ? 'bg-premium-gold text-white'
-        : 'text-gray-600 hover:bg-gray-100'
-    }`}
-  >
-    <BarChart3 className="h-4 w-4" />
-    <span>Dashboard</span>
-  </button>
+              <div className="hidden md:flex items-center space-x-1 ml-8">
+                {/* Dashboard - always visible */}
+                <button
+                  onClick={() => setActiveTab('dashboard')}
+                  className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+                    activeTab === 'dashboard'
+                      ? 'bg-premium-gold text-white'
+                      : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  <BarChart3 className="h-4 w-4" />
+                  <span>Dashboard</span>
+                </button>
 
-  {/* Orders - always visible */}
-  <button
-    onClick={() => setActiveTab('orders')}
-    className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
-      activeTab === 'orders'
-        ? 'bg-premium-gold text-white'
-        : 'text-gray-600 hover:bg-gray-100'
-    }`}
-  >
-    <Package className="h-4 w-4" />
-    <span>Orders</span>
-  </button>
+                {/* Orders - always visible */}
+                <button
+                  onClick={() => setActiveTab('orders')}
+                  className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+                    activeTab === 'orders'
+                      ? 'bg-premium-gold text-white'
+                      : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  <Package className="h-4 w-4" />
+                  <span>Orders</span>
+                </button>
 
-  {/* Products Dropdown */}
-  <div className="relative group">
-    <button
-      className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
-        ['products', 'combos', 'categories'].includes(activeTab)
-          ? 'bg-premium-gold text-white'
-          : 'text-gray-600 hover:bg-gray-100'
-      }`}
-    >
-      <ShoppingBag className="h-4 w-4" />
-      <span>Products</span>
-      <ChevronDown className="h-4 w-4" />
-    </button>
-    
-    <div className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-xl border py-2 min-w-[180px] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
-      <button
-        onClick={() => setActiveTab('products')}
-        className={`w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center space-x-2 ${
-          activeTab === 'products' ? 'bg-premium-cream text-premium-gold' : ''
-        }`}
-      >
-        <ShoppingBag className="h-4 w-4" />
-        <span>Products</span>
-      </button>
-      <button
-        onClick={() => setActiveTab('combos')}
-        className={`w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center space-x-2 ${
-          activeTab === 'combos' ? 'bg-premium-cream text-premium-gold' : ''
-        }`}
-      >
-        <Package className="h-4 w-4" />
-        <span>Combos</span>
-      </button>
-      <button
-        onClick={() => setActiveTab('categories')}
-        className={`w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center space-x-2 ${
-          activeTab === 'categories' ? 'bg-premium-cream text-premium-gold' : ''
-        }`}
-      >
-        <Tag className="h-4 w-4" />
-        <span>Categories</span>
-      </button>
-    </div>
-  </div>
+                {/* Products Dropdown */}
+                <div className="relative group">
+                  <button
+                    className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+                      ['products', 'combos', 'categories'].includes(activeTab)
+                        ? 'bg-premium-gold text-white'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    <ShoppingBag className="h-4 w-4" />
+                    <span>Products</span>
+                    <ChevronDown className="h-4 w-4" />
+                  </button>
+                  
+                  <div className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-xl border py-2 min-w-[180px] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                    <button
+                      onClick={() => setActiveTab('products')}
+                      className={`w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center space-x-2 ${
+                        activeTab === 'products' ? 'bg-premium-cream text-premium-gold' : ''
+                      }`}
+                    >
+                      <ShoppingBag className="h-4 w-4" />
+                      <span>Products</span>
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('combos')}
+                      className={`w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center space-x-2 ${
+                        activeTab === 'combos' ? 'bg-premium-cream text-premium-gold' : ''
+                      }`}
+                    >
+                      <Package className="h-4 w-4" />
+                      <span>Combos</span>
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('categories')}
+                      className={`w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center space-x-2 ${
+                        activeTab === 'categories' ? 'bg-premium-cream text-premium-gold' : ''
+                      }`}
+                    >
+                      <Tag className="h-4 w-4" />
+                      <span>Categories</span>
+                    </button>
+                  </div>
+                </div>
 
-  {/* Marketing Dropdown */}
-  <div className="relative group">
-    <button
-      className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
-        ['coupons', 'reviews', 'hero', 'popups', 'logo'].includes(activeTab)
-          ? 'bg-premium-gold text-white'
-          : 'text-gray-600 hover:bg-gray-100'
-      }`}
-    >
-      <Gift className="h-4 w-4" />
-      <span>Marketing</span>
-      <ChevronDown className="h-4 w-4" />
-    </button>
-    
-    <div className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-xl border py-2 min-w-[180px] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
-      <button
-        onClick={() => setActiveTab('coupons')}
-        className={`w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center space-x-2 ${
-          activeTab === 'coupons' ? 'bg-premium-cream text-premium-gold' : ''
-        }`}
-      >
-        <Tag className="h-4 w-4" />
-        <span>Coupons</span>
-      </button>
-      <button
-        onClick={() => setActiveTab('reviews')}
-        className={`w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center space-x-2 ${
-          activeTab === 'reviews' ? 'bg-premium-cream text-premium-gold' : ''
-        }`}
-      >
-        <Star className="h-4 w-4" />
-        <span>Reviews</span>
-      </button>
-      <button
-        onClick={() => setActiveTab('hero')}
-        className={`w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center space-x-2 ${
-          activeTab === 'hero' ? 'bg-premium-cream text-premium-gold' : ''
-        }`}
-      >
-        <Video className="h-4 w-4" />
-        <span>Hero</span>
-      </button>
-      <button
-        onClick={() => setActiveTab('popups')}
-        className={`w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center space-x-2 ${
-          activeTab === 'popups' ? 'bg-premium-cream text-premium-gold' : ''
-        }`}
-      >
-        <Gift className="h-4 w-4" />
-        <span>Popups</span>
-      </button>
-      <button
-        onClick={() => setActiveTab('logo')}
-        className={`w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center space-x-2 ${
-          activeTab === 'logo' ? 'bg-premium-cream text-premium-gold' : ''
-        }`}
-      >
-        <ImageIcon className="h-4 w-4" />
-        <span>Logo</span>
-      </button>
-    </div>
-  </div>
-</div>
+                {/* Marketing Dropdown */}
+                <div className="relative group">
+                  <button
+                    className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+                      ['coupons', 'reviews', 'hero', 'popups', 'logo'].includes(activeTab)
+                        ? 'bg-premium-gold text-white'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    <Gift className="h-4 w-4" />
+                    <span>Marketing</span>
+                    <ChevronDown className="h-4 w-4" />
+                  </button>
+                  
+                  <div className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-xl border py-2 min-w-[180px] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                    <button
+                      onClick={() => setActiveTab('coupons')}
+                      className={`w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center space-x-2 ${
+                        activeTab === 'coupons' ? 'bg-premium-cream text-premium-gold' : ''
+                      }`}
+                    >
+                      <Tag className="h-4 w-4" />
+                      <span>Coupons</span>
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('reviews')}
+                      className={`w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center space-x-2 ${
+                        activeTab === 'reviews' ? 'bg-premium-cream text-premium-gold' : ''
+                      }`}
+                    >
+                      <Star className="h-4 w-4" />
+                      <span>Reviews</span>
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('hero')}
+                      className={`w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center space-x-2 ${
+                        activeTab === 'hero' ? 'bg-premium-cream text-premium-gold' : ''
+                      }`}
+                    >
+                      <Video className="h-4 w-4" />
+                      <span>Hero</span>
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('popups')}
+                      className={`w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center space-x-2 ${
+                        activeTab === 'popups' ? 'bg-premium-cream text-premium-gold' : ''
+                      }`}
+                    >
+                      <Gift className="h-4 w-4" />
+                      <span>Popups</span>
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('logo')}
+                      className={`w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center space-x-2 ${
+                        activeTab === 'logo' ? 'bg-premium-cream text-premium-gold' : ''
+                      }`}
+                    >
+                      <ImageIcon className="h-4 w-4" />
+                      <span>Logo</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="flex items-center space-x-4">
@@ -1379,7 +1385,7 @@ if (searchQuery.trim() !== '') {
                                   View
                                 </button>
                                 <button
-                                  onClick={() => copyToClipboard(order.custom_order_id || order.id)}
+                                  onClick={() => copyToClipboard(order.custom_order_id || order.id, 'Order ID copied!')}
                                   className="p-1 hover:bg-gray-100 rounded"
                                   title="Copy Order ID"
                                 >
@@ -2072,15 +2078,12 @@ if (searchQuery.trim() !== '') {
                       <div className="flex items-center gap-2">
                         <p className="font-mono font-medium text-lg">{selectedOrder.custom_order_id || selectedOrder.id}</p>
                         <button
-                          onClick={() => copyToClipboard(selectedOrder.custom_order_id || selectedOrder.id)}
+                          onClick={() => copyToClipboard(selectedOrder.custom_order_id || selectedOrder.id, 'Order ID copied!')}
                           className="p-1.5 hover:bg-gray-100 rounded transition-colors"
                           title="Copy Order ID"
                         >
                           <Copy className="h-4 w-4" />
                         </button>
-                        {copySuccess === (selectedOrder.custom_order_id || selectedOrder.id) && (
-                          <span className="text-xs text-green-600">Copied!</span>
-                        )}
                       </div>
                       {selectedOrder.custom_order_id && (
                         <p className="text-xs text-gray-500 mt-1">Internal ID: {selectedOrder.id}</p>
@@ -2149,37 +2152,62 @@ if (searchQuery.trim() !== '') {
                           {/* Enhanced Customization Display with Multiple Images and Text Lines */}
                           {item.customization && (
                             <div className="mt-4 pt-3 border-t border-gray-200">
-                              <p className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-1">
-                                <ImageIcon className="h-4 w-4" />
-                                Customization Details:
-                              </p>
+                              <div className="flex items-center justify-between mb-3">
+                                <p className="text-sm font-medium text-gray-700 flex items-center gap-1">
+                                  <ImageIcon className="h-4 w-4" />
+                                  Customization Details:
+                                </p>
+                                {item.customization.image_urls && item.customization.image_urls.length > 0 && (
+                                  <button
+                                    onClick={() => downloadAllImages(item.customization.image_urls, selectedOrder.id)}
+                                    disabled={downloadingAll}
+                                    className="text-xs bg-premium-gold text-white px-3 py-1.5 rounded hover:bg-premium-burgundy flex items-center gap-1.5 disabled:opacity-50 transition-colors"
+                                  >
+                                    {downloadingAll ? (
+                                      <Loader className="h-3 w-3 animate-spin" />
+                                    ) : (
+                                      <DownloadCloud className="h-3 w-3" />
+                                    )}
+                                    <span>Download All</span>
+                                  </button>
+                                )}
+                              </div>
                               
                               {/* Multiple Text Lines */}
                               {item.customization.text_lines && item.customization.text_lines.length > 0 && (
-                                <div className="mb-4">
+                                <div className="mb-5">
                                   <div className="flex items-center justify-between mb-2">
                                     <span className="text-xs font-medium text-gray-500 flex items-center gap-1">
                                       <FileText className="h-3 w-3" />
-                                      Text Lines ({item.customization.text_lines.length}):
+                                      Custom Text ({item.customization.text_lines.length} line{item.customization.text_lines.length > 1 ? 's' : ''}):
                                     </span>
+                                    <button
+                                      onClick={() => {
+                                        const allText = item.customization.text_lines.join('\n');
+                                        copyToClipboard(allText, 'All text copied!');
+                                      }}
+                                      className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                                    >
+                                      <Copy className="h-3 w-3" />
+                                      Copy All
+                                    </button>
                                   </div>
-                                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                                  <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
                                     {item.customization.text_lines.map((line: string, lineIdx: number) => (
-                                      <div key={lineIdx} className="flex items-center gap-2 bg-white p-2 rounded-lg border">
-                                        <span className="text-xs text-gray-500 w-12">Line {lineIdx + 1}:</span>
-                                        <code className="bg-gray-100 px-3 py-1.5 rounded text-sm font-mono flex-1 break-all">
+                                      <div key={lineIdx} className="flex items-center gap-2 bg-white p-2 rounded-lg border hover:border-premium-gold transition-colors group">
+                                        <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded min-w-[60px] text-center">
+                                          Line {lineIdx + 1}
+                                        </span>
+                                        <code className="bg-gray-50 px-3 py-1.5 rounded text-sm font-mono flex-1 break-all border-l-2 border-premium-gold">
                                           {line}
                                         </code>
                                         <button
-                                          onClick={() => copyToClipboard(line)}
-                                          className="p-1.5 hover:bg-gray-200 rounded transition-colors"
-                                          title="Copy text"
+                                          onClick={() => copyToClipboard(line, `Line ${lineIdx + 1} copied!`)}
+                                          className="p-1.5 hover:bg-gray-100 rounded transition-colors opacity-0 group-hover:opacity-100"
+                                          title="Copy line"
                                         >
-                                          <Copy className="h-4 w-4" />
+                                          <Copy className="h-4 w-4 text-gray-600" />
                                         </button>
-                                        {copySuccess === line && (
-                                          <span className="text-xs text-green-600">Copied!</span>
-                                        )}
                                       </div>
                                     ))}
                                   </div>
@@ -2189,57 +2217,94 @@ if (searchQuery.trim() !== '') {
                               {/* Multiple Images */}
                               {item.customization.image_urls && item.customization.image_urls.length > 0 && (
                                 <div>
-                                  <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center justify-between mb-3">
                                     <span className="text-xs font-medium text-gray-500 flex items-center gap-1">
                                       <ImageIcon className="h-3 w-3" />
-                                      Images ({item.customization.image_urls.length}):
+                                      Custom Images ({item.customization.image_urls.length}):
                                     </span>
-                                    {item.customization.image_urls.length > 1 && (
+                                    <div className="flex gap-2">
                                       <button
-                                        onClick={() => downloadAllImages(item.customization.image_urls)}
+                                        onClick={() => downloadAllImages(item.customization.image_urls, selectedOrder.id)}
                                         disabled={downloadingAll}
-                                        className="text-xs bg-premium-gold text-white px-2 py-1 rounded hover:bg-premium-burgundy flex items-center gap-1 disabled:opacity-50"
+                                        className="text-xs bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700 flex items-center gap-1 disabled:opacity-50"
                                       >
                                         {downloadingAll ? (
                                           <Loader className="h-3 w-3 animate-spin" />
                                         ) : (
-                                          <DownloadCloud className="h-3 w-3" />
+                                          <Download className="h-3 w-3" />
                                         )}
-                                        <span>Download All</span>
+                                        <span>All</span>
                                       </button>
-                                    )}
+                                    </div>
                                   </div>
-                                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-60 overflow-y-auto p-1">
+                                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-80 overflow-y-auto p-2 border rounded-lg">
                                     {item.customization.image_urls.map((imgUrl: string, imgIdx: number) => (
                                       <div key={imgIdx} className="relative group border rounded-lg overflow-hidden aspect-square">
                                         <img 
                                           src={imgUrl} 
                                           alt={`Custom ${imgIdx + 1}`}
                                           className="w-full h-full object-cover"
+                                          loading="lazy"
                                         />
-                                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                                          <a
-                                            href={imgUrl}
-                                            download
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="p-1.5 bg-white rounded hover:bg-gray-100"
-                                            title="Download"
-                                          >
-                                            <Download className="h-4 w-4" />
-                                          </a>
-                                          <a
-                                            href={imgUrl}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="p-1.5 bg-white rounded hover:bg-gray-100"
-                                            title="View"
-                                          >
-                                            <ExternalLink className="h-4 w-4" />
-                                          </a>
+                                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between p-2">
+                                          <span className="text-xs text-white font-medium bg-black/50 px-2 py-1 rounded">
+                                            #{imgIdx + 1}
+                                          </span>
+                                          <div className="flex gap-1">
+                                            <a
+                                              href={imgUrl}
+                                              download
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="p-1.5 bg-white rounded hover:bg-gray-100 transition-colors"
+                                              title="Download"
+                                              onClick={(e) => e.stopPropagation()}
+                                            >
+                                              <Download className="h-3 w-3 text-blue-600" />
+                                            </a>
+                                            <a
+                                              href={imgUrl}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="p-1.5 bg-white rounded hover:bg-gray-100 transition-colors"
+                                              title="Open in new tab"
+                                              onClick={(e) => e.stopPropagation()}
+                                            >
+                                              <ExternalLink className="h-3 w-3 text-gray-600" />
+                                            </a>
+                                            <button
+                                              onClick={() => copyToClipboard(imgUrl, 'Image URL copied!')}
+                                              className="p-1.5 bg-white rounded hover:bg-gray-100 transition-colors"
+                                              title="Copy URL"
+                                            >
+                                              <Copy className="h-3 w-3 text-gray-600" />
+                                            </button>
+                                          </div>
                                         </div>
                                       </div>
                                     ))}
+                                  </div>
+                                  
+                                  {/* Image URLs List */}
+                                  <div className="mt-3">
+                                    <details className="text-xs">
+                                      <summary className="cursor-pointer text-gray-500 hover:text-gray-700 font-medium">
+                                        Show Image URLs ({item.customization.image_urls.length})
+                                      </summary>
+                                      <div className="mt-2 space-y-1 max-h-32 overflow-y-auto p-2 bg-gray-50 rounded">
+                                        {item.customization.image_urls.map((url: string, idx: number) => (
+                                          <div key={idx} className="flex items-center justify-between gap-2 text-xs">
+                                            <code className="text-blue-600 truncate flex-1">{url}</code>
+                                            <button
+                                              onClick={() => copyToClipboard(url, `URL ${idx + 1} copied!`)}
+                                              className="text-gray-500 hover:text-gray-700 flex-shrink-0"
+                                            >
+                                              <Copy className="h-3 w-3" />
+                                            </button>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </details>
                                   </div>
                                 </div>
                               )}
