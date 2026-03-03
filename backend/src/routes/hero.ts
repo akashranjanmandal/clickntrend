@@ -13,11 +13,10 @@ const upload = multer({
   storage,
   limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    const allowedTypes = [
-      'image/jpeg', 'image/png', 'image/webp', 'image/jpg',
-      'video/mp4', 'video/webm', 'video/ogg'
-    ];
-    if (allowedTypes.includes(file.mimetype)) {
+    const isImage = file.mimetype.startsWith('image/');
+    const isVideo = file.mimetype.startsWith('video/');
+
+    if (isImage || isVideo) {
       cb(null, true);
     } else {
       cb(new Error('Invalid file type.'));
