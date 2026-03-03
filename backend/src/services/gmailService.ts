@@ -31,8 +31,8 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-// Verify connection
-transporter.verify((error, success) => {
+// Verify connection - Fixed: Added proper types for parameters
+transporter.verify((error: Error | null, success: boolean) => {
   if (error) {
     console.error('❌ Gmail SMTP connection error:', error);
   } else {
@@ -65,8 +65,9 @@ export const sendOrderConfirmationEmail = async (orderData: OrderData) => {
     
     return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error('❌ Failed to send email:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    const err = error as Error;
+    console.error('❌ Failed to send email:', err);
+    return { success: false, error: err.message };
   }
 };
 
@@ -105,6 +106,7 @@ export const sendAdminNotification = async (orderData: OrderData) => {
     const info = await transporter.sendMail(adminMailOptions);
     console.log('✅ Admin notification sent:', info.messageId);
   } catch (error) {
-    console.error('❌ Failed to send admin notification:', error);
+    const err = error as Error;
+    console.error('❌ Failed to send admin notification:', err);
   }
 };
