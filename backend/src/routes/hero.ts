@@ -1,13 +1,17 @@
 import express from 'express';
 import multer from 'multer';
-import { supabase, supabasePublic } from '../utils/supabase';
+import { supabase } from '../utils/supabase';
 import { requireAuth } from '../middleware/auth';
+import { r2 } from '../utils/r2';
+import { PutObjectCommand } from '@aws-sdk/client-s3';
+
 const router = express.Router();
-// Configure multer for file upload
+
+// Configure multer
 const storage = multer.memoryStorage();
 const upload = multer({
   storage,
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB for videos
+  limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const allowedTypes = [
       'image/jpeg', 'image/png', 'image/webp', 'image/jpg',
@@ -16,12 +20,11 @@ const upload = multer({
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Invalid file type. Only images and videos are allowed.'));
+      cb(new Error('Invalid file type.'));
     }
   },
 });
 
-// Upload hero media
 router.post('/upload', requireAuth, upload.single('media'), async (req, res) => {
   try {
     if (!req.file) {
@@ -31,58 +34,39 @@ router.post('/upload', requireAuth, upload.single('media'), async (req, res) => 
     const file = req.file;
     const isVideo = file.mimetype.startsWith('video/');
     const extension = file.originalname.split('.').pop();
-    const fileName = `hero/${Date.now()}-${Math.random().toString(36).substring(7)}.${extension}`;
-    
-    // Upload to Supabase Storage
-    const { data, error } = await supabase.storage
-      .from('giftshop')
-      .upload(fileName, file.buffer, {
-        contentType: file.mimetype,
-        cacheControl: '3600',
-        upsert: false
-      });
+    const fileName = `hero/${Date.now()}-${Math.random()
+      .toString(36)
+      .substring(7)}.${extension}`;
 
-    if (error) throw error;
+    // ✅ Upload to R2
+    await r2.send(
+      new PutObjectCommand({
+        Bucket: process.env.R2_BUCKET!,
+        Key: fileName,
+        Body: file.buffer,
+        ContentType: file.mimetype,
+      })
+    );
 
-    // Get public URL
-    const { data: { publicUrl } } = supabase.storage
-      .from('giftshop')
-      .getPublicUrl(fileName);
+    // ✅ Construct Public URL
+    const publicUrl = `${process.env.R2_PUBLIC_URL}/${fileName}`;
 
-    // Generate video poster if it's a video (you'd need a separate service for this)
-    const posterUrl = isVideo ? publicUrl.replace(/\.\w+$/, '-poster.jpg') : null;
+    const posterUrl = isVideo
+      ? publicUrl.replace(/\.\w+$/, '-poster.jpg')
+      : null;
 
     res.json({
       success: true,
       media_url: publicUrl,
       media_type: isVideo ? 'video' : 'image',
       video_poster_url: posterUrl,
-      file_name: fileName
+      file_name: fileName,
     });
+
   } catch (error: any) {
     console.error('Upload error:', error);
     res.status(500).json({ error: error.message });
   }
 });
-console.log('✅ hero routes loaded');
-
-router.get('/', async (req, res) => {
-  try {
-    const { data, error } = await supabase
-      .from('hero_content')
-      .select('*')
-      .order('display_order', { ascending: true });
-
-    if (error) {
-      return res.status(500).json({ error: error.message });
-    }
-
-    res.json(data ?? []);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
 
 export default router;
-
-
