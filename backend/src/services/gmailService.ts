@@ -26,14 +26,16 @@ interface EmailResult {
   messageId?: string;
   error?: string;
 }
-
 const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 587,
-  secure: false,
+  host: "smtp.hostinger.com",
+  port: 465,
+  secure: true,
   auth: {
-    user: config.gmailUser,
-    pass: config.gmailAppPassword
+    user: config.emailUser,
+    pass: config.emailPassword
+  },
+  tls: {
+    rejectUnauthorized: false
   },
   connectionTimeout: 20000,
   greetingTimeout: 20000,
@@ -43,10 +45,9 @@ const transporter = nodemailer.createTransport({
 // Verify connection
 transporter.verify((error: Error | null, success: boolean) => {
   if (error) {
-    console.error('❌ Gmail SMTP connection error:', error);
+console.error('❌ SMTP connection error:', error);
   } else {
-    console.log('✅ Gmail SMTP server is ready to send emails');
-  }
+console.log('✅ Hostinger SMTP server is ready to send emails');  }
 });
 
 // Send order confirmation email to customer
@@ -55,7 +56,7 @@ export const sendOrderConfirmationEmail = async (orderData: OrderData): Promise<
     console.log('📧 Sending order confirmation email to:', orderData.customer_email);
 
     const mailOptions = {
-      from: `"GFTD" <${config.gmailUser}>`,
+      from: `"GFTD" <${config.emailUser}>`,
       to: orderData.customer_email,
       cc: ['care@gftd.in'],
       subject: `🎉 Order Confirmed! ${orderData.custom_order_id || '#' + orderData.id} - GFTD`,
@@ -88,7 +89,7 @@ export const sendAdminNotification = async (orderData: OrderData): Promise<Email
     const orderDisplayId = orderData.custom_order_id || '#' + orderData.id;
     
     const adminMailOptions = {
-      from: `"GFTD Orders" <${config.gmailUser}>`,
+      from: `"GFTD Orders" <${config.emailUser}>`,
       to: 'care@gftd.in',
       subject: `🎉 New Order Received: ${orderDisplayId}`,
       html: getAdminNotificationHTML(orderData),
