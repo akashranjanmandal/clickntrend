@@ -63,6 +63,9 @@ const CustomCombo: React.FC = () => {
   const [comboBuilderHeight, setComboBuilderHeight] = useState(0);
   const comboBuilderRef = useRef<HTMLDivElement>(null);
 
+  // Mobile view state
+  const [showMobileCombo, setShowMobileCombo] = useState(false);
+
   // Discount tiers configuration
   const discountTiers = [
     { minItems: 0, maxItems: 2, discount: 0, label: 'No Discount' },
@@ -209,6 +212,11 @@ const CustomCombo: React.FC = () => {
       toast.success(`${product.name} (customized) added to combo`);
     } else {
       toast.success(`${product.name} added to combo`);
+    }
+
+    // On mobile, show the combo builder after adding first item
+    if (window.innerWidth < 1024) {
+      setShowMobileCombo(true);
     }
   };
 
@@ -359,6 +367,7 @@ const CustomCombo: React.FC = () => {
       setSelectedProducts(new Map());
       setComboName('');
       setSpecialRequests('');
+      setShowMobileCombo(false);
       
     } catch (error) {
       console.error('Error adding combo to cart:', error);
@@ -380,6 +389,204 @@ const CustomCombo: React.FC = () => {
     );
   }
 
+  // Mobile Combo Builder
+  const MobileComboBuilder = () => (
+    <div className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-50" onClick={() => setShowMobileCombo(false)}>
+      <div 
+        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl max-h-[85vh] overflow-y-auto"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
+          <h2 className="text-xl font-serif font-bold">Your Combo</h2>
+          <button onClick={() => setShowMobileCombo(false)} className="p-2">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="p-4">
+          {renderComboContent()}
+        </div>
+      </div>
+    </div>
+  );
+
+  // Combo Content (reused for both mobile and desktop)
+  const renderComboContent = () => (
+    <>
+      {/* Discount Banner */}
+      {totalItems > 0 && (
+        <div className="mb-6 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-200">
+          <div className="flex items-center gap-2 mb-2">
+            <Percent className="h-5 w-5 text-purple-600" />
+            <span className="font-semibold text-purple-700">Auto Discount Applied!</span>
+          </div>
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span>Items:</span>
+              <span className="font-medium">{totalItems} / 10</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span>Discount:</span>
+              <span className="font-bold text-premium-gold">{currentTier.discount}% OFF</span>
+            </div>
+            {nextTier && (
+              <div className="mt-2 p-2 bg-white rounded-lg text-xs">
+                <p className="text-gray-600">
+                  Add {nextTier.minItems - totalItems} more item{nextTier.minItems - totalItems > 1 ? 's' : ''} to get {nextTier.discount}% OFF!
+                </p>
+                <div className="w-full bg-gray-200 h-1.5 rounded-full mt-2">
+                  <div 
+                    className="bg-premium-gold h-1.5 rounded-full transition-all"
+                    style={{ width: `${(totalItems / nextTier.minItems) * 100}%` }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Combo Name */}
+      <div className="mb-4">
+        <label className="block text-sm font-medium mb-2">Combo Name (Optional)</label>
+        <input
+          type="text"
+          value={comboName}
+          onChange={(e) => setComboName(e.target.value)}
+          placeholder="My Awesome Gift Combo"
+          className="w-full px-4 py-3 border rounded-lg focus:border-premium-gold focus:outline-none"
+        />
+      </div>
+
+      {/* Selected Products */}
+      <div className="mb-4 max-h-[300px] overflow-y-auto">
+        {selectedProducts.size === 0 ? (
+          <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
+            <Gift className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500">No products selected</p>
+            <p className="text-sm text-gray-400">Add products from the list above</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {Array.from(selectedProducts.values()).map(({ product, quantity, customization }) => {
+              const itemPrice = product.price + (product.customization_price || 0);
+              
+              return (
+                <div key={product.id} className="p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <h4 className="font-medium text-sm line-clamp-1">{product.name}</h4>
+                      <p className="text-xs text-gray-500">{formatCurrency(itemPrice)} each</p>
+                      {customization && (
+                        <div className="flex items-center gap-1 mt-1">
+                          {customization.text_lines && customization.text_lines.length > 0 && (
+                            <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">
+                              <Type className="h-3 w-3 inline mr-1" />
+                              {customization.text_lines.length} line{customization.text_lines.length > 1 ? 's' : ''}
+                            </span>
+                          )}
+                          {customization.image_urls && customization.image_urls.length > 0 && (
+                            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                              <ImageIcon className="h-3 w-3 inline mr-1" />
+                              {customization.image_urls.length} image{customization.image_urls.length > 1 ? 's' : ''}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => updateQuantity(product.id, quantity - 1)}
+                        className="p-1 hover:bg-white rounded"
+                      >
+                        <Minus className="h-3 w-3" />
+                      </button>
+                      <span className="w-8 text-center text-sm">{quantity}</span>
+                      <button
+                        onClick={() => updateQuantity(product.id, quantity + 1)}
+                        disabled={totalItems >= 10}
+                        className="p-1 hover:bg-white rounded disabled:opacity-50"
+                      >
+                        <Plus className="h-3 w-3" />
+                      </button>
+                      {product.is_customizable && (
+                        <button
+                          onClick={() => editCustomization(product.id)}
+                          className="p-1 hover:bg-white rounded text-blue-600"
+                          title="Edit Customization"
+                        >
+                          <Type className="h-3 w-3" />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => removeFromCombo(product.id)}
+                        className="p-1 hover:bg-white rounded text-red-600"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Price Breakdown */}
+      {selectedProducts.size > 0 && (
+        <div className="mb-4 p-4 bg-gray-50 rounded-lg space-y-2">
+          <div className="flex justify-between text-sm">
+            <span>Subtotal:</span>
+            <span>{formatCurrency(calculateSubtotal())}</span>
+          </div>
+          {currentTier.discount > 0 && (
+            <div className="flex justify-between text-sm text-green-600">
+              <span>Discount ({currentTier.discount}%):</span>
+              <span>-{formatCurrency(calculateDiscount())}</span>
+            </div>
+          )}
+          <div className="flex justify-between items-center pt-2 border-t">
+            <span className="font-medium">Total:</span>
+            <span className="text-2xl font-bold text-premium-gold">
+              {formatCurrency(calculateTotal())}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Special Requests */}
+      <div className="mb-6">
+        <label className="block text-sm font-medium mb-2">Special Requests</label>
+        <textarea
+          value={specialRequests}
+          onChange={(e) => setSpecialRequests(e.target.value)}
+          rows={2}
+          placeholder="Gift wrapping, personalized message, etc."
+          className="w-full px-4 py-3 border rounded-lg focus:border-premium-gold focus:outline-none"
+        />
+      </div>
+
+      {/* Add to Cart Button */}
+      <button
+        onClick={handleAddToCart}
+        disabled={selectedProducts.size === 0}
+        className="w-full py-4 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy transition-colors font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        <ShoppingCart className="h-5 w-5" />
+        {selectedProducts.size === 0 ? (
+          'Select Products to Continue'
+        ) : (
+          `Add Combo to Cart • ${formatCurrency(calculateTotal())}`
+        )}
+      </button>
+
+      {/* Items Counter */}
+      <p className="text-center text-xs text-gray-500 mt-4">
+        {totalItems} / 10 items selected
+      </p>
+    </>
+  );
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-12">
@@ -397,6 +604,22 @@ const CustomCombo: React.FC = () => {
           />
         )}
 
+        {/* Mobile Combo Builder Toggle */}
+        {selectedProducts.size > 0 && (
+          <div className="lg:hidden fixed bottom-4 left-4 right-4 z-40">
+            <button
+              onClick={() => setShowMobileCombo(true)}
+              className="w-full py-4 bg-premium-gold text-white rounded-lg shadow-lg font-semibold flex items-center justify-center gap-2"
+            >
+              <Package className="h-5 w-5" />
+              View Combo ({totalItems} items • {formatCurrency(calculateTotal())})
+            </button>
+          </div>
+        )}
+
+        {/* Mobile Combo Builder Modal */}
+        {showMobileCombo && <MobileComboBuilder />}
+
         {/* Header */}
         <div className="text-center max-w-3xl mx-auto mb-12">
           <motion.div
@@ -408,208 +631,17 @@ const CustomCombo: React.FC = () => {
             <Sparkles className="w-8 h-8 text-yellow-500" />
             <Gift className="w-8 h-8 text-purple-600" />
           </motion.div>
-          <h1 className="text-5xl font-serif font-bold text-premium-charcoal mb-4">
+          <h1 className="text-4xl md:text-5xl font-serif font-bold text-premium-charcoal mb-4">
             Create Your Custom Combo
           </h1>
-          <p className="text-xl text-gray-600">
+          <p className="text-lg md:text-xl text-gray-600">
             Mix and match products to create the perfect gift combination
           </p>
         </div>
 
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Left Side - Product Selection */}
-                    {/* Right Side - Fixed Combo Builder */}
-          <div className="lg:w-[380px] xl:w-[420px]">
-            <div 
-              ref={comboBuilderRef}
-              className="lg:fixed lg:top-24 lg:w-[380px] xl:w-[420px] transition-all duration-300"
-              style={{
-                maxHeight: 'calc(100vh - 120px)',
-                overflowY: 'auto'
-              }}
-            >
-              <div className="bg-white rounded-xl shadow-lg p-6">
-                <h2 className="text-2xl font-serif font-bold mb-6 flex items-center gap-2 sticky top-0 bg-white py-2 z-10">
-                  <Package className="h-5 w-5 text-premium-gold" />
-                  Your Combo
-                </h2>
-
-                {/* Discount Banner */}
-                {totalItems > 0 && (
-                  <div className="mb-6 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-200">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Percent className="h-5 w-5 text-purple-600" />
-                      <span className="font-semibold text-purple-700">Auto Discount Applied!</span>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span>Items:</span>
-                        <span className="font-medium">{totalItems} / 10</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span>Discount:</span>
-                        <span className="font-bold text-premium-gold">{currentTier.discount}% OFF</span>
-                      </div>
-                      {nextTier && (
-                        <div className="mt-2 p-2 bg-white rounded-lg text-xs">
-                          <p className="text-gray-600">
-                            Add {nextTier.minItems - totalItems} more item{nextTier.minItems - totalItems > 1 ? 's' : ''} to get {nextTier.discount}% OFF!
-                          </p>
-                          <div className="w-full bg-gray-200 h-1.5 rounded-full mt-2">
-                            <div 
-                              className="bg-premium-gold h-1.5 rounded-full transition-all"
-                              style={{ width: `${(totalItems / nextTier.minItems) * 100}%` }}
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Combo Name */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium mb-2">Combo Name (Optional)</label>
-                  <input
-                    type="text"
-                    value={comboName}
-                    onChange={(e) => setComboName(e.target.value)}
-                    placeholder="My Awesome Gift Combo"
-                    className="w-full px-4 py-3 border rounded-lg focus:border-premium-gold focus:outline-none"
-                  />
-                </div>
-
-                {/* Selected Products */}
-                <div className="mb-4 max-h-[300px] overflow-y-auto">
-                  {selectedProducts.size === 0 ? (
-                    <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
-                      <Gift className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                      <p className="text-gray-500">No products selected</p>
-                      <p className="text-sm text-gray-400">Add products from the left panel</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {Array.from(selectedProducts.values()).map(({ product, quantity, customization }) => {
-                        const itemPrice = product.price + (product.customization_price || 0);
-                        
-                        return (
-                          <div key={product.id} className="p-3 bg-gray-50 rounded-lg">
-                            <div className="flex items-center justify-between">
-                              <div className="flex-1">
-                                <h4 className="font-medium text-sm line-clamp-1">{product.name}</h4>
-                                <p className="text-xs text-gray-500">{formatCurrency(itemPrice)} each</p>
-                                {customization && (
-                                  <div className="flex items-center gap-1 mt-1">
-                                    {customization.text_lines && customization.text_lines.length > 0 && (
-                                      <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">
-                                        <Type className="h-3 w-3 inline mr-1" />
-                                        {customization.text_lines.length} line{customization.text_lines.length > 1 ? 's' : ''}
-                                      </span>
-                                    )}
-                                    {customization.image_urls && customization.image_urls.length > 0 && (
-                                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
-                                        <ImageIcon className="h-3 w-3 inline mr-1" />
-                                        {customization.image_urls.length} image{customization.image_urls.length > 1 ? 's' : ''}
-                                      </span>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={() => updateQuantity(product.id, quantity - 1)}
-                                  className="p-1 hover:bg-white rounded"
-                                >
-                                  <Minus className="h-3 w-3" />
-                                </button>
-                                <span className="w-8 text-center text-sm">{quantity}</span>
-                                <button
-                                  onClick={() => updateQuantity(product.id, quantity + 1)}
-                                  disabled={totalItems >= 10}
-                                  className="p-1 hover:bg-white rounded disabled:opacity-50"
-                                >
-                                  <Plus className="h-3 w-3" />
-                                </button>
-                                {product.is_customizable && (
-                                  <button
-                                    onClick={() => editCustomization(product.id)}
-                                    className="p-1 hover:bg-white rounded text-blue-600"
-                                    title="Edit Customization"
-                                  >
-                                    <Type className="h-3 w-3" />
-                                  </button>
-                                )}
-                                <button
-                                  onClick={() => removeFromCombo(product.id)}
-                                  className="p-1 hover:bg-white rounded text-red-600"
-                                >
-                                  <X className="h-3 w-3" />
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                {/* Price Breakdown */}
-                {selectedProducts.size > 0 && (
-                  <div className="mb-4 p-4 bg-gray-50 rounded-lg space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Subtotal:</span>
-                      <span>{formatCurrency(calculateSubtotal())}</span>
-                    </div>
-                    {currentTier.discount > 0 && (
-                      <div className="flex justify-between text-sm text-green-600">
-                        <span>Discount ({currentTier.discount}%):</span>
-                        <span>-{formatCurrency(calculateDiscount())}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between items-center pt-2 border-t">
-                      <span className="font-medium">Total:</span>
-                      <span className="text-2xl font-bold text-premium-gold">
-                        {formatCurrency(calculateTotal())}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Special Requests */}
-                <div className="mb-6">
-                  <label className="block text-sm font-medium mb-2">Special Requests</label>
-                  <textarea
-                    value={specialRequests}
-                    onChange={(e) => setSpecialRequests(e.target.value)}
-                    rows={2}
-                    placeholder="Gift wrapping, personalized message, etc."
-                    className="w-full px-4 py-3 border rounded-lg focus:border-premium-gold focus:outline-none"
-                  />
-                </div>
-
-                {/* Add to Cart Button - Always visible */}
-                <button
-                  onClick={handleAddToCart}
-                  disabled={selectedProducts.size === 0}
-                  className="w-full py-4 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy transition-colors font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed sticky bottom-0"
-                >
-                  <ShoppingCart className="h-5 w-5" />
-                  {selectedProducts.size === 0 ? (
-                    'Select Products to Continue'
-                  ) : (
-                    `Add Combo to Cart • ${formatCurrency(calculateTotal())}`
-                  )}
-                </button>
-
-                {/* Items Counter */}
-                <p className="text-center text-xs text-gray-500 mt-4">
-                  {totalItems} / 10 items selected
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="lg:flex-1">
+          <div className="lg:flex-1 order-2 lg:order-1">
             {/* Search Bar */}
             <div className="mb-6">
               <div className="relative">
@@ -672,7 +704,7 @@ const CustomCombo: React.FC = () => {
             {!selectedCategory && !showSearchResults && (
               <section className="mb-8">
                 <h2 className="text-2xl font-serif font-bold mb-6">Choose a Category</h2>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                   {categories.map((category) => (
                     <CategoryCard
                       key={category.id}
@@ -726,12 +758,12 @@ const CustomCombo: React.FC = () => {
             )}
 
             {/* Products Grid */}
-            <section>
+            <section className="mb-20 lg:mb-0">
               <h2 className="text-2xl font-serif font-bold mb-6">
                 {showSearchResults ? 'Search Results' : 'Select Products'}
               </h2>
               {displayProducts.length > 0 ? (
-                <div className="grid md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {displayProducts.map((product) => {
                     const finalPrice = product.price + (product.customization_price || 0);
                     const isInCombo = selectedProducts.has(product.id);
@@ -745,11 +777,11 @@ const CustomCombo: React.FC = () => {
                           isInCombo ? 'border-premium-gold bg-premium-cream/20' : ''
                         }`}
                       >
-                        <div className="flex gap-4">
+                        <div className="flex flex-col sm:flex-row gap-4">
                           <img
                             src={getImageUrl(product.image_url)}
                             alt={product.name}
-                            className="w-24 h-24 object-cover rounded-lg"
+                            className="w-full sm:w-24 h-48 sm:h-24 object-cover rounded-lg"
                           />
                           <div className="flex-1">
                             <h4 className="font-medium line-clamp-1">{product.name}</h4>
@@ -779,7 +811,7 @@ const CustomCombo: React.FC = () => {
                                 {isInCombo ? 'Added' : 'Add'}
                               </button>
                             </div>
-                            <div className="flex gap-2 mt-2">
+                            <div className="flex gap-2 mt-2 flex-wrap">
                               <span className="text-xs px-2 py-1 bg-gray-100 rounded-full">
                                 {product.category}
                               </span>
@@ -803,7 +835,25 @@ const CustomCombo: React.FC = () => {
             </section>
           </div>
 
-
+          {/* Right Side - Combo Builder (Desktop) */}
+          <div className="hidden lg:block lg:w-[380px] xl:w-[420px] order-1 lg:order-2">
+            <div 
+              ref={comboBuilderRef}
+              className="lg:fixed lg:top-24 lg:w-[380px] xl:w-[420px] transition-all duration-300"
+              style={{
+                maxHeight: 'calc(100vh - 120px)',
+                overflowY: 'auto'
+              }}
+            >
+              <div className="bg-white rounded-xl shadow-lg p-6">
+                <h2 className="text-2xl font-serif font-bold mb-6 flex items-center gap-2 sticky top-0 bg-white py-2 z-10">
+                  <Package className="h-5 w-5 text-premium-gold" />
+                  Your Combo
+                </h2>
+                {renderComboContent()}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
