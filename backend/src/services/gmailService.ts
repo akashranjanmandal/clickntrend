@@ -27,9 +27,9 @@ interface EmailResult {
   error?: string;
 }
 export const transporter = nodemailer.createTransport({
-    host: "smtp.hostinger.com",
+  host: "mail.gftd.in",
   port: 587,
-  secure: false, // IMPORTANT for port 587
+  secure: false,
   auth: {
     user: config.emailUser,
     pass: config.emailPassword
