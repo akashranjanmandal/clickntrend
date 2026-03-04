@@ -26,10 +26,10 @@ interface EmailResult {
   messageId?: string;
   error?: string;
 }
-const transporter = nodemailer.createTransport({
-  host: "smtp.hostinger.com",
-  port: 465,
-  secure: true,
+export const transporter = nodemailer.createTransport({
+    host: "smtp.hostinger.com",
+  port: 587,
+  secure: false, // IMPORTANT for port 587
   auth: {
     user: config.emailUser,
     pass: config.emailPassword
@@ -41,7 +41,6 @@ const transporter = nodemailer.createTransport({
   greetingTimeout: 20000,
   socketTimeout: 20000
 });
-
 // Verify connection
 transporter.verify((error: Error | null, success: boolean) => {
   if (error) {

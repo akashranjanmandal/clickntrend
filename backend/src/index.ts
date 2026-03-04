@@ -3,7 +3,7 @@ import 'dotenv/config';
 import cors from 'cors';
 import config from './config';
 import logoRoutes from './routes/logo';
-
+import { transporter } from './services/gmailService';
 // ===== PUBLIC ROUTES =====
 import productRoutes from './routes/products';
 import categoryRoutes from './routes/categories';
@@ -110,7 +110,15 @@ app.get('/health', (_req, res) => {
 app.get('/api/test', (_req, res) => {
   res.json({ message: 'Backend is working 🚀' });
 });
-
+app.get('/smtp-test', async (_req, res) => {
+  try {
+    await transporter.verify();
+    res.json({ status: "SMTP working ✅" });
+  } catch (err) {
+    console.error("SMTP test failed:", err);
+    res.status(500).json({ status: "SMTP failed ❌", error: err });
+  }
+});
 /* ===================== SERVER ===================== */
 const PORT = config.port || 5000;
 
