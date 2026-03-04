@@ -29,7 +29,7 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
   const [submitting, setSubmitting] = useState(false);
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
-  const [activeTab, setActiveTab] = useState<'details' | 'reviews' | 'shipping'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'reviews' >('details');
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [showCustomization, setShowCustomization] = useState(false);
   const [reviewSort, setReviewSort] = useState<'newest' | 'highest' | 'lowest'>('newest');
@@ -416,7 +416,7 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
                     {/* Tabs */}
                     <div className="border-b border-premium-gold/10 overflow-x-auto">
                       <div className="flex gap-4 sm:gap-6">
-                        {['details', 'reviews', 'shipping'].map((tab) => (
+                        {['details', 'reviews'].map((tab) => (
                           <button
                             key={tab}
                             onClick={(e) => {
@@ -685,22 +685,6 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
                               ))}
                             </div>
                           )}
-                        </div>
-                      )}
-
-                      {activeTab === 'shipping' && (
-                        <div className="space-y-3 sm:space-y-4">
-                          <div className="p-4 sm:p-6 bg-gradient-to-br from-gray-50 to-white rounded-xl sm:rounded-2xl border border-premium-gold/10">
-                            <h4 className="font-semibold text-base sm:text-lg mb-3 sm:mb-4 flex items-center gap-2">
-                              <Truck className="h-4 w-4 sm:h-5 sm:w-5 text-premium-gold" />
-                              Shipping Information
-                            </h4>
-                            <div className="space-y-2 text-xs sm:text-sm text-gray-600">
-                              <p>✓ Free shipping on orders above ₹499</p>
-                              <p>✓ Standard delivery: 3-5 business days</p>
-                              <p>✓ Express shipping: 1-2 business days (+₹150)</p>
-                            </div>
-                          </div>
                         </div>
                       )}
                     </div>
