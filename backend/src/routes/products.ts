@@ -189,7 +189,7 @@ router.get('/admin/:id', requireAuth, async (req, res) => {
   }
 });
 
-// Create new product (admin) - WITHOUT category field
+// Create new product (admin) - WITHOUT subcategory field
 router.post('/', requireAuth, async (req, res) => {
   try {
     const { 
@@ -197,7 +197,7 @@ router.post('/', requireAuth, async (req, res) => {
       discount_percentage, image_url, stock_quantity,
       gender, sku, is_customizable, customization_price,
       max_customization_characters, max_customization_images,
-      max_customization_lines, additional_images, subcategory,
+      max_customization_lines, additional_images,
       social_proof_enabled, social_proof_text,
       social_proof_initial_count, social_proof_end_count,
       is_active
@@ -223,7 +223,7 @@ router.post('/', requireAuth, async (req, res) => {
         max_customization_images: max_customization_images ? parseInt(max_customization_images) : 10,
         max_customization_lines: max_customization_lines ? parseInt(max_customization_lines) : 10,
         additional_images: additional_images || [],
-        subcategory: subcategory || null,
+        // subcategory field REMOVED
         social_proof_enabled: social_proof_enabled !== false,
         social_proof_text: social_proof_text || '🔺{count} People are Purchasing Right Now',
         social_proof_initial_count: social_proof_initial_count ? parseInt(social_proof_initial_count) : 5,
@@ -248,16 +248,19 @@ router.post('/', requireAuth, async (req, res) => {
   }
 });
 
-// Update product (admin) - WITHOUT category field
+// Update product (admin)
 router.put('/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const updates = req.body;
     
+    // Remove subcategory if it exists in updates
+    const { subcategory, ...cleanUpdates } = updates;
+    
     const { data, error } = await supabase
       .from('products')
       .update({
-        ...updates,
+        ...cleanUpdates,
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
