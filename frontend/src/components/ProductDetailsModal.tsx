@@ -706,30 +706,28 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="pt-4 sm:pt-6 border-t border-premium-gold/10">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                        {/* Add to Cart Button */}
-                        <button
-                          onClick={handleAddToCart}
-                          disabled={product.stock_quantity === 0}
-                          className="py-3 sm:py-4 bg-gradient-to-r from-premium-gold to-premium-burgundy text-white rounded-xl hover:shadow-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2 text-sm sm:text-base font-medium"
-                        >
-                          <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5" />
-                          Add • {formatCurrency(product.price * quantity)}
-                        </button>
-
-                        {/* Customize Button */}
-                        {product.is_customizable && (
-                          <button
-                            onClick={handleCustomizeClick}
-                            className="py-3 sm:py-4 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-xl hover:shadow-lg transition-all flex items-center justify-center gap-2 text-sm sm:text-base font-medium"
-                          >
-                            <PenTool className="h-4 w-4 sm:h-5 sm:w-5" />
-                            Customize
-                          </button>
-                        )}
-                      </div>
-                    </div>
+<div className="pt-4 sm:pt-6 border-t border-premium-gold/10">
+  {product.is_customizable ? (
+    /* Only Customize Button when customizable */
+    <button
+      onClick={handleCustomizeClick}
+      className="w-full py-3 sm:py-4 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-xl hover:shadow-lg transition-all flex items-center justify-center gap-2 text-sm sm:text-base font-medium"
+    >
+      <PenTool className="h-4 w-4 sm:h-5 sm:w-5" />
+      Customize This Product
+    </button>
+  ) : (
+    /* Only Add to Cart when not customizable */
+    <button
+      onClick={handleAddToCart}
+      disabled={product.stock_quantity === 0}
+      className="w-full py-3 sm:py-4 bg-gradient-to-r from-premium-gold to-premium-burgundy text-white rounded-xl hover:shadow-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2 text-sm sm:text-base font-medium"
+    >
+      <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5" />
+      Add to Cart • {formatCurrency(product.price * quantity)}
+    </button>
+  )}
+</div>
                   </div>
                 </div>
               </div>
