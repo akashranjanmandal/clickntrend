@@ -1,4 +1,4 @@
-import express, { Request, Response, NextFunction } from "express";
+import express, { Request, Response } from "express";
 import { supabase } from '../utils/supabase';
 import { requireAuth } from '../middleware/auth';
 import { sendOrderConfirmationEmail, sendAdminNotification } from '../services/gmailService';
@@ -18,7 +18,7 @@ async function generateCustomOrderId(): Promise<string> {
 
     if (error) throw error;
 
-    let nextNumber = 100; // Start from 100 instead of 1
+    let nextNumber = 100; // Start from 100
     
     if (latestOrder?.custom_order_id) {
       // Extract number from existing custom order ID (format: GFTD#101)
@@ -26,39 +26,11 @@ async function generateCustomOrderId(): Promise<string> {
       if (match) {
         nextNumber = parseInt(match[1]) + 1;
       }
-    } else {
-      // If no existing orders, check if there are any orders without custom_order_id
-      // and generate IDs for them starting from 100
-      const { data: ordersWithoutCustomId } = await supabase
-        .from('orders')
-        .select('id')
-        .is('custom_order_id', null)
-        .order('created_at', { ascending: true });
-
-      if (ordersWithoutCustomId && ordersWithoutCustomId.length > 0) {
-        // This will be handled by a migration script, but for new orders we start after the highest
-        const { data: maxCustomId } = await supabase
-          .from('orders')
-          .select('custom_order_id')
-          .not('custom_order_id', 'is', null)
-          .order('custom_order_id', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (maxCustomId?.custom_order_id) {
-          const match = maxCustomId.custom_order_id.match(/GFTD#(\d+)/);
-          if (match) {
-            nextNumber = parseInt(match[1]) + 1;
-          }
-        }
-      }
     }
 
-    // Format: GFTD#101, GFTD#102, etc.
     return `GFTD#${nextNumber}`;
   } catch (error) {
     console.error('Error generating custom order ID:', error);
-    // Fallback to timestamp-based ID if generation fails
     return `GFTD#${Date.now()}`;
   }
 }
@@ -175,12 +147,20 @@ router.get('/customer/:email', async (req, res) => {
   }
 });
 
-// Create COD order - with custom order ID and email notifications
+// ===========================================
+// CREATE COD ORDER WITH EMAIL NOTIFICATIONS
+// ===========================================
 router.post('/cod', async (req, res) => {
   try {
     const orderData = req.body;
     
-    console.log('📦 COD Order Data Received:', orderData);
+    console.log('📦 COD Order Data Received:', {
+      name: orderData.name,
+      email: orderData.email,
+      phone: orderData.phone,
+      items_count: orderData.items?.length,
+      total: orderData.total_amount
+    });
     
     // Validate required fields
     if (!orderData.name || !orderData.email || !orderData.phone) {
@@ -245,14 +225,14 @@ router.post('/cod', async (req, res) => {
       shipping_city: orderData.city.trim(),
       shipping_state: orderData.state.trim(),
       shipping_pincode: orderData.pincode.trim(),
-      special_requests: orderData.specialRequests?.trim() || '',
+      special_requests: orderData.special_requests?.trim() || '',
       status: 'pending',
       paid_at: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
 
-    console.log('📝 Inserting order:', orderToInsert);
+    console.log('📝 Inserting order into database...');
 
     // Insert order into database
     const { data, error } = await supabase
@@ -266,7 +246,10 @@ router.post('/cod', async (req, res) => {
       throw error;
     }
 
-    console.log('✅ COD Order created:', data.id, 'Custom ID:', data.custom_order_id);
+    console.log('✅ COD Order created successfully!');
+    console.log('📋 Order ID:', data.id);
+    console.log('🔖 Custom Order ID:', data.custom_order_id);
+    console.log('📧 Customer Email:', data.customer_email);
 
     // If coupon was used, track it
     if (orderData.coupon_code && orderData.coupon_discount > 0) {
@@ -307,8 +290,10 @@ router.post('/cod', async (req, res) => {
       }
     }
 
-    // Send email confirmation to customer (non-blocking)
-    console.log('📧 Sending confirmation email to:', data.customer_email);
+    // ===========================================
+    // SEND EMAIL NOTIFICATIONS (ASYNC)
+    // ===========================================
+    console.log('📧 Preparing to send email notifications...');
     
     // Prepare order data for email
     const emailOrderData = {
@@ -336,30 +321,34 @@ router.post('/cod', async (req, res) => {
       // Send customer confirmation
       sendOrderConfirmationEmail(emailOrderData).then(result => {
         if (result.success) {
-          console.log('✅ Customer email sent for order:', data.custom_order_id);
+          console.log('✅ Customer email sent successfully for order:', data.custom_order_id);
+          console.log('📬 Message ID:', result.messageId);
         } else {
           console.error('❌ Failed to send customer email:', result.error);
         }
       }),
       
       // Send admin notification
-      sendAdminNotification(emailOrderData).then(() => {
-        console.log('✅ Admin notification sent for order:', data.custom_order_id);
-      }).catch(err => {
-        console.error('❌ Failed to send admin notification:', err);
+      sendAdminNotification(emailOrderData).then(result => {
+        if (result.success) {
+          console.log('✅ Admin notification sent successfully for order:', data.custom_order_id);
+        } else {
+          console.error('❌ Failed to send admin notification:', result.error);
+        }
       })
     ]).then(results => {
-      console.log('📧 Email sending completed:', results.map(r => r.status));
+      console.log('📧 Email sending completed for order:', data.custom_order_id);
+      console.log('Results:', results.map(r => r.status));
     });
 
-    // Return success response
+    // Return success response immediately (don't wait for emails)
     res.status(201).json({ 
       success: true, 
       message: 'Order placed successfully',
       order: {
         id: data.id,
         custom_order_id: data.custom_order_id,
-        tracking_id: data.custom_order_id, // Send custom ID to frontend for tracking
+        tracking_id: data.custom_order_id,
         total_amount: data.total_amount,
         customer_name: data.customer_name,
         customer_email: data.customer_email,

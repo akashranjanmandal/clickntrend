@@ -1,4 +1,4 @@
-import express, { Request, Response, NextFunction } from "express";
+import express, { Request, Response } from "express";
 import Razorpay from 'razorpay';
 import crypto from 'crypto';
 import config from '../config';
@@ -25,7 +25,7 @@ router.post('/create-order', async (req, res) => {
     console.log('Creating Razorpay order:', { amount, currency, receipt });
 
     const options = {
-      amount: Math.round(amount * 100), // Convert to paise
+      amount: Math.round(amount), // Already in paise from frontend
       currency,
       receipt: receipt || `receipt_${Date.now()}`,
       payment_capture: 1
@@ -47,7 +47,9 @@ router.post('/create-order', async (req, res) => {
   }
 });
 
-// Verify payment
+// ===========================================
+// VERIFY PAYMENT AND SEND EMAILS
+// ===========================================
 router.post('/verify-payment', async (req, res) => {
   try {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, order_data } = req.body;
@@ -55,7 +57,7 @@ router.post('/verify-payment', async (req, res) => {
     console.log('=== PAYMENT VERIFICATION START ===');
     console.log('Order ID:', razorpay_order_id);
     console.log('Payment ID:', razorpay_payment_id);
-    console.log('Order data received:', order_data);
+    console.log('Customer Email:', order_data?.email);
 
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
       return res.status(400).json({ success: false, error: 'Missing payment details' });
@@ -97,7 +99,7 @@ router.post('/verify-payment', async (req, res) => {
     const isValid = expectedSignature === razorpay_signature;
 
     if (isValid) {
-      console.log('✅ Payment signature verified');
+      console.log('✅ Payment signature verified successfully');
       
       // Save order to database
       console.log('Saving order to database...');
@@ -115,7 +117,7 @@ router.post('/verify-payment', async (req, res) => {
         customer_name: order_data.name.trim(),
         customer_email: order_data.email.trim().toLowerCase(),
         customer_phone: order_data.phone.replace(/\D/g, ''),
-        special_requests: order_data.specialRequests || '',
+        special_requests: order_data.special_requests || '',
         shipping_address: order_data.address.trim(),
         shipping_city: order_data.city.trim(),
         shipping_state: order_data.state.trim(),
@@ -128,7 +130,7 @@ router.post('/verify-payment', async (req, res) => {
         updated_at: new Date().toISOString()
       };
 
-      console.log('Order record to insert:', orderRecord);
+      console.log('Order record prepared for insertion');
 
       const { data: order, error } = await supabase
         .from('orders')
@@ -141,7 +143,10 @@ router.post('/verify-payment', async (req, res) => {
         throw error;
       }
 
-      console.log('✅ Order saved to database:', order.id, 'Custom ID:', order.custom_order_id);
+      console.log('✅ Order saved to database successfully!');
+      console.log('📋 Order ID:', order.id);
+      console.log('🔖 Custom Order ID:', order.custom_order_id);
+      console.log('📧 Customer Email:', order.customer_email);
 
       // Track coupon usage if applicable
       if (order_data.coupon_code && order_data.coupon_discount > 0) {
@@ -179,8 +184,10 @@ router.post('/verify-payment', async (req, res) => {
         }
       }
 
-      // Send email confirmation to customer (non-blocking)
-      console.log('📧 Sending confirmation email to:', order.customer_email);
+      // ===========================================
+      // SEND EMAIL NOTIFICATIONS (ASYNC)
+      // ===========================================
+      console.log('📧 Preparing to send email notifications...');
       
       // Prepare order data for email
       const emailOrderData = {
@@ -208,21 +215,24 @@ router.post('/verify-payment', async (req, res) => {
         // Send customer confirmation
         sendOrderConfirmationEmail(emailOrderData).then(result => {
           if (result.success) {
-            console.log('✅ Customer email sent for order:', order.custom_order_id);
+            console.log('✅ Customer email sent successfully for order:', order.custom_order_id);
+            console.log('📬 Message ID:', result.messageId);
           } else {
             console.error('❌ Failed to send customer email:', result.error);
           }
         }),
         
         // Send admin notification
-        sendAdminNotification(emailOrderData).then(() => {
-          console.log('✅ Admin notification sent for order:', order.custom_order_id);
-        }).catch(err => {
-          console.error('❌ Failed to send admin notification:', err);
+        sendAdminNotification(emailOrderData).then(result => {
+          if (result.success) {
+            console.log('✅ Admin notification sent successfully for order:', order.custom_order_id);
+          } else {
+            console.error('❌ Failed to send admin notification:', result.error);
+          }
         })
       ]).then(results => {
-        console.log('📧 Email sending completed for order:', order.custom_order_id, 
-                   'Results:', results.map(r => r.status));
+        console.log('📧 Email sending completed for order:', order.custom_order_id);
+        console.log('Results:', results.map(r => r.status));
       });
 
       console.log('=== PAYMENT VERIFICATION END ===');
@@ -323,26 +333,6 @@ router.post('/refund/:paymentId', async (req, res) => {
 
     console.log('✅ Refund processed for order:', order.custom_order_id);
 
-    // Send refund confirmation email (non-blocking)
-    try {
-      const emailOrderData = {
-        id: order.id,
-        custom_order_id: order.custom_order_id,
-        customer_email: order.customer_email,
-        customer_name: order.customer_name,
-        items: order.items,
-        total_amount: amount || order.total_amount,
-        refund_amount: amount || order.total_amount,
-        refund_id: refund.id,
-        created_at: new Date().toISOString()
-      };
-
-      // You can create a refund email template if needed
-      // await sendRefundConfirmationEmail(emailOrderData);
-    } catch (emailError) {
-      console.error('Failed to send refund email:', emailError);
-    }
-
     res.json({
       success: true,
       message: 'Refund processed successfully',
@@ -358,6 +348,5 @@ router.post('/refund/:paymentId', async (req, res) => {
     });
   }
 });
-
 
 export default router;
