@@ -100,15 +100,15 @@ router.get('/products', requireAuth, async (req: Request, res: Response) => {
   }
 });
 
-// Create new product - WITHOUT category field
+// Create new product - WITHOUT subcategory field
 router.post('/products', requireAuth, async (req: Request, res: Response) => {
   try {
     const { 
       name, description, price, original_price, 
       discount_percentage, image_url, stock_quantity,
-      gender, sku, is_customizable, customization_price, 
+      gender, sku, is_customizable, customization_price,
       max_customization_characters, max_customization_images,
-      max_customization_lines, additional_images, subcategory,
+      max_customization_lines, additional_images, // <-- This is where it comes from
       social_proof_enabled, social_proof_text,
       social_proof_initial_count, social_proof_end_count,
       is_active
@@ -132,9 +132,9 @@ router.post('/products', requireAuth, async (req: Request, res: Response) => {
         customization_price: customization_price ? parseFloat(customization_price) : 0,
         max_customization_characters: max_customization_characters ? parseInt(max_customization_characters) : 50,
         max_customization_images: max_customization_images ? parseInt(max_customization_images) : 10,
-        max_customization_lines: max_customization_lines ? parseInt(max_customization_lines) : 10,
+        max_customization_lines: max_customization_lines ? parseInt(max_customization_lines) : 0, // <-- ADD THIS LINE HERE
         additional_images: additional_images || [],
-        subcategory: subcategory || null,
+        // subcategory field REMOVED
         social_proof_enabled: social_proof_enabled !== false,
         social_proof_text: social_proof_text || '🔺{count} People are Purchasing Right Now',
         social_proof_initial_count: social_proof_initial_count ? parseInt(social_proof_initial_count) : 5,
@@ -158,7 +158,6 @@ router.post('/products', requireAuth, async (req: Request, res: Response) => {
     res.status(500).json({ error: error.message });
   }
 });
-
 // Update product - WITHOUT category field
 router.put('/products/:id', requireAuth, async (req: Request, res: Response) => {
   try {
@@ -166,7 +165,12 @@ router.put('/products/:id', requireAuth, async (req: Request, res: Response) => 
     const updates = req.body;
     
     // Remove category fields if they exist (to avoid errors)
-    const { category, categories, ...cleanUpdates } = updates;
+    const { category, categories, subcategory, ...cleanUpdates } = updates;
+    
+    // Parse number fields if they exist
+    if (cleanUpdates.max_customization_lines) {
+      cleanUpdates.max_customization_lines = parseInt(cleanUpdates.max_customization_lines);
+    }
     
     const { data, error } = await supabase
       .from('products')

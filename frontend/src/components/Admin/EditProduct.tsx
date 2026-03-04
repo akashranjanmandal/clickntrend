@@ -605,72 +605,79 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
                 </label>
               </div>
 
-              {formData.is_customizable && (
-                <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Customization Price (₹)
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.customization_price}
-                      onChange={(e) => setFormData({...formData, customization_price: e.target.value})}
-                      min="0"
-                      step="0.01"
-                      className="w-full px-4 py-3 border rounded-lg"
-                      placeholder="299"
-                    />
-                  </div>
+             // In the customization section, conditionally show text fields
+{formData.is_customizable && (
+  <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div>
+      <label className="block text-sm font-medium mb-2">
+        Customization Price (₹)
+      </label>
+      <input
+        type="number"
+        value={formData.customization_price}
+        onChange={(e) => setFormData({...formData, customization_price: e.target.value})}
+        min="0"
+        step="0.01"
+        className="w-full px-4 py-3 border rounded-lg"
+        placeholder="299"
+      />
+    </div>
 
-                  <div>
-                    <label className="block text-sm font-medium mb-2 flex items-center gap-1">
-                      <FileText className="h-4 w-4" />
-                      Max Characters/Line
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.max_customization_characters}
-                      onChange={(e) => setFormData({...formData, max_customization_characters: e.target.value})}
-                      min="1"
-                      max="200"
-                      className="w-full px-4 py-3 border rounded-lg"
-                      placeholder="50"
-                    />
-                  </div>
+    {/* Only show text fields if max_customization_lines > 0 */}
+    {parseInt(formData.max_customization_lines) > 0 && (
+      <>
+        <div>
+          <label className="block text-sm font-medium mb-2 flex items-center gap-1">
+            <FileText className="h-4 w-4" />
+            Max Characters/Line
+          </label>
+          <input
+            type="number"
+            value={formData.max_customization_lines}
+            onChange={(e) => setFormData({...formData, max_customization_lines: e.target.value})}
+            min="0"
+            max="20"
+            className="w-full px-4 py-3 border rounded-lg"
+            placeholder="10"
+          />
+        </div>
 
-                  <div>
-                    <label className="block text-sm font-medium mb-2 flex items-center gap-1">
-                      <FileText className="h-4 w-4" />
-                      Max Text Lines
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.max_customization_lines}
-                      onChange={(e) => setFormData({...formData, max_customization_lines: e.target.value})}
-                      min="1"
-                      max="20"
-                      className="w-full px-4 py-3 border rounded-lg"
-                      placeholder="10"
-                    />
-                  </div>
+        <div>
+          <label className="block text-sm font-medium mb-2 flex items-center gap-1">
+            <FileText className="h-4 w-4" />
+            Max Characters/Line
+          </label>
+          <input
+            type="number"
+            value={formData.max_customization_characters}
+            onChange={(e) => setFormData({...formData, max_customization_characters: e.target.value})}
+            min="1"
+            max="200"
+            className="w-full px-4 py-3 border rounded-lg"
+            placeholder="50"
+          />
+        </div>
+      </>
+    )}
 
-                  <div>
-                    <label className="block text-sm font-medium mb-2 flex items-center gap-1">
-                      <ImageIcon className="h-4 w-4" />
-                      Max Images
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.max_customization_images}
-                      onChange={(e) => setFormData({...formData, max_customization_images: e.target.value})}
-                      min="1"
-                      max="30"
-                      className="w-full px-4 py-3 border rounded-lg"
-                      placeholder="10"
-                    />
-                  </div>
-                </div>
-              )}
+    {/* Images field always shown */}
+    <div>
+      <label className="block text-sm font-medium mb-2 flex items-center gap-1">
+        <ImageIcon className="h-4 w-4" />
+        Max Images
+      </label>
+      <input
+        type="number"
+        value={formData.max_customization_images}
+        onChange={(e) => setFormData({...formData, max_customization_images: e.target.value})}
+        min="0"
+        max="30"
+        className="w-full px-4 py-3 border rounded-lg"
+        placeholder="10"
+      />
+    </div>
+  </div>
+)}
             </div>
 
             <div className="flex items-center space-x-3">
