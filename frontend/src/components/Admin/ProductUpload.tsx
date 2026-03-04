@@ -21,7 +21,6 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    subcategory: '',
     gender: 'unisex',
     price: '',
     original_price: '',
@@ -58,7 +57,7 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
         setFormData(prev => ({ ...prev, price: calculatedPrice.toFixed(2) }));
       }
     }
-    // Mode 3: No original price, don't auto-calculate
+    // Mode 3: No original price, keep manual entry mode
     else if (originalPrice === 0) {
       // Keep manual entry mode
     }
@@ -139,7 +138,7 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
       // Get primary image URL
       const primaryImage = productImages.find(img => img.is_primary) || productImages[0];
       
-      // Prepare product data (NO category field - categories handled separately)
+      // Prepare product data (subcategory REMOVED)
       const productData: any = {
         name: formData.name.trim(),
         description: formData.description.trim(),
@@ -162,10 +161,6 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
       
       if (formData.discount_percentage) {
         productData.discount_percentage = parseInt(formData.discount_percentage);
-      }
-      
-      if (formData.subcategory) {
-        productData.subcategory = formData.subcategory;
       }
       
       // Add customization fields
@@ -336,17 +331,6 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
                     })}
                   </div>
                 )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Subcategory (Optional)</label>
-                <input
-                  type="text"
-                  value={formData.subcategory}
-                  onChange={(e) => setFormData({...formData, subcategory: e.target.value})}
-                  className="w-full px-4 py-3 border rounded-lg focus:border-premium-gold focus:outline-none"
-                  placeholder="e.g., Luxury, Classic, Premium"
-                />
               </div>
 
               <div>

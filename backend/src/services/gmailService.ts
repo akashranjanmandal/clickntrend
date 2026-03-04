@@ -27,13 +27,17 @@ interface EmailResult {
   error?: string;
 }
 
-// Create transporter with Gmail
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: "smtp.gmail.com",
+  port: 587,
+  secure: false,
   auth: {
     user: config.gmailUser,
     pass: config.gmailAppPassword
-  }
+  },
+  connectionTimeout: 20000,
+  greetingTimeout: 20000,
+  socketTimeout: 20000
 });
 
 // Verify connection
