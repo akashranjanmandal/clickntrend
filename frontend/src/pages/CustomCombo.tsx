@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import {
   Package, Sparkles, ChevronRight,
   Users, X, Plus, Minus, Tag, Gift, Search,
-  Percent, ShoppingCart, Image as ImageIcon, Type
+  Percent, ShoppingCart, Image as ImageIcon, Type, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { Product, Category, Gender, CustomizationData, CartItem } from '../types';
 import toast from 'react-hot-toast';
@@ -64,7 +64,7 @@ const CustomCombo: React.FC = () => {
   const comboBuilderRef = useRef<HTMLDivElement>(null);
 
   // Mobile view state
-  const [showMobileCombo, setShowMobileCombo] = useState(false);
+  const [isComboExpanded, setIsComboExpanded] = useState(false);
 
   // Discount tiers configuration
   const discountTiers = [
@@ -214,9 +214,9 @@ const CustomCombo: React.FC = () => {
       toast.success(`${product.name} added to combo`);
     }
 
-    // On mobile, show the combo builder after adding first item
+    // Auto-expand the combo summary on mobile when items are added
     if (window.innerWidth < 1024) {
-      setShowMobileCombo(true);
+      setIsComboExpanded(true);
     }
   };
 
@@ -232,6 +232,11 @@ const CustomCombo: React.FC = () => {
       newMap.delete(productId);
       return newMap;
     });
+
+    // If no items left, collapse the combo on mobile
+    if (selectedProducts.size === 1 && window.innerWidth < 1024) {
+      setIsComboExpanded(false);
+    }
   };
 
   const updateQuantity = (productId: string, quantity: number) => {
@@ -367,7 +372,7 @@ const CustomCombo: React.FC = () => {
       setSelectedProducts(new Map());
       setComboName('');
       setSpecialRequests('');
-      setShowMobileCombo(false);
+      setIsComboExpanded(false);
       
     } catch (error) {
       console.error('Error adding combo to cart:', error);
@@ -389,23 +394,52 @@ const CustomCombo: React.FC = () => {
     );
   }
 
-  // Mobile Combo Builder
-  const MobileComboBuilder = () => (
-    <div className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-50" onClick={() => setShowMobileCombo(false)}>
+  // Mobile Combo Header (always visible at top)
+  const MobileComboHeader = () => (
+    <div className="lg:hidden sticky top-0 z-30 bg-white border-b shadow-sm">
       <div 
-        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl max-h-[85vh] overflow-y-auto"
-        onClick={e => e.stopPropagation()}
+        className="px-4 py-3 flex items-center justify-between cursor-pointer"
+        onClick={() => setIsComboExpanded(!isComboExpanded)}
       >
-        <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
-          <h2 className="text-xl font-serif font-bold">Your Combo</h2>
-          <button onClick={() => setShowMobileCombo(false)} className="p-2">
-            <X className="h-5 w-5" />
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <Package className="h-6 w-6 text-premium-gold" />
+            {totalItems > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
+                {totalItems}
+              </span>
+            )}
+          </div>
+          <div>
+            <h3 className="font-medium">Your Combo</h3>
+            {totalItems > 0 ? (
+              <p className="text-sm text-gray-600">
+                {totalItems} item{totalItems > 1 ? 's' : ''} • {formatCurrency(calculateTotal())}
+              </p>
+            ) : (
+              <p className="text-sm text-gray-400">No items selected</p>
+            )}
+          </div>
+        </div>
+        {totalItems > 0 && (
+          <button className="p-2">
+            {isComboExpanded ? (
+              <ChevronUp className="h-5 w-5 text-gray-500" />
+            ) : (
+              <ChevronDown className="h-5 w-5 text-gray-500" />
+            )}
           </button>
-        </div>
-        <div className="p-4">
-          {renderComboContent()}
-        </div>
+        )}
       </div>
+
+      {/* Expanded Combo Content */}
+      {isComboExpanded && totalItems > 0 && (
+        <div className="max-h-[70vh] overflow-y-auto border-t bg-gray-50">
+          <div className="p-4 space-y-4">
+            {renderComboContent()}
+          </div>
+        </div>
+      )}
     </div>
   );
 
@@ -414,7 +448,7 @@ const CustomCombo: React.FC = () => {
     <>
       {/* Discount Banner */}
       {totalItems > 0 && (
-        <div className="mb-6 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-200">
+        <div className="mb-4 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-200">
           <div className="flex items-center gap-2 mb-2">
             <Percent className="h-5 w-5 text-purple-600" />
             <span className="font-semibold text-purple-700">Auto Discount Applied!</span>
@@ -463,7 +497,7 @@ const CustomCombo: React.FC = () => {
           <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
             <Gift className="h-12 w-12 text-gray-300 mx-auto mb-3" />
             <p className="text-gray-500">No products selected</p>
-            <p className="text-sm text-gray-400">Add products from the list above</p>
+            <p className="text-sm text-gray-400">Add products from the list below</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -471,7 +505,7 @@ const CustomCombo: React.FC = () => {
               const itemPrice = product.price + (product.customization_price || 0);
               
               return (
-                <div key={product.id} className="p-3 bg-gray-50 rounded-lg">
+                <div key={product.id} className="p-3 bg-white rounded-lg border">
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
                       <h4 className="font-medium text-sm line-clamp-1">{product.name}</h4>
@@ -496,7 +530,7 @@ const CustomCombo: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => updateQuantity(product.id, quantity - 1)}
-                        className="p-1 hover:bg-white rounded"
+                        className="p-1 hover:bg-gray-100 rounded"
                       >
                         <Minus className="h-3 w-3" />
                       </button>
@@ -504,14 +538,14 @@ const CustomCombo: React.FC = () => {
                       <button
                         onClick={() => updateQuantity(product.id, quantity + 1)}
                         disabled={totalItems >= 10}
-                        className="p-1 hover:bg-white rounded disabled:opacity-50"
+                        className="p-1 hover:bg-gray-100 rounded disabled:opacity-50"
                       >
                         <Plus className="h-3 w-3" />
                       </button>
                       {product.is_customizable && (
                         <button
                           onClick={() => editCustomization(product.id)}
-                          className="p-1 hover:bg-white rounded text-blue-600"
+                          className="p-1 hover:bg-gray-100 rounded text-blue-600"
                           title="Edit Customization"
                         >
                           <Type className="h-3 w-3" />
@@ -519,7 +553,7 @@ const CustomCombo: React.FC = () => {
                       )}
                       <button
                         onClick={() => removeFromCombo(product.id)}
-                        className="p-1 hover:bg-white rounded text-red-600"
+                        className="p-1 hover:bg-gray-100 rounded text-red-600"
                       >
                         <X className="h-3 w-3" />
                       </button>
@@ -555,7 +589,7 @@ const CustomCombo: React.FC = () => {
       )}
 
       {/* Special Requests */}
-      <div className="mb-6">
+      <div className="mb-4">
         <label className="block text-sm font-medium mb-2">Special Requests</label>
         <textarea
           value={specialRequests}
@@ -566,62 +600,38 @@ const CustomCombo: React.FC = () => {
         />
       </div>
 
-      {/* Add to Cart Button */}
-      <button
-        onClick={handleAddToCart}
-        disabled={selectedProducts.size === 0}
-        className="w-full py-4 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy transition-colors font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        <ShoppingCart className="h-5 w-5" />
-        {selectedProducts.size === 0 ? (
-          'Select Products to Continue'
-        ) : (
-          `Add Combo to Cart • ${formatCurrency(calculateTotal())}`
-        )}
-      </button>
-
       {/* Items Counter */}
-      <p className="text-center text-xs text-gray-500 mt-4">
-        {totalItems} / 10 items selected
-      </p>
+      {totalItems > 0 && (
+        <p className="text-center text-xs text-gray-500">
+          {totalItems} / 10 items selected
+        </p>
+      )}
     </>
   );
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-12">
-        {/* Customization Modal */}
-        {showCustomizationModal && pendingProductToAdd && (
-          <ProductCustomizationModal
-            product={pendingProductToAdd}
-            onClose={() => {
-              setShowCustomizationModal(false);
-              setPendingProductToAdd(null);
-            }}
-            onCustomizeComplete={(customization) => 
-              handleCustomizationComplete(pendingProductToAdd, customization)
-            }
-          />
-        )}
+      {/* Customization Modal */}
+      {showCustomizationModal && pendingProductToAdd && (
+        <ProductCustomizationModal
+          product={pendingProductToAdd}
+          onClose={() => {
+            setShowCustomizationModal(false);
+            setPendingProductToAdd(null);
+          }}
+          onCustomizeComplete={(customization) => 
+            handleCustomizationComplete(pendingProductToAdd, customization)
+          }
+        />
+      )}
 
-        {/* Mobile Combo Builder Toggle */}
-        {selectedProducts.size > 0 && (
-          <div className="lg:hidden fixed bottom-4 left-4 right-4 z-40">
-            <button
-              onClick={() => setShowMobileCombo(true)}
-              className="w-full py-4 bg-premium-gold text-white rounded-lg shadow-lg font-semibold flex items-center justify-center gap-2"
-            >
-              <Package className="h-5 w-5" />
-              View Combo ({totalItems} items • {formatCurrency(calculateTotal())})
-            </button>
-          </div>
-        )}
+      {/* Mobile Combo Header */}
+      <MobileComboHeader />
 
-        {/* Mobile Combo Builder Modal */}
-        {showMobileCombo && <MobileComboBuilder />}
-
+      {/* Main Content */}
+      <div className="container mx-auto px-4 py-6 lg:py-12">
         {/* Header */}
-        <div className="text-center max-w-3xl mx-auto mb-12">
+        <div className="text-center max-w-3xl mx-auto mb-8 lg:mb-12">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -631,10 +641,10 @@ const CustomCombo: React.FC = () => {
             <Sparkles className="w-8 h-8 text-yellow-500" />
             <Gift className="w-8 h-8 text-purple-600" />
           </motion.div>
-          <h1 className="text-4xl md:text-5xl font-serif font-bold text-premium-charcoal mb-4">
+          <h1 className="text-3xl md:text-4xl lg:text-5xl font-serif font-bold text-premium-charcoal mb-4">
             Create Your Custom Combo
           </h1>
-          <p className="text-lg md:text-xl text-gray-600">
+          <p className="text-base md:text-lg lg:text-xl text-gray-600">
             Mix and match products to create the perfect gift combination
           </p>
         </div>
@@ -856,6 +866,19 @@ const CustomCombo: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Mobile Sticky Footer with Add to Cart */}
+      {selectedProducts.size > 0 && (
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4 z-30">
+          <button
+            onClick={handleAddToCart}
+            className="w-full py-4 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy transition-colors font-semibold flex items-center justify-center gap-2"
+          >
+            <ShoppingCart className="h-5 w-5" />
+            Add Combo to Cart • {formatCurrency(calculateTotal())}
+          </button>
+        </div>
+      )}
     </div>
   );
 };
