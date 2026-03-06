@@ -29,7 +29,7 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
   const [submitting, setSubmitting] = useState(false);
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
-  const [activeTab, setActiveTab] = useState<'details' | 'reviews' >('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'reviews'>('details');
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [showCustomization, setShowCustomization] = useState(false);
   const [reviewSort, setReviewSort] = useState<'newest' | 'highest' | 'lowest'>('newest');
@@ -81,7 +81,9 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
     try {
       setLoading(true);
       const data = await apiFetch(`/api/reviews/product/${product.id}`);
-      setReviews(data || []);
+      // Filter only approved reviews
+      const approvedReviews = data.filter((r: Review) => r.is_approved);
+      setReviews(approvedReviews || []);
     } catch (error) {
       console.error('Error fetching reviews:', error);
     } finally {
@@ -119,6 +121,7 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
         comment: ''
       });
       
+      // Refresh reviews to show the new one (though it will be pending)
       await fetchReviews();
     } catch (error: any) {
       toast.error(error.message || 'Failed to submit review');
@@ -167,6 +170,7 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
     }
   };
 
+  // Calculate average rating from approved reviews
   const averageRating = reviews.length > 0
     ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
     : 0;
@@ -189,19 +193,17 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
 
   // Sort reviews based on selected sort option
   const getSortedReviews = () => {
-    const approvedReviews = reviews.filter(r => r.is_approved);
-    
     switch (reviewSort) {
       case 'newest':
-        return [...approvedReviews].sort((a, b) => 
+        return [...reviews].sort((a, b) => 
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         );
       case 'highest':
-        return [...approvedReviews].sort((a, b) => b.rating - a.rating);
+        return [...reviews].sort((a, b) => b.rating - a.rating);
       case 'lowest':
-        return [...approvedReviews].sort((a, b) => a.rating - b.rating);
+        return [...reviews].sort((a, b) => a.rating - b.rating);
       default:
-        return approvedReviews;
+        return reviews;
     }
   };
 
@@ -335,7 +337,7 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
                             ))}
                           </div>
                           <span className="text-xs sm:text-sm font-medium text-gray-700">
-                            {averageRating.toFixed(1)} ({reviews.length})
+                            {averageRating > 0 ? averageRating.toFixed(1) : '0.0'} ({reviews.length})
                           </span>
                         </div>
                         <span className="text-xs sm:text-sm text-gray-500 flex items-center gap-1">
@@ -497,7 +499,7 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
                                     ))}
                                   </div>
                                   <p className="text-xs text-gray-500 mt-1">
-                                    {reviews.length} reviews
+                                    Based on {reviews.length} review{reviews.length !== 1 ? 's' : ''}
                                   </p>
                                 </div>
                                 <div className="flex-1 w-full space-y-2">
@@ -515,6 +517,21 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
                                   ))}
                                 </div>
                               </div>
+                            </div>
+                          )}
+
+                          {/* Sort Dropdown */}
+                          {reviews.length > 1 && (
+                            <div className="flex justify-end">
+                              <select
+                                value={reviewSort}
+                                onChange={(e) => setReviewSort(e.target.value as any)}
+                                className="px-3 py-1.5 text-sm border rounded-lg focus:border-premium-gold focus:outline-none"
+                              >
+                                <option value="newest">Newest First</option>
+                                <option value="highest">Highest Rated</option>
+                                <option value="lowest">Lowest Rated</option>
+                              </select>
                             </div>
                           )}
 
@@ -578,7 +595,7 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
                                       }}
                                     >
                                       <Star
-                                        className={`h-6 w-6 sm:h-8 sm:w-8 ${
+                                        className={`h-6 w-6 sm:h-8 sm:w-8 transition-colors ${
                                           star <= reviewForm.rating
                                             ? 'text-yellow-400 fill-current'
                                             : 'text-gray-300 hover:text-yellow-200'
@@ -607,7 +624,7 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
                                   disabled={submitting}
                                   className="flex-1 py-2 sm:py-3 bg-gradient-to-r from-premium-gold to-premium-burgundy text-white rounded-lg text-sm font-medium disabled:opacity-50"
                                 >
-                                  {submitting ? 'Submitting...' : 'Submit'}
+                                  {submitting ? 'Submitting...' : 'Submit Review'}
                                 </button>
                                 <button
                                   type="button"
@@ -632,13 +649,14 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
                             <div className="text-center py-8">
                               <MessageCircle className="h-12 w-12 text-gray-300 mx-auto mb-3" />
                               <p className="text-gray-500">No reviews yet</p>
+                              <p className="text-xs text-gray-400 mt-1">Be the first to review this product!</p>
                             </div>
                           ) : (
                             <div className="space-y-3 sm:space-y-4 max-h-[300px] sm:max-h-[400px] overflow-y-auto pr-2">
                               {getSortedReviews().map((review) => (
                                 <div
                                   key={review.id}
-                                  className="p-4 sm:p-6 bg-gradient-to-br from-gray-50 to-white rounded-xl border border-premium-gold/10"
+                                  className="p-4 sm:p-6 bg-gradient-to-br from-gray-50 to-white rounded-xl border border-premium-gold/10 hover:border-premium-gold/30 transition-all"
                                 >
                                   <div className="flex items-start justify-between mb-2 sm:mb-3">
                                     <div className="flex items-center gap-2 sm:gap-3">
@@ -661,7 +679,11 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
                                             ))}
                                           </div>
                                           <span className="text-xs text-gray-400">
-                                            {new Date(review.created_at).toLocaleDateString()}
+                                            {new Date(review.created_at).toLocaleDateString('en-IN', {
+                                              year: 'numeric',
+                                              month: 'short',
+                                              day: 'numeric'
+                                            })}
                                           </span>
                                         </div>
                                       </div>
@@ -680,7 +702,15 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
                                       <span>Helpful</span>
                                     </button>
                                   </div>
-                                  <p className="text-xs sm:text-sm text-gray-700">{review.comment}</p>
+                                  <p className="text-xs sm:text-sm text-gray-700 leading-relaxed">{review.comment}</p>
+                                  
+                                  {/* Pending Badge */}
+                                  {!review.is_approved && (
+                                    <div className="mt-2 inline-flex items-center px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded-full text-xs">
+                                      <span className="w-1.5 h-1.5 bg-yellow-500 rounded-full mr-1 animate-pulse"></span>
+                                      Pending Approval
+                                    </div>
+                                  )}
                                 </div>
                               ))}
                             </div>
@@ -690,28 +720,26 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
                     </div>
 
                     {/* Action Buttons */}
-<div className="pt-4 sm:pt-6 border-t border-premium-gold/10">
-  {product.is_customizable ? (
-    /* Only Customize Button when customizable */
-    <button
-      onClick={handleCustomizeClick}
-      className="w-full py-3 sm:py-4 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-xl hover:shadow-lg transition-all flex items-center justify-center gap-2 text-sm sm:text-base font-medium"
-    >
-      <PenTool className="h-4 w-4 sm:h-5 sm:w-5" />
-      Customize This Product
-    </button>
-  ) : (
-    /* Only Add to Cart when not customizable */
-    <button
-      onClick={handleAddToCart}
-      disabled={product.stock_quantity === 0}
-      className="w-full py-3 sm:py-4 bg-gradient-to-r from-premium-gold to-premium-burgundy text-white rounded-xl hover:shadow-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2 text-sm sm:text-base font-medium"
-    >
-      <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5" />
-      Add to Cart • {formatCurrency(product.price * quantity)}
-    </button>
-  )}
-</div>
+                    <div className="pt-4 sm:pt-6 border-t border-premium-gold/10">
+                      {product.is_customizable ? (
+                        <button
+                          onClick={handleCustomizeClick}
+                          className="w-full py-3 sm:py-4 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-xl hover:shadow-lg transition-all flex items-center justify-center gap-2 text-sm sm:text-base font-medium"
+                        >
+                          <PenTool className="h-4 w-4 sm:h-5 sm:w-5" />
+                          Customize This Product
+                        </button>
+                      ) : (
+                        <button
+                          onClick={handleAddToCart}
+                          disabled={product.stock_quantity === 0}
+                          className="w-full py-3 sm:py-4 bg-gradient-to-r from-premium-gold to-premium-burgundy text-white rounded-xl hover:shadow-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2 text-sm sm:text-base font-medium"
+                        >
+                          <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5" />
+                          Add to Cart • {formatCurrency(product.price * quantity)}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
