@@ -63,9 +63,6 @@ const CustomCombo: React.FC = () => {
   const [comboBuilderHeight, setComboBuilderHeight] = useState(0);
   const comboBuilderRef = useRef<HTMLDivElement>(null);
 
-  // Mobile view state
-  const [showMobileCombo, setShowMobileCombo] = useState(false);
-
   // Discount tiers configuration
   const discountTiers = [
     { minItems: 0, maxItems: 2, discount: 0, label: 'No Discount' },
@@ -212,11 +209,6 @@ const CustomCombo: React.FC = () => {
       toast.success(`${product.name} (customized) added to combo`);
     } else {
       toast.success(`${product.name} added to combo`);
-    }
-
-    // On mobile, show the combo builder after adding first item
-    if (window.innerWidth < 1024) {
-      setShowMobileCombo(true);
     }
   };
 
@@ -367,7 +359,6 @@ const CustomCombo: React.FC = () => {
       setSelectedProducts(new Map());
       setComboName('');
       setSpecialRequests('');
-      setShowMobileCombo(false);
       
     } catch (error) {
       console.error('Error adding combo to cart:', error);
@@ -388,26 +379,6 @@ const CustomCombo: React.FC = () => {
       </div>
     );
   }
-
-  // Mobile Combo Builder
-  const MobileComboBuilder = () => (
-    <div className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-50" onClick={() => setShowMobileCombo(false)}>
-      <div 
-        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl max-h-[85vh] overflow-y-auto"
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
-          <h2 className="text-xl font-serif font-bold">Your Combo</h2>
-          <button onClick={() => setShowMobileCombo(false)} className="p-2">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-        <div className="p-4">
-          {renderComboContent()}
-        </div>
-      </div>
-    </div>
-  );
 
   // Combo Content (reused for both mobile and desktop)
   const renderComboContent = () => (
@@ -463,7 +434,7 @@ const CustomCombo: React.FC = () => {
           <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
             <Gift className="h-12 w-12 text-gray-300 mx-auto mb-3" />
             <p className="text-gray-500">No products selected</p>
-            <p className="text-sm text-gray-400">Add products from the list above</p>
+            <p className="text-sm text-gray-400">Add products from the list below</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -604,22 +575,6 @@ const CustomCombo: React.FC = () => {
           />
         )}
 
-        {/* Mobile Combo Builder Toggle */}
-        {selectedProducts.size > 0 && (
-          <div className="lg:hidden fixed bottom-4 left-4 right-4 z-40">
-            <button
-              onClick={() => setShowMobileCombo(true)}
-              className="w-full py-4 bg-premium-gold text-white rounded-lg shadow-lg font-semibold flex items-center justify-center gap-2"
-            >
-              <Package className="h-5 w-5" />
-              View Combo ({totalItems} items • {formatCurrency(calculateTotal())})
-            </button>
-          </div>
-        )}
-
-        {/* Mobile Combo Builder Modal */}
-        {showMobileCombo && <MobileComboBuilder />}
-
         {/* Header */}
         <div className="text-center max-w-3xl mx-auto mb-12">
           <motion.div
@@ -640,8 +595,22 @@ const CustomCombo: React.FC = () => {
         </div>
 
         <div className="flex flex-col lg:flex-row gap-8">
-          {/* Left Side - Product Selection */}
-          <div className="lg:flex-1 order-2 lg:order-1">
+          {/* Mobile/Tablet: Combo Builder at Top, Products at Bottom */}
+          {/* Desktop: Products on Left, Combo Builder on Right */}
+          
+          {/* Combo Builder - Mobile First (Top), Desktop (Right) */}
+          <div className="order-1 lg:order-2 lg:w-[380px] xl:w-[420px]">
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <h2 className="text-2xl font-serif font-bold mb-6 flex items-center gap-2">
+                <Package className="h-5 w-5 text-premium-gold" />
+                Your Combo
+              </h2>
+              {renderComboContent()}
+            </div>
+          </div>
+
+          {/* Product Selection - Mobile (Bottom), Desktop (Left) */}
+          <div className="order-2 lg:order-1 lg:flex-1">
             {/* Search Bar */}
             <div className="mb-6">
               <div className="relative">
@@ -833,26 +802,6 @@ const CustomCombo: React.FC = () => {
                 </div>
               )}
             </section>
-          </div>
-
-          {/* Right Side - Combo Builder (Desktop) */}
-          <div className="hidden lg:block lg:w-[380px] xl:w-[420px] order-1 lg:order-2">
-            <div 
-              ref={comboBuilderRef}
-              className="lg:fixed lg:top-24 lg:w-[380px] xl:w-[420px] transition-all duration-300"
-              style={{
-                maxHeight: 'calc(100vh - 120px)',
-                overflowY: 'auto'
-              }}
-            >
-              <div className="bg-white rounded-xl shadow-lg p-6">
-                <h2 className="text-2xl font-serif font-bold mb-6 flex items-center gap-2 sticky top-0 bg-white py-2 z-10">
-                  <Package className="h-5 w-5 text-premium-gold" />
-                  Your Combo
-                </h2>
-                {renderComboContent()}
-              </div>
-            </div>
           </div>
         </div>
       </div>
