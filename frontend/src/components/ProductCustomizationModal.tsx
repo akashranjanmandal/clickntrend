@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from "react-dom";
-import {
-  X, Upload, Camera, Type, Image as ImageIcon,
-  Minus, Plus, Download, Eye, Trash2, FileText, AlertCircle
+import { 
+  X, Upload, Camera, Type, Image as ImageIcon, 
+  Minus, Plus, Download, Eye, Trash2, FileText, AlertCircle 
 } from 'lucide-react';
 import { Product, CustomizationData } from '../types';
 import { useCart } from '../context/CartContext';
@@ -16,22 +16,21 @@ interface ProductCustomizationModalProps {
   onCustomizeComplete?: (customization: CustomizationData) => void;
 }
 
-const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
-  product,
+const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({ 
+  product, 
   onClose,
-  onCustomizeComplete
+  onCustomizeComplete 
 }) => {
-
   const { addItem } = useCart();
-
-  const [textLines, setTextLines] = useState<string[]>(() =>
-    Array(product.max_customization_lines || 1).fill('')
-  );
-
-  const [customImages, setCustomImages] = useState<
-    { file: File | null; preview: string | null; url?: string; uploading?: boolean }[]
-  >([]);
-
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Initialize with empty arrays based on admin settings
+  const [textLines, setTextLines] = useState<string[]>(() => {
+    // Create array with empty strings for each allowed line
+    return Array(product.max_customization_lines || 1).fill('');
+  });
+  
+  const [customImages, setCustomImages] = useState<{ file: File | null; preview: string | null; url?: string; uploading?: boolean }[]>([]);
   const [uploading, setUploading] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
@@ -40,6 +39,7 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
   const maxLines = product.max_customization_lines || 10;
   const maxChars = product.max_customization_characters || 50;
 
+  // Check if customization is required
   const isCustomizationRequired = product.is_customizable === true;
 
   /* Lock body scroll when modal opens */
@@ -50,6 +50,51 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
     };
   }, []);
 
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    // Handle multiple file selection
+    const fileArray = Array.from(files);
+    
+    // Check total images limit
+    if (customImages.length + fileArray.length > maxImages) {
+      toast.error(`Maximum ${maxImages} images allowed. You can upload ${maxImages - customImages.length} more.`);
+      return;
+    }
+
+    fileArray.forEach(file => {
+      // Check file type
+      if (!file.type.startsWith('image/')) {
+        toast.error(`${file.name} is not an image file`);
+        return;
+      }
+      
+      // Check file size (10MB limit)
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error(`${file.name} size should be less than 10MB`);
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const preview = reader.result as string;
+        setCustomImages(prev => [...prev, { file, preview, url: undefined, uploading: false }]);
+        // Clear validation errors when user adds images
+        setValidationErrors(prev => prev.filter(err => !err.includes('image')));
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // Clear the input value so the same file can be uploaded again if needed
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const removeImage = (index: number) => {
     const updated = customImages.filter((_, i) => i !== index);
     setCustomImages(updated);
@@ -59,28 +104,33 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
     const updated = [...textLines];
     updated[index] = value;
     setTextLines(updated);
+    // Clear validation errors when user adds text
+    if (value.trim() !== '') {
+      setValidationErrors(prev => prev.filter(err => !err.includes('text')));
+    }
   };
 
-  const validateCustomization = () => {
+  const validateCustomization = (): boolean => {
     const errors: string[] = [];
-
+    
+    // Check if at least one text line is filled
     const hasText = textLines.some(line => line.trim() !== '');
     if (maxLines > 0 && !hasText) {
       errors.push('Please add at least one line of custom text');
     }
-
+    
+    // Check if at least one image is uploaded
     if (maxImages > 0 && customImages.length === 0) {
       errors.push('Please upload at least one custom image');
     }
-
+    
     setValidationErrors(errors);
     return errors.length === 0;
   };
 
   const uploadCustomImages = async (): Promise<string[]> => {
-
     const imagesToUpload = customImages.filter(img => img.file && !img.url);
-
+    
     if (imagesToUpload.length === 0) {
       return customImages
         .filter(img => img.url)
@@ -88,74 +138,114 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
     }
 
     setUploading(true);
+    
+    setCustomImages(prev => prev.map(img => 
+      img.file && !img.url ? { ...img, uploading: true } : img
+    ));
 
     const uploadedUrls: string[] = [];
 
     try {
-
       for (let i = 0; i < imagesToUpload.length; i++) {
-
         const image = imagesToUpload[i];
         if (!image.file) continue;
 
         const formData = new FormData();
         formData.append('image', image.file);
         formData.append('product_id', product.id);
+        formData.append('index', i.toString());
 
-        const response = await publicFetch('/api/upload/customization', {
+        const endpoint = '/api/upload/customization';
+        const response = await publicFetch(endpoint, {
           method: 'POST',
           body: formData,
           headers: {}
         });
-
+        
         const imageUrl = response.image_url || response.url;
-
+        if (!imageUrl) {
+          throw new Error('Server returned invalid response format');
+        }
+        
         uploadedUrls.push(imageUrl);
-
+        
+        setCustomImages(prev => {
+          const updated = [...prev];
+          const imgIndex = updated.findIndex(img => img.file === image.file);
+          if (imgIndex !== -1) {
+            updated[imgIndex] = { ...updated[imgIndex], url: imageUrl, uploading: false };
+          }
+          return updated;
+        });
       }
-
-      return uploadedUrls;
-
+      
+      const existingUrls = customImages
+        .filter(img => img.url && !imagesToUpload.includes(img))
+        .map(img => img.url as string);
+      
+      return [...existingUrls, ...uploadedUrls];
     } catch (error: any) {
-
-      toast.error('Image upload failed');
+      console.error('Error uploading image:', error);
+      
+      setCustomImages(prev => prev.map(img => ({ ...img, uploading: false })));
+      
+      if (error.message?.includes('400')) {
+        toast.error('Server rejected the upload. Please check file format.');
+      } else if (error.message?.includes('413')) {
+        toast.error('File too large. Please upload a smaller image.');
+      } else if (error.message?.includes('429')) {
+        toast.error('Too many uploads. Please try again later.');
+      } else if (error.message?.includes('500')) {
+        toast.error('Server error. Please try again later.');
+      } else {
+        toast.error(error.message || 'Failed to upload image');
+      }
+      
       return [];
-
     } finally {
       setUploading(false);
     }
-
   };
 
-  const handleSubmit = async () => {
-
+  const handleSubmit = async (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
+    // Validate customization if required
     if (isCustomizationRequired && !validateCustomization()) {
-      toast.error('Please complete customization');
+      toast.error('Please complete all customization requirements');
       return;
     }
-
-    const text = textLines.filter(t => t.trim() !== '');
-
+    
+    // Filter out empty text lines but keep the structure
+    const nonEmptyTextLines = textLines.filter(line => line.trim() !== '');
+    
     let imageUrls: string[] = [];
-
     if (customImages.length > 0) {
+      toast.loading(`Uploading ${customImages.filter(img => !img.url).length} images...`, { id: 'upload' });
       imageUrls = await uploadCustomImages();
+      toast.dismiss('upload');
+      
+      if (imageUrls.length !== customImages.length) {
+        toast.error('Some images failed to upload. Please try again.');
+        return;
+      }
     }
 
     const customization: CustomizationData = {
-      text_lines: text.length > 0 ? text : undefined,
+      text_lines: nonEmptyTextLines.length > 0 ? nonEmptyTextLines : undefined,
       image_urls: imageUrls.length > 0 ? imageUrls : undefined,
-      preview_urls: customImages.map(i => i.preview).filter(Boolean) as string[],
+      preview_urls: customImages.map(img => img.preview).filter(Boolean) as string[],
       image_paths: imageUrls
     };
 
     if (onCustomizeComplete) {
-
       onCustomizeComplete(customization);
+      toast.success('Customization saved!');
       onClose();
-
     } else {
-
       const finalPrice = product.price + (product.customization_price || 0);
 
       for (let i = 0; i < quantity; i++) {
@@ -167,154 +257,406 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
           image_url: product.image_url,
           type: 'product',
           category: product.category,
-          customization
+          customization: customization
         });
       }
 
-      toast.success(`Added to cart`);
+      toast.success(`Added ${quantity} customized item${quantity > 1 ? 's' : ''} to cart!`);
       onClose();
     }
+  };
 
+  const handleModalClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
   };
 
   const handleBackdropClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) onClose();
+    // Only close if clicking directly on the backdrop
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
   };
 
   const modalContent = (
     <AnimatePresence>
       <div 
-        className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/70"
+        className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4"
         onClick={handleBackdropClick}
       >
         <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.95 }}
-          transition={{ type: "spring", duration: 0.3 }}
-          className="relative bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
-          onClick={e => e.stopPropagation()}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="absolute inset-0 bg-black/70"
+        />
+
+        <motion.div
+          initial={{ opacity: 0, y: '100%' }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: '100%' }}
+          transition={{ type: 'tween' }}
+          onClick={handleModalClick}
+          className="relative bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto"
         >
-          {/* HEADER */}
-          <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
-            <h2 className="text-xl font-bold">Customize Your Gift</h2>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+          <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex justify-between items-center z-10">
+            <h2 className="text-lg sm:text-xl font-serif font-bold">Customize Your Gift</h2>
+            <button 
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onClose();
+              }} 
+              className="p-2 hover:bg-gray-100 rounded-full"
             >
               <X className="h-5 w-5" />
             </button>
           </div>
 
-          {/* CONTENT */}
-          <div className="p-6 space-y-6">
+          <div className="p-4 sm:p-6" onClick={handleModalClick}>
+            {/* Validation Errors Display */}
             {validationErrors.length > 0 && (
-              <div className="bg-red-50 border border-red-200 p-4 rounded-lg">
-                <div className="flex gap-2 text-red-700">
-                  <AlertCircle className="h-5 w-5 flex-shrink-0" />
-                  <ul className="text-sm list-disc list-inside">
-                    {validationErrors.map((err, i) => (
-                      <li key={i}>{err}</li>
-                    ))}
-                  </ul>
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h3 className="font-medium text-red-800 mb-1">Customization Required</h3>
+                    <ul className="list-disc list-inside text-sm text-red-700">
+                      {validationErrors.map((error, index) => (
+                        <li key={index}>{error}</li>
+                      ))}
+                    </ul>
+                  </div>
                 </div>
               </div>
             )}
 
-            {/* Product Info */}
-            <div className="flex gap-4">
-              <div className="w-24 h-24 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-                <img
-                  src={product.image_url}
-                  alt={product.name}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <div>
-                <h3 className="font-medium text-lg">{product.name}</h3>
-                <p className="text-sm text-gray-600 mt-1">{product.description}</p>
-                <p className="text-premium-gold font-bold mt-2">
-                  ${(product.price + (product.customization_price || 0)).toFixed(2)}
-                </p>
-              </div>
-            </div>
+            <div className="flex flex-col lg:flex-row gap-6">
+              {/* Left side - Preview */}
+              <div className="lg:w-1/2" onClick={handleModalClick}>
+                <h3 className="font-medium text-sm mb-3">Preview</h3>
+                <div className="space-y-4">
+                  {/* Main product image */}
+                  <div className="relative border rounded-lg overflow-hidden bg-gray-50 aspect-square">
+                    <img
+                      src={product.image_url}
+                      alt="Product"
+                      className="w-full h-full object-cover"
+                    />
+                    
+                    {/* Text overlays */}
+                    {textLines.some(line => line.trim() !== '') && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/30 p-6 space-y-2">
+                        {textLines.map((line, idx) => (
+                          line.trim() !== '' && (
+                            <p 
+                              key={idx} 
+                              className="text-white text-sm sm:text-base font-bold text-center break-words max-w-full"
+                              style={{
+                                textShadow: '2px 2px 4px rgba(0,0,0,0.5)'
+                              }}
+                            >
+                              {line}
+                            </p>
+                          )
+                        ))}
+                      </div>
+                    )}
+                  </div>
 
-            {/* TEXT INPUT */}
-            {maxLines > 0 && (
-              <div className="space-y-4">
-                <h4 className="font-medium flex items-center gap-2">
-                  <Type className="h-4 w-4" />
-                  Custom Text {maxLines > 0 && `(Max ${maxLines} lines)`}
-                </h4>
-                <div className="space-y-3">
-                  {textLines.map((line, i) => (
-                    <div key={i}>
-                      <input
-                        value={line}
-                        maxLength={maxChars}
-                        onChange={(e) => updateTextLine(i, e.target.value)}
-                        placeholder={`Line ${i + 1}`}
-                        className="w-full border rounded-lg px-4 py-3 focus:border-premium-gold focus:outline-none"
-                      />
-                      {maxChars > 0 && (
-                        <p className="text-xs text-gray-400 mt-1 text-right">
-                          {line.length}/{maxChars}
-                        </p>
+                  {/* Image preview thumbnails */}
+                  {customImages.length > 0 && (
+                    <div>
+                      <p className="text-sm font-medium mb-2 flex items-center justify-between">
+                        <span>Custom Images ({customImages.length}/{maxImages})</span>
+                        {customImages.filter(img => img.uploading).length > 0 && (
+                          <span className="text-xs text-blue-600">
+                            Uploading {customImages.filter(img => img.uploading).length}...
+                          </span>
+                        )}
+                      </p>
+                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-48 overflow-y-auto p-1">
+                        {customImages.map((img, idx) => (
+                          <div key={idx} className="relative aspect-square border rounded-lg overflow-hidden group">
+                            <img
+                              src={img.preview || ''}
+                              alt={`Custom ${idx + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                            {img.uploading && (
+                              <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                              </div>
+                            )}
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                removeImage(idx);
+                              }}
+                              disabled={img.uploading}
+                              className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-0"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Right side - Customization options */}
+              <div className="lg:w-1/2 space-y-6" onClick={handleModalClick}>
+                {/* Custom Text Lines - Dynamic based on admin settings */}
+                {maxLines > 0 && (
+                  <div className="bg-gray-50 p-4 rounded-lg" onClick={handleModalClick}>
+                    <div className="flex items-center justify-between mb-3">
+                      <label className="block text-sm font-medium flex items-center gap-1.5">
+                        <FileText className="h-4 w-4 text-premium-gold" />
+                        <span>
+                          Add Custom Text 
+                          <span className="text-gray-500 ml-1">
+                            ({maxLines} line{maxLines > 1 ? 's' : ''} available)
+                          </span>
+                          {isCustomizationRequired && (
+                            <span className="ml-2 text-xs text-red-500">*Required</span>
+                          )}
+                        </span>
+                      </label>
+                    </div>
+                    
+                    <div className="space-y-3 max-h-60 overflow-y-auto pr-1" onClick={handleModalClick}>
+                      {textLines.map((line, idx) => (
+                        <div key={idx} className="flex items-start gap-2" onClick={handleModalClick}>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-xs font-medium text-gray-500">Line {idx + 1}</span>
+                              <span className="text-xs text-gray-400">{line.length}/{maxChars}</span>
+                            </div>
+                            <input
+                              type="text"
+                              value={line}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                updateTextLine(idx, e.target.value);
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => e.stopPropagation()}
+                              maxLength={maxChars}
+                              placeholder={`Enter text (max ${maxChars} chars)`}
+                              className="w-full px-3 py-2 text-sm border rounded-lg focus:border-premium-gold focus:outline-none"
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Custom Images - Dynamic based on admin settings */}
+                {maxImages > 0 && (
+                  <div className="bg-gray-50 p-4 rounded-lg" onClick={handleModalClick}>
+                    <div className="flex items-center justify-between mb-3">
+                      <label className="block text-sm font-medium flex items-center gap-1.5">
+                        <ImageIcon className="h-4 w-4 text-premium-gold" />
+                        <span>
+                          Add Custom Images 
+                          <span className="text-gray-500 ml-1">
+                            ({customImages.length}/{maxImages} uploaded)
+                          </span>
+                          {isCustomizationRequired && (
+                            <span className="ml-2 text-xs text-red-500">*Required</span>
+                          )}
+                        </span>
+                      </label>
+                    </div>
+
+                    <div className="space-y-3 max-h-80 overflow-y-auto pr-1" onClick={handleModalClick}>
+                      {customImages.map((img, idx) => (
+                        <div key={idx} className="flex items-center gap-3 p-3 bg-white rounded-lg border" onClick={handleModalClick}>
+                          <div className="w-12 h-12 rounded overflow-hidden flex-shrink-0 border">
+                            <img
+                              src={img.preview || ''}
+                              alt={`Preview ${idx + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{img.file?.name || `Image ${idx + 1}`}</p>
+                            {img.file && (
+                              <p className="text-xs text-gray-500">
+                                {(img.file.size / 1024 / 1024).toFixed(2)} MB
+                              </p>
+                            )}
+                            {img.url && (
+                              <p className="text-xs text-green-600 flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 bg-green-600 rounded-full"></span>
+                                Uploaded
+                              </p>
+                            )}
+                            {img.uploading && (
+                              <p className="text-xs text-blue-600 flex items-center gap-1">
+                                <div className="animate-spin rounded-full h-3 w-3 border border-blue-600 border-t-transparent"></div>
+                                Uploading...
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            {img.url && (
+                              <>
+                                <a
+                                  href={img.url}
+                                  download
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="p-1.5 hover:bg-gray-100 rounded"
+                                  title="Download"
+                                  onClick={(e) => e.stopPropagation()}
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                >
+                                  <Download className="h-4 w-4 text-blue-600" />
+                                </a>
+                                <a
+                                  href={img.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="p-1.5 hover:bg-gray-100 rounded"
+                                  title="View"
+                                  onClick={(e) => e.stopPropagation()}
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                >
+                                  <Eye className="h-4 w-4 text-gray-600" />
+                                </a>
+                              </>
+                            )}
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                removeImage(idx);
+                              }}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              disabled={img.uploading}
+                              className="p-1.5 hover:bg-red-100 text-red-500 rounded disabled:opacity-50"
+                              title="Remove"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+
+                      {customImages.length < maxImages && (
+                        <div className="relative" onClick={handleModalClick}>
+                          <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp,image/jpg"
+                            onChange={handleImageUpload}
+                            onClick={(e) => e.stopPropagation()}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            multiple
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                          />
+                          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-premium-gold transition-colors">
+                            <Camera className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                            <p className="text-sm text-gray-600">Click or drag to upload images</p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              PNG, JPG up to 10MB each • Max {maxImages} images
+                            </p>
+                            <p className="text-xs text-premium-gold mt-2">
+                              You can select multiple files at once
+                            </p>
+                          </div>
+                        </div>
                       )}
                     </div>
-                  ))}
+                  </div>
+                )}
+
+                {/* Price Breakdown */}
+                <div className="border-t pt-4" onClick={handleModalClick}>
+                  <div className="flex justify-between items-center mb-2 text-sm">
+                    <span className="text-gray-600">Base Price:</span>
+                    <span className="font-medium">₹{product.price.toLocaleString()}</span>
+                  </div>
+                  {(product.customization_price || 0) > 0 && (
+                    <div className="flex justify-between items-center mb-2 text-sm">
+                      <span className="text-gray-600">Customization Fee:</span>
+                      <span className="font-medium">+₹{product.customization_price?.toLocaleString()}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center text-base font-bold pt-2 border-t">
+                    <span>Total per item:</span>
+                    <span className="text-premium-gold">
+                      ₹{(product.price + (product.customization_price || 0)).toLocaleString()}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            )}
 
-            {/* IMAGE UPLOAD */}
-            {maxImages > 0 && (
-              <div className="space-y-4">
-                <h4 className="font-medium flex items-center gap-2">
-                  <ImageIcon className="h-4 w-4" />
-                  Custom Images {maxImages > 0 && `(Max ${maxImages})`}
-                </h4>
-                {/* Add your image upload UI here */}
-              </div>
-            )}
+                {/* Quantity - Only show if NOT in combo mode */}
+                {!onCustomizeComplete && (
+                  <div className="flex items-center justify-between bg-gray-50 p-3 rounded-lg" onClick={handleModalClick}>
+                    <span className="text-sm font-medium">Quantity:</span>
+                    <div className="flex items-center border rounded-lg bg-white">
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setQuantity(Math.max(1, quantity - 1));
+                        }}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        className="px-3 py-1.5 hover:bg-gray-100 text-sm"
+                      >
+                        <Minus className="h-3 w-3" />
+                      </button>
+                      <span className="px-4 py-1.5 text-sm border-x min-w-[40px] text-center">
+                        {quantity}
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setQuantity(quantity + 1);
+                        }}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        className="px-3 py-1.5 hover:bg-gray-100 text-sm"
+                      >
+                        <Plus className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </div>
+                )}
 
-            {/* QUANTITY */}
-            {!onCustomizeComplete && (
-              <div className="space-y-2">
-                <label className="block text-sm font-medium">Quantity</label>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="p-2 border rounded-lg hover:bg-gray-50"
-                  >
-                    <Minus className="h-4 w-4" />
-                  </button>
-                  <span className="w-12 text-center font-medium">{quantity}</span>
-                  <button
-                    onClick={() => setQuantity(quantity + 1)}
-                    className="p-2 border rounded-lg hover:bg-gray-50"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            )}
+                {/* Action Button */}
+                <button
+                  onClick={handleSubmit}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  disabled={uploading}
+                  className="w-full py-4 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {uploading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                      Uploading {customImages.filter(img => !img.url).length} images...
+                    </span>
+                  ) : onCustomizeComplete ? (
+                    `Save Customization • ₹${(product.price + (product.customization_price || 0)).toLocaleString()}`
+                  ) : (
+                    `Add to Cart • ₹${((product.price + (product.customization_price || 0)) * quantity).toLocaleString()}`
+                  )}
+                </button>
 
-            {/* BUTTON */}
-            <button
-              onClick={handleSubmit}
-              disabled={uploading}
-              className="w-full py-4 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {uploading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                  Uploading...
-                </span>
-              ) : (
-                `Add to Cart • $${((product.price + (product.customization_price || 0)) * quantity).toFixed(2)}`
-              )}
-            </button>
+                {/* Note for combo mode */}
+                {onCustomizeComplete && (
+                  <p className="text-xs text-center text-gray-500 mt-2">
+                    This customization will be saved to your combo
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
         </motion.div>
       </div>
