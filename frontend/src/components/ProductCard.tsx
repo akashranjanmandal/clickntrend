@@ -25,34 +25,61 @@ interface SocialProofData {
   };
 }
 
+interface ReviewStats {
+  averageRating: number;
+  totalReviews: number;
+}
+
 const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const { addItem } = useCart();
   const [showDetails, setShowDetails] = useState(false);
   const [showCustomization, setShowCustomization] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [socialProof, setSocialProof] = useState<SocialProofData | null>(null);
+  const [reviewStats, setReviewStats] = useState<ReviewStats>({
+    averageRating: 0,
+    totalReviews: 0
+  });
 
   useEffect(() => {
-    const fetchSocialProof = async () => {
-      if (!product.social_proof_enabled) return;
-      
-      try {
-        const data = await apiFetch(`/api/social-proof/${product.id}`).catch(() => null);
-        if (data && data.is_enabled) {
-          setSocialProof(data);
-        }
-      } catch (error) {
-        console.error('Error fetching social proof:', error);
-      }
-    };
-
     fetchSocialProof();
+    fetchReviewStats();
     
     // Refresh every 30 seconds
-    const interval = setInterval(fetchSocialProof, 30000);
+    const interval = setInterval(() => {
+      fetchSocialProof();
+      fetchReviewStats();
+    }, 30000);
 
     return () => clearInterval(interval);
-  }, [product.id, product.social_proof_enabled]);
+  }, [product.id]);
+
+  const fetchSocialProof = async () => {
+    if (!product.social_proof_enabled) return;
+    
+    try {
+      const data = await apiFetch(`/api/social-proof/${product.id}`).catch(() => null);
+      if (data && data.is_enabled) {
+        setSocialProof(data);
+      }
+    } catch (error) {
+      console.error('Error fetching social proof:', error);
+    }
+  };
+
+  const fetchReviewStats = async () => {
+    try {
+      const data = await apiFetch(`/api/reviews/product/${product.id}/stats`).catch(() => null);
+      if (data) {
+        setReviewStats({
+          averageRating: data.average_rating || 0,
+          totalReviews: data.total_reviews || 0
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching review stats:', error);
+    }
+  };
 
   const handleCardClick = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('button')) {
@@ -96,7 +123,6 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
 
   const handleCustomizeClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    // Prevent any default behavior and stop propagation
     e.preventDefault();
     setShowCustomization(true);
   };
@@ -172,15 +198,25 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             <h3 className="font-serif text-xs sm:text-sm font-semibold text-premium-charcoal line-clamp-1">
               {product.name}
             </h3>
+            {/* Real Rating Data - No longer dummy */}
             <div className="flex items-center space-x-0.5 bg-yellow-50 px-1.5 py-0.5 rounded-full">
               <Star className="h-2.5 w-2.5 text-yellow-400 fill-current" />
-              <span className="text-[8px] sm:text-[10px] font-medium text-gray-700">4.8</span>
+              <span className="text-[8px] sm:text-[10px] font-medium text-gray-700">
+                {reviewStats.averageRating > 0 ? reviewStats.averageRating.toFixed(1) : '0.0'}
+              </span>
             </div>
           </div>
           
           <p className="text-gray-600 text-[10px] sm:text-xs mb-2 line-clamp-2">
             {product.description}
           </p>
+          
+          {/* Review Count */}
+          {reviewStats.totalReviews > 0 && (
+            <p className="text-[8px] sm:text-[10px] text-gray-400 mb-1">
+              {reviewStats.totalReviews} review{reviewStats.totalReviews !== 1 ? 's' : ''}
+            </p>
+          )}
           
           <div className="flex items-center justify-between">
             <div>

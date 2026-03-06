@@ -670,25 +670,41 @@ const CustomCombo: React.FC = () => {
             </section>
 
             {/* Categories Grid */}
-            {!selectedCategory && !showSearchResults && (
-              <section className="mb-8">
-                <h2 className="text-2xl font-serif font-bold mb-6">Choose a Category</h2>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {categories.map((category) => (
-                    <CategoryCard
-                      key={category.id}
-                      name={category.name}
-                      icon={category.icon || '🎁'}
-                      icon_type={category.icon_type || 'emoji'}
-                      color={category.color || 'from-premium-gold/20 to-premium-cream'}
-                      hover_effect={category.hover_effect}
-                      count={products.filter(p => p.category === category.name).length}
-                      onClick={() => handleCategorySelect(category)}
-                    />
-                  ))}
-                </div>
-              </section>
-            )}
+{!selectedCategory && !showSearchResults && (
+  <section className="mb-8">
+    <h2 className="text-2xl font-serif font-bold mb-6">Choose a Category</h2>
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+      {categories.map((category) => {
+        // Calculate product count for this category
+        const productCount = products.filter(product => {
+          // Check if product has categories array (new structure)
+          if (product.categories && Array.isArray(product.categories)) {
+            return product.categories.some((cat: any) => 
+              cat.id === category.id || cat.name === category.name
+            );
+          }
+          // Fallback to old category field
+          return product.category === category.name;
+        }).length;
+
+        console.log(`Category "${category.name}" has ${productCount} products`); // Debug log
+
+        return (
+          <CategoryCard
+            key={category.id}
+            name={category.name}
+            icon={category.icon || '🎁'}
+            icon_type={category.icon_type || 'emoji'}
+            color={category.color || 'from-premium-gold/20 to-premium-cream'}
+            hover_effect={category.hover_effect}
+            count={productCount}
+            onClick={() => handleCategorySelect(category)}
+          />
+        );
+      })}
+    </div>
+  </section>
+)}
 
             {/* Gender Filter */}
             {selectedCategory && !showSearchResults && (
