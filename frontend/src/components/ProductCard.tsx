@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingCart, Star, PenTool } from 'lucide-react';
+import { ShoppingCart, Star, PenTool, Sparkles } from 'lucide-react';
 import { Product } from '../types';
 import { formatCurrency, getImageUrl } from '../utils/helpers';
 import { useCart } from '../context/CartContext';
@@ -93,6 +93,11 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     });
   };
 
+  const handleCustomizeClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowCustomization(true);
+  };
+
   const handleCustomizeFromModal = () => {
     setShowDetails(false);
     setShowCustomization(true);
@@ -180,14 +185,25 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
               )}
             </div>
             
-            {/* Add to Cart Button */}
-            <button
-              onClick={handleQuickAdd}
-              className="p-1.5 sm:p-2 bg-premium-gold/10 text-premium-gold rounded-lg hover:bg-premium-gold hover:text-white transition-colors z-20 relative"
-              title="Add to cart"
-            >
-              <ShoppingCart className="h-3 w-3 sm:h-4 sm:w-4" />
-            </button>
+            {/* Conditional Button - Customize for customizable products, Add to Cart for others */}
+            {product.is_customizable ? (
+              <button
+                onClick={handleCustomizeClick}
+                className="p-1.5 sm:p-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-600 hover:text-white transition-colors z-20 relative flex items-center gap-1"
+                title="Customize this product"
+              >
+                <PenTool className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="text-[10px] sm:text-xs font-medium hidden sm:inline">Customize</span>
+              </button>
+            ) : (
+              <button
+                onClick={handleQuickAdd}
+                className="p-1.5 sm:p-2 bg-premium-gold/10 text-premium-gold rounded-lg hover:bg-premium-gold hover:text-white transition-colors z-20 relative"
+                title="Add to cart"
+              >
+                <ShoppingCart className="h-3 w-3 sm:h-4 sm:w-4" />
+              </button>
+            )}
           </div>
         </div>
       </div>
