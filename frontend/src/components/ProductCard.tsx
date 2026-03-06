@@ -7,6 +7,7 @@ import ProductDetailsModal from './ProductDetailsModal';
 import ProductCustomizationModal from './ProductCustomizationModal';
 import SocialProof from './SocialProof';
 import { apiFetch } from '../config';
+import { createPortal } from 'react-dom';
 
 interface ProductCardProps {
   product: Product;
@@ -95,12 +96,19 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
 
   const handleCustomizeClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+    // Prevent any default behavior and stop propagation
+    e.preventDefault();
     setShowCustomization(true);
   };
 
   const handleCustomizeFromModal = () => {
     setShowDetails(false);
     setShowCustomization(true);
+  };
+
+  const closeModals = () => {
+    setShowDetails(false);
+    setShowCustomization(false);
   };
 
   return (
@@ -112,6 +120,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         tabIndex={0}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
             setShowDetails(true);
           }
         }}
@@ -208,7 +217,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         </div>
       </div>
 
-      {/* Details Modal */}
+      {/* Modals - Rendered at the root level using createPortal */}
       {showDetails && (
         <ProductDetailsModal
           product={product}
@@ -217,7 +226,6 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         />
       )}
 
-      {/* Customization Modal */}
       {showCustomization && (
         <ProductCustomizationModal
           product={product}
