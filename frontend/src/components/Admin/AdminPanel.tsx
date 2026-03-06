@@ -451,16 +451,25 @@ const AdminPanel: React.FC = () => {
   };
 
   const deleteProduct = async (productId: string) => {
-    if (!confirm('Are you sure you want to delete this product?')) return;
-    try {
-      await fetchWithAuth(`/api/admin/products/${productId}`, { method: 'DELETE' });
-      await fetchDashboardData();
-      alert('Product deleted successfully!');
-    } catch (error) {
-      console.error('Error deleting product:', error);
-      alert('Failed to delete product');
+  if (!confirm('Are you sure you want to delete this product?')) return;
+  
+  try {
+    await fetchWithAuth(`/api/admin/products/${productId}`, { method: 'DELETE' });
+    await fetchDashboardData();
+    toast.success('Product deleted successfully!');
+  } catch (error: any) {
+    console.error('Error deleting product:', error);
+    
+    // Check if it's the "product has orders" error
+    if (error.message?.includes('Cannot delete product that has existing orders')) {
+      toast.error('This product has existing orders and cannot be deleted. You can deactivate it instead.');
+    } else if (error.message?.includes('Cannot delete product that is part of a combo')) {
+      toast.error('This product is part of a combo. Remove it from combos first.');
+    } else {
+      toast.error('Failed to delete product');
     }
-  };
+  }
+};
 
   const toggleProductStatus = async (product: Product) => {
     try {

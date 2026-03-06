@@ -199,7 +199,39 @@ router.delete('/products/:id', requireAuth, async (req: Request, res: Response) 
   try {
     const { id } = req.params;
     
-    // Delete related categories first
+    // First check if product is used in any orders
+    const { data: orderItems, error: checkError } = await supabase
+      .from('order_items')
+      .select('id')
+      .eq('product_id', id)
+      .limit(1);
+
+    if (checkError) throw checkError;
+
+    // If product is used in orders, don't allow deletion
+    if (orderItems && orderItems.length > 0) {
+      return res.status(400).json({ 
+        error: 'Cannot delete product that has existing orders. Consider deactivating it instead.' 
+      });
+    }
+
+    // Check if product is used in any combos
+    const { data: comboProducts, error: comboCheckError } = await supabase
+      .from('combo_products')
+      .select('id')
+      .eq('product_id', id)
+      .limit(1);
+
+    if (comboCheckError) throw comboCheckError;
+
+    if (comboProducts && comboProducts.length > 0) {
+      return res.status(400).json({ 
+        error: 'Cannot delete product that is part of a combo. Remove it from combos first.' 
+      });
+    }
+
+    // If no dependencies, proceed with deletion
+    // First delete related product categories
     await supabase.from('product_categories').delete().eq('product_id', id);
     
     const { error } = await supabase
@@ -208,6 +240,7 @@ router.delete('/products/:id', requireAuth, async (req: Request, res: Response) 
       .eq('id', id);
 
     if (error) throw error;
+    
     res.json({ success: true, message: 'Product deleted successfully' });
   } catch (error: any) {
     console.error('Delete product error:', error);
