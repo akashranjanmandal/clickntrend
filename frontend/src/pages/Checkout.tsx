@@ -42,8 +42,10 @@ const Checkout: React.FC = () => {
 
   /* ---------------- CALCULATIONS ---------------- */
   const subtotal = total;
-  const FREE_SHIPPING_THRESHOLD = 499;
-  const shippingCharge = subtotal > FREE_SHIPPING_THRESHOLD ? 0 : 79;
+  const FREE_SHIPPING_THRESHOLD = 499; // Make sure this matches your requirement
+  
+  // FIX: Ensure shipping charge is calculated correctly
+  const shippingCharge = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : 79;
   const codCharge = paymentMethod === 'cod' ? 49 : 0;
   const grandTotal = Math.max(
     subtotal + shippingCharge + codCharge - couponDiscount,
@@ -747,7 +749,7 @@ const Checkout: React.FC = () => {
                 <div className="space-y-2 mt-4 text-xs md:text-sm text-gray-600">
                   <p className="flex items-center gap-2">
                     <Truck className="h-4 w-4 text-green-600" />
-                    <span>Free shipping on orders above ₹499</span>
+                    <span>Free shipping on orders above ₹{FREE_SHIPPING_THRESHOLD}</span>
                   </p>
                   <p className="text-xs text-gray-500 mt-3">
                     By placing this order, you agree to our terms and conditions
