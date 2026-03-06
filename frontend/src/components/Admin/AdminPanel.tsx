@@ -186,79 +186,85 @@ const AdminPanel: React.FC = () => {
   }, [orders, searchQuery, orderSortField, orderSortDirection, orderStatusFilter, orderPaymentFilter, orderCustomizationFilter]);
 
   // Filter and sort products
-  useEffect(() => {
-    if (!products.length) return;
-    
-    let filtered = [...products];
-    
-    // Apply search filter
-    if (searchQuery.trim() !== '') {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(product => 
-        product.name.toLowerCase().includes(query) ||
-        product.description.toLowerCase().includes(query) ||
-        (product.category || '').toLowerCase().includes(query) 
-      );
+// Filter and sort products
+useEffect(() => {
+  if (!products.length) return;
+  
+  let filtered = [...products];
+  
+  // Apply search filter
+  if (searchQuery.trim() !== '') {
+    const query = searchQuery.toLowerCase();
+    filtered = filtered.filter(product => 
+      product.name.toLowerCase().includes(query) ||
+      product.description.toLowerCase().includes(query) ||
+      product.categories?.some((cat: any) => cat.name.toLowerCase().includes(query))
+    );
+  }
+  
+  // Apply category filter - NOW CHECKS MULTIPLE CATEGORIES
+  if (productCategoryFilter !== 'all') {
+    filtered = filtered.filter(product => 
+      product.categories && product.categories.some((cat: any) => cat.name === productCategoryFilter)
+    );
+  }
+  
+  // Apply gender filter
+  if (productGenderFilter !== 'all') {
+    filtered = filtered.filter(product => product.gender === productGenderFilter);
+  }
+  
+  // Apply customizable filter
+  if (productCustomizableFilter !== 'all') {
+    filtered = filtered.filter(product => 
+      productCustomizableFilter === 'yes' ? product.is_customizable : !product.is_customizable
+    );
+  }
+  
+  // Apply status filter
+  if (productStatusFilter !== 'all') {
+    filtered = filtered.filter(product => 
+      productStatusFilter === 'active' ? product.is_active : !product.is_active
+    );
+  }
+  
+  // Apply sorting
+  filtered.sort((a, b) => {
+    let comparison = 0;
+    switch (productSortField) {
+      case 'name':
+        comparison = a.name.localeCompare(b.name);
+        break;
+      case 'price':
+        comparison = a.price - b.price;
+        break;
+      case 'stock':
+        comparison = (a.stock_quantity || 0) - (b.stock_quantity || 0);
+        break;
+      case 'category':
+        // Get first category name for sorting
+        const aCat = a.categories && a.categories.length > 0 ? a.categories[0].name : '';
+        const bCat = b.categories && b.categories.length > 0 ? b.categories[0].name : '';
+        comparison = aCat.localeCompare(bCat);
+        break;
+      case 'gender':
+        comparison = (a.gender || 'unisex').localeCompare(b.gender || 'unisex');
+        break;
+      case 'customizable':
+        comparison = (a.is_customizable ? 1 : 0) - (b.is_customizable ? 1 : 0);
+        break;
+      case 'status':
+        comparison = (a.is_active ? 1 : 0) - (b.is_active ? 1 : 0);
+        break;
+      default:
+        comparison = 0;
     }
-    
-    // Apply category filter
-    if (productCategoryFilter !== 'all') {
-      filtered = filtered.filter(product => product.category === productCategoryFilter);
-    }
-    
-    // Apply gender filter
-    if (productGenderFilter !== 'all') {
-      filtered = filtered.filter(product => product.gender === productGenderFilter);
-    }
-    
-    // Apply customizable filter
-    if (productCustomizableFilter !== 'all') {
-      filtered = filtered.filter(product => 
-        productCustomizableFilter === 'yes' ? product.is_customizable : !product.is_customizable
-      );
-    }
-    
-    // Apply status filter
-    if (productStatusFilter !== 'all') {
-      filtered = filtered.filter(product => 
-        productStatusFilter === 'active' ? product.is_active : !product.is_active
-      );
-    }
-    
-    // Apply sorting
-    filtered.sort((a, b) => {
-      let comparison = 0;
-      switch (productSortField) {
-        case 'name':
-          comparison = a.name.localeCompare(b.name);
-          break;
-        case 'price':
-          comparison = a.price - b.price;
-          break;
-        case 'stock':
-          comparison = (a.stock_quantity || 0) - (b.stock_quantity || 0);
-          break;
-        case 'category':
-          comparison = (a.category || '').localeCompare(b.category || '');
-          break;
-        case 'gender':
-          comparison = (a.gender || 'unisex').localeCompare(b.gender || 'unisex');
-          break;
-        case 'customizable':
-          comparison = (a.is_customizable ? 1 : 0) - (b.is_customizable ? 1 : 0);
-          break;
-        case 'status':
-          comparison = (a.is_active ? 1 : 0) - (b.is_active ? 1 : 0);
-          break;
-        default:
-          comparison = 0;
-      }
-      return productSortDirection === 'asc' ? comparison : -comparison;
-    });
-    
-    setFilteredProducts(filtered);
-    setProductPage(1);
-  }, [products, searchQuery, productSortField, productSortDirection, productCategoryFilter, productGenderFilter, productCustomizableFilter, productStatusFilter]);
+    return productSortDirection === 'asc' ? comparison : -comparison;
+  });
+  
+  setFilteredProducts(filtered);
+  setProductPage(1);
+}, [products, searchQuery, productSortField, productSortDirection, productCategoryFilter, productGenderFilter, productCustomizableFilter, productStatusFilter]);
 
   // Filter and sort combos
   useEffect(() => {
@@ -1448,17 +1454,23 @@ const AdminPanel: React.FC = () => {
               
               {/* Filter Row */}
               <div className="flex flex-wrap items-center gap-3 pt-2">
-                <FilterDropdown
-                  label="Category"
-                  value={productCategoryFilter}
-                  onChange={setProductCategoryFilter}
-                  icon={<Tag className="h-4 w-4 text-gray-400" />}
-                  options={[...new Set(products.map(p => p.category))].map(cat => ({
-                    value: cat,
-                    label: cat
-                  }))}
-                />
-                
+            {/* Replace the existing FilterDropdown for Category with this: */}
+<FilterDropdown
+  label="Category"
+  value={productCategoryFilter}
+  onChange={setProductCategoryFilter}
+  icon={<Tag className="h-4 w-4 text-gray-400" />}
+  options={(() => {
+    // Get all unique category names from all products
+    const allCategories = [...new Set(
+      products.flatMap(p => p.categories?.map((cat: any) => cat.name) || [])
+    )].sort();
+    return allCategories.map(cat => ({
+      value: cat,
+      label: cat
+    }));
+  })()}
+/>
                 <FilterDropdown
                   label="Gender"
                   value={productGenderFilter}
@@ -1663,11 +1675,23 @@ const AdminPanel: React.FC = () => {
                               <p className="text-sm text-gray-600 line-clamp-1">{product.description}</p>
                             </div>
                           </td>
-                          <td className="p-4">
-                            <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded text-xs">
-                              {product.category}
-                            </span>
-                          </td>
+                          {/* Replace the existing category td with this: */}
+<td className="p-4">
+  <div className="flex flex-wrap gap-1">
+    {product.categories && product.categories.length > 0 ? (
+      product.categories.map((cat: any) => (
+        <span 
+          key={cat.id} 
+          className="px-2 py-1 bg-gray-100 text-gray-800 rounded text-xs whitespace-nowrap"
+        >
+          {cat.name}
+        </span>
+      ))
+    ) : (
+      <span className="text-gray-400 text-xs">No category</span>
+    )}
+  </div>
+</td>
                           <td className="p-4">
                             <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs capitalize">
                               {product.gender || 'unisex'}
