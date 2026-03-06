@@ -651,65 +651,81 @@ const getFilteredProducts = () => {
         </div>
       </motion.section>
 
-      {/* Categories Grid */}
-      {!selectedCategory && (
-        <motion.section
+ {/* Categories Grid */}
+{!selectedCategory && (
+  <motion.section
+    variants={fadeInUpVariants}
+    className="py-10 sm:py-16 lg:py-20"
+  >
+    <div className="container mx-auto px-3 sm:px-4">
+      <motion.div
+        variants={fadeInUpVariants}
+        className="text-center max-w-3xl mx-auto mb-8 sm:mb-12 px-4"
+      >
+        <motion.h2 
           variants={fadeInUpVariants}
-          className="py-10 sm:py-16 lg:py-20"
+          className="text-3xl sm:text-4xl md:text-5xl font-serif font-bold mb-2 sm:mb-4"
         >
-          <div className="container mx-auto px-3 sm:px-4">
+          Shop by <motion.span
+            animate={{ 
+              backgroundPosition: ['0%', '100%', '0%'],
+            }}
+            transition={{ duration: 5, repeat: Infinity }}
+            className="bg-gradient-to-r from-premium-gold via-yellow-500 to-premium-gold bg-[length:200%] bg-clip-text text-transparent"
+          >
+            Category
+          </motion.span>
+        </motion.h2>
+        <motion.p 
+          variants={fadeInUpVariants}
+          className="text-base sm:text-lg md:text-xl text-gray-600"
+        >
+          Explore our curated collection of premium gifts
+        </motion.p>
+      </motion.div>
+      
+      <motion.div 
+        variants={staggerContainerVariants}
+        className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-3 md:gap-4 lg:gap-6"
+      >
+        {categories.map((category, index) => {
+          // Calculate product count for this category
+          const productCount = products.filter(product => {
+            // Check if product has categories array (new structure)
+            if (product.categories && Array.isArray(product.categories)) {
+              return product.categories.some((cat: any) => 
+                cat.id === category.id || cat.name === category.name
+              );
+            }
+            // Fallback to old category field
+            return product.category === category.name;
+          }).length;
+
+          console.log(`Category "${category.name}" has ${productCount} products`); // Debug log
+
+          return (
             <motion.div
-              variants={fadeInUpVariants}
-              className="text-center max-w-3xl mx-auto mb-8 sm:mb-12 px-4"
+              key={category.id}
+              variants={scaleInVariants}
+              custom={index}
+              whileHover={{ y: -5 }}
             >
-              <motion.h2 
-                variants={fadeInUpVariants}
-                className="text-3xl sm:text-4xl md:text-5xl font-serif font-bold mb-2 sm:mb-4"
-              >
-                Shop by <motion.span
-                  animate={{ 
-                    backgroundPosition: ['0%', '100%', '0%'],
-                  }}
-                  transition={{ duration: 5, repeat: Infinity }}
-                  className="bg-gradient-to-r from-premium-gold via-yellow-500 to-premium-gold bg-[length:200%] bg-clip-text text-transparent"
-                >
-                  Category
-                </motion.span>
-              </motion.h2>
-              <motion.p 
-                variants={fadeInUpVariants}
-                className="text-base sm:text-lg md:text-xl text-gray-600"
-              >
-                Explore our curated collection of premium gifts
-              </motion.p>
+              <CategoryCard
+                name={category.name}
+                icon={category.icon || '🎁'}
+                icon_type={category.icon_type || 'lucide'}
+                color={category.color || 'from-premium-gold/20 to-premium-cream'}
+                hover_effect={category.hover_effect}
+                count={productCount} // This will now show the correct count
+                onClick={() => handleCategorySelect(category)}
+              />
             </motion.div>
-            
-            <motion.div 
-              variants={staggerContainerVariants}
-              className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-3 md:gap-4 lg:gap-6"
-            >
-              {categories.map((category, index) => (
-                <motion.div
-                  key={category.id}
-                  variants={scaleInVariants}
-                  custom={index}
-                  whileHover={{ y: -5 }}
-                >
-                  <CategoryCard
-                    name={category.name}
-                    icon={category.icon || '🎁'}
-                    icon_type={category.icon_type || 'lucide'}
-                    color={category.color || 'from-premium-gold/20 to-premium-cream'}
-                    hover_effect={category.hover_effect}
-                    count={products.filter(p => p.category === category.name).length}
-                    onClick={() => handleCategorySelect(category)}
-                  />
-                </motion.div>
-              ))}
-            </motion.div>
-          </div>
-        </motion.section>
-      )}
+          );
+        })}
+      </motion.div>
+    </div>
+  </motion.section>
+)}
 
       {/* Gender Filter */}
       {selectedCategory && (
