@@ -51,12 +51,25 @@ router.get('/category/:category', async (req, res) => {
       // Fallback to old method if category not found
       const { data, error } = await supabase
         .from('products')
-        .select('*')
-        .eq('category', category)
+        .select(`
+          *,
+          product_categories (
+            category:categories (*)
+          )
+        `)
         .eq('is_active', true);
 
       if (error) throw error;
-      return res.json(data);
+      
+      // Transform and filter
+      const transformedData = data?.map(product => ({
+        ...product,
+        categories: product.product_categories?.map((pc: any) => pc.category) || []
+      })).filter(product => 
+        product.categories?.some((c: any) => c.name === category)
+      );
+      
+      return res.json(transformedData);
     }
 
     // Get products by category ID
@@ -189,7 +202,7 @@ router.get('/admin/:id', requireAuth, async (req, res) => {
   }
 });
 
-// Create new product (admin) - WITHOUT subcategory field
+// Create new product (admin)
 router.post('/', requireAuth, async (req, res) => {
   try {
     const { 
@@ -197,15 +210,17 @@ router.post('/', requireAuth, async (req, res) => {
       discount_percentage, image_url, stock_quantity,
       gender, sku, is_customizable, customization_price,
       max_customization_characters, max_customization_images,
-      max_customization_lines, additional_images, // <-- This is where it comes from
+      max_customization_lines, additional_images,
       social_proof_enabled, social_proof_text,
       social_proof_initial_count, social_proof_end_count,
-      is_active
+      is_active,
+      categories // This will be an array of category IDs or names
     } = req.body;
 
     console.log('Creating product:', { name, price });
 
-    const { data, error } = await supabase
+    // First, create the product
+    const { data: productData, error: productError } = await supabase
       .from('products')
       .insert({
         name,
@@ -221,9 +236,8 @@ router.post('/', requireAuth, async (req, res) => {
         customization_price: customization_price ? parseFloat(customization_price) : 0,
         max_customization_characters: max_customization_characters ? parseInt(max_customization_characters) : 50,
         max_customization_images: max_customization_images ? parseInt(max_customization_images) : 10,
-        max_customization_lines: max_customization_lines ? parseInt(max_customization_lines) : 0, // <-- ADD THIS LINE HERE
+        max_customization_lines: max_customization_lines ? parseInt(max_customization_lines) : 0,
         additional_images: additional_images || [],
-        // subcategory field REMOVED
         social_proof_enabled: social_proof_enabled !== false,
         social_proof_text: social_proof_text || '🔺{count} People are Purchasing Right Now',
         social_proof_initial_count: social_proof_initial_count ? parseInt(social_proof_initial_count) : 5,
@@ -235,13 +249,36 @@ router.post('/', requireAuth, async (req, res) => {
       .select()
       .single();
 
-    if (error) {
-      console.error('Supabase error creating product:', error);
-      throw error;
+    if (productError) {
+      console.error('Supabase error creating product:', productError);
+      throw productError;
     }
 
-    console.log('Product created:', data.id);
-    res.json({ success: true, product: data });
+    console.log('Product created:', productData.id);
+
+    // If categories were provided, add them to product_categories
+    if (categories && categories.length > 0) {
+      await addCategoriesToProduct(productData.id, categories);
+    }
+
+    // Fetch the complete product with categories
+    const { data: completeProduct } = await supabase
+      .from('products')
+      .select(`
+        *,
+        product_categories (
+          category:categories (*)
+        )
+      `)
+      .eq('id', productData.id)
+      .single();
+
+    const transformedProduct = {
+      ...completeProduct,
+      categories: completeProduct?.product_categories?.map((pc: any) => pc.category) || []
+    };
+
+    res.json({ success: true, product: transformedProduct });
   } catch (error: any) {
     console.error('Create product error:', error);
     res.status(500).json({ error: error.message });
@@ -252,37 +289,109 @@ router.post('/', requireAuth, async (req, res) => {
 router.put('/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const updates = req.body;
-    
-    // Remove subcategory if it exists in updates
-    const { subcategory, ...cleanUpdates } = updates;
+    const { categories, ...updates } = req.body;
     
     // Parse number fields
-    if (cleanUpdates.max_customization_lines) {
-      cleanUpdates.max_customization_lines = parseInt(cleanUpdates.max_customization_lines);
+    if (updates.max_customization_lines) {
+      updates.max_customization_lines = parseInt(updates.max_customization_lines);
     }
     
-    const { data, error } = await supabase
+    // Update product
+    const { data: productData, error: productError } = await supabase
       .from('products')
       .update({
-        ...cleanUpdates,
+        ...updates,
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
       .select()
       .single();
 
-    if (error) {
-      console.error('Supabase error updating product:', error);
-      throw error;
+    if (productError) {
+      console.error('Supabase error updating product:', productError);
+      throw productError;
     }
 
-    res.json({ success: true, product: data });
+    // Update categories if provided
+    if (categories) {
+      // Delete existing categories
+      await supabase
+        .from('product_categories')
+        .delete()
+        .eq('product_id', id);
+
+      // Add new categories
+      if (categories.length > 0) {
+        await addCategoriesToProduct(id, categories);
+      }
+    }
+
+    // Fetch the complete product with categories
+    const { data: completeProduct } = await supabase
+      .from('products')
+      .select(`
+        *,
+        product_categories (
+          category:categories (*)
+        )
+      `)
+      .eq('id', id)
+      .single();
+
+    const transformedProduct = {
+      ...completeProduct,
+      categories: completeProduct?.product_categories?.map((pc: any) => pc.category) || []
+    };
+
+    res.json({ success: true, product: transformedProduct });
   } catch (error: any) {
     console.error('Update product error:', error);
     res.status(500).json({ error: error.message });
   }
 });
+
+// Helper function to add categories to product
+async function addCategoriesToProduct(productId: string, categories: any[]) {
+  // Process categories - they could be IDs or names
+  const categoryEntries = [];
+  
+  for (const cat of categories) {
+    let categoryId = cat.id || cat.category_id || cat;
+    
+    // If it's a name, get the ID
+    if (typeof categoryId === 'string' && categoryId.length > 36) { // Looks like a name, not UUID
+      const { data: catData } = await supabase
+        .from('categories')
+        .select('id')
+        .eq('name', categoryId)
+        .single();
+      
+      if (catData) {
+        categoryId = catData.id;
+      } else {
+        console.warn(`Category not found: ${categoryId}`);
+        continue;
+      }
+    }
+    
+    categoryEntries.push({
+      product_id: productId,
+      category_id: categoryId
+    });
+  }
+
+  if (categoryEntries.length > 0) {
+    const { error } = await supabase
+      .from('product_categories')
+      .insert(categoryEntries);
+
+    if (error) {
+      console.error('Error adding categories to product:', error);
+      throw error;
+    }
+  }
+}
+
 // Delete product (admin)
 router.delete('/:id', requireAuth, async (req, res) => {
   try {
@@ -318,26 +427,18 @@ router.post('/:id/categories', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'At least one category is required' });
     }
 
-    const productCategories = categories.map((c: any) => ({
-      product_id: id,
-      category_id: c.category_id
-    }));
+    await addCategoriesToProduct(id, categories);
 
-    const { data, error } = await supabase
+    // Fetch the updated categories
+    const { data } = await supabase
       .from('product_categories')
-      .insert(productCategories)
       .select(`
         *,
         category:categories (*)
-      `);
+      `)
+      .eq('product_id', id);
 
-    if (error) {
-      console.error('Error adding categories to product:', error);
-      throw error;
-    }
-
-    console.log(`Added ${data.length} categories to product ${id}`);
-    res.json({ success: true, categories: data });
+    res.json({ success: true, categories: data || [] });
   } catch (error: any) {
     console.error('Error adding categories to product:', error);
     res.status(500).json({ error: error.message });
