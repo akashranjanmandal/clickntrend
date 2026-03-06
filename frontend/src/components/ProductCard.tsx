@@ -5,9 +5,7 @@ import { formatCurrency, getImageUrl } from '../utils/helpers';
 import { useCart } from '../context/CartContext';
 import ProductDetailsModal from './ProductDetailsModal';
 import ProductCustomizationModal from './ProductCustomizationModal';
-import SocialProof from './SocialProof';
 import { apiFetch } from '../config';
-import { createPortal } from 'react-dom';
 
 interface ProductCardProps {
   product: Product;
@@ -69,12 +67,23 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
 
   const fetchReviewStats = async () => {
     try {
-      const data = await apiFetch(`/api/reviews/product/${product.id}/stats`).catch(() => null);
-      if (data) {
+      // Use the existing endpoint that returns all reviews
+      const data = await apiFetch(`/api/reviews/product/${product.id}`).catch(() => []);
+      
+      if (data && Array.isArray(data)) {
+        // Filter only approved reviews
+        const approvedReviews = data.filter((r: any) => r.is_approved);
+        const totalReviews = approvedReviews.length;
+        const averageRating = totalReviews > 0
+          ? approvedReviews.reduce((sum: number, r: any) => sum + r.rating, 0) / totalReviews
+          : 0;
+        
         setReviewStats({
-          averageRating: data.average_rating || 0,
-          totalReviews: data.total_reviews || 0
+          averageRating,
+          totalReviews
         });
+        
+        console.log(`Product ${product.id}: ${totalReviews} reviews, avg rating: ${averageRating}`);
       }
     } catch (error) {
       console.error('Error fetching review stats:', error);
@@ -130,11 +139,6 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const handleCustomizeFromModal = () => {
     setShowDetails(false);
     setShowCustomization(true);
-  };
-
-  const closeModals = () => {
-    setShowDetails(false);
-    setShowCustomization(false);
   };
 
   return (
@@ -198,7 +202,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             <h3 className="font-serif text-xs sm:text-sm font-semibold text-premium-charcoal line-clamp-1">
               {product.name}
             </h3>
-            {/* Real Rating Data - No longer dummy */}
+            {/* Real Rating Data */}
             <div className="flex items-center space-x-0.5 bg-yellow-50 px-1.5 py-0.5 rounded-full">
               <Star className="h-2.5 w-2.5 text-yellow-400 fill-current" />
               <span className="text-[8px] sm:text-[10px] font-medium text-gray-700">
@@ -230,7 +234,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
               )}
             </div>
             
-            {/* Conditional Button - Customize for customizable products, Add to Cart for others */}
+            {/* Conditional Button */}
             {product.is_customizable ? (
               <button
                 onClick={handleCustomizeClick}
@@ -253,7 +257,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         </div>
       </div>
 
-      {/* Modals - Rendered at the root level using createPortal */}
+      {/* Modals */}
       {showDetails && (
         <ProductDetailsModal
           product={product}
