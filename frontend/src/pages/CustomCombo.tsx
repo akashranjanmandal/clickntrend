@@ -112,20 +112,35 @@ const CustomCombo: React.FC = () => {
     }
   };
 
-  // Filter products based on selections
-  const getFilteredProducts = () => {
-    let filtered = [...products];
-    
-    if (selectedCategory) {
-      filtered = filtered.filter(p => p.category === selectedCategory.name);
-    }
-    
-    if (selectedGender !== 'all') {
-      filtered = filtered.filter(p => p.gender === selectedGender);
-    }
-    
-    return filtered;
-  };
+// Filter products based on selections
+const getFilteredProducts = () => {
+  let filtered = [...products];
+  
+  if (selectedCategory) {
+    filtered = filtered.filter(p => {
+      // Check multiple possible matches
+      const matchesOldCategory = p.category?.toLowerCase().trim() === selectedCategory.name.toLowerCase().trim();
+      
+      // Check if product has categories array and matches by ID
+      const matchesByCategoryId = p.categories?.some((cat: any) => cat.id === selectedCategory.id);
+      
+      // Check if product has categories array and matches by name
+      const matchesByCategoryName = p.categories?.some(
+        (cat: any) => cat.name?.toLowerCase().trim() === selectedCategory.name.toLowerCase().trim()
+      );
+      
+      return matchesOldCategory || matchesByCategoryId || matchesByCategoryName;
+    });
+  }
+  
+  if (selectedGender !== 'all') {
+    filtered = filtered.filter(p => 
+      p.gender?.toLowerCase().trim() === selectedGender.toLowerCase().trim()
+    );
+  }
+  
+  return filtered;
+};
 
   const handleCategorySelect = (category: Category) => {
     setSelectedCategory(category);
@@ -741,83 +756,104 @@ const CustomCombo: React.FC = () => {
                 </div>
               </section>
             )}
-
-            {/* Products Grid */}
-            <section className="mb-20 lg:mb-0">
-              <h2 className="text-2xl font-serif font-bold mb-6">
-                {showSearchResults ? 'Search Results' : 'Select Products'}
-              </h2>
-              {displayProducts.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {displayProducts.map((product) => {
-                    const finalPrice = product.price + (product.customization_price || 0);
-                    const isInCombo = selectedProducts.has(product.id);
-                    
-                    return (
-                      <motion.div
-                        key={product.id}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className={`border rounded-xl p-4 hover:border-premium-gold transition-all ${
-                          isInCombo ? 'border-premium-gold bg-premium-cream/20' : ''
-                        }`}
+{/* Products Grid */}
+<section className="mb-20 lg:mb-0">
+  <h2 className="text-2xl font-serif font-bold mb-6">
+    {showSearchResults ? 'Search Results' : 'Select Products'}
+  </h2>
+  {displayProducts.length > 0 ? (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {displayProducts.map((product) => {
+        const finalPrice = product.price + (product.customization_price || 0);
+        const isInCombo = selectedProducts.has(product.id);
+        
+        return (
+          <motion.div
+            key={product.id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={`border rounded-xl p-4 hover:border-premium-gold transition-all ${
+              isInCombo ? 'border-premium-gold bg-premium-cream/20' : ''
+            }`}
+          >
+            <div className="flex flex-col sm:flex-row gap-4">
+              <img
+                src={getImageUrl(product.image_url)}
+                alt={product.name}
+                className="w-full sm:w-24 h-48 sm:h-24 object-cover rounded-lg"
+              />
+              <div className="flex-1">
+                <h4 className="font-medium line-clamp-1">{product.name}</h4>
+                <p className="text-sm text-gray-600 line-clamp-2 mt-1">
+                  {product.description}
+                </p>
+                <div className="flex items-center justify-between mt-2">
+                  <div>
+                    <span className="text-premium-gold font-bold">
+                      {formatCurrency(finalPrice)}
+                    </span>
+                    {product.is_customizable && (
+                      <span className="ml-2 text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">
+                        Customizable
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handleAddToCombo(product)}
+                    disabled={totalItems >= 10 && !isInCombo}
+                    className={`px-4 py-2 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed ${
+                      isInCombo
+                        ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                        : 'bg-premium-gold text-white hover:bg-premium-burgundy'
+                    }`}
+                  >
+                    {isInCombo ? 'Added' : 'Add'}
+                  </button>
+                </div>
+                
+                {/* Category Display - Updated to show multiple categories */}
+                <div className="flex gap-2 mt-2 flex-wrap">
+                  {product.categories && product.categories.length > 0 ? (
+                    product.categories.map((cat: any) => (
+                      <span 
+                        key={cat.id} 
+                        className="text-xs px-2 py-1 bg-gray-100 rounded-full"
                       >
-                        <div className="flex flex-col sm:flex-row gap-4">
-                          <img
-                            src={getImageUrl(product.image_url)}
-                            alt={product.name}
-                            className="w-full sm:w-24 h-48 sm:h-24 object-cover rounded-lg"
-                          />
-                          <div className="flex-1">
-                            <h4 className="font-medium line-clamp-1">{product.name}</h4>
-                            <p className="text-sm text-gray-600 line-clamp-2 mt-1">
-                              {product.description}
-                            </p>
-                            <div className="flex items-center justify-between mt-2">
-                              <div>
-                                <span className="text-premium-gold font-bold">
-                                  {formatCurrency(finalPrice)}
-                                </span>
-                                {product.is_customizable && (
-                                  <span className="ml-2 text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">
-                                    Customizable
-                                  </span>
-                                )}
-                              </div>
-                              <button
-                                onClick={() => handleAddToCombo(product)}
-                                disabled={totalItems >= 10 && !isInCombo}
-                                className={`px-4 py-2 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed ${
-                                  isInCombo
-                                    ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                                    : 'bg-premium-gold text-white hover:bg-premium-burgundy'
-                                }`}
-                              >
-                                {isInCombo ? 'Added' : 'Add'}
-                              </button>
-                            </div>
-                            <div className="flex gap-2 mt-2 flex-wrap">
-                              <span className="text-xs px-2 py-1 bg-gray-100 rounded-full">
-                                {product.category}
-                              </span>
-                              {product.gender && (
-                                <span className="text-xs px-2 py-1 bg-gray-100 rounded-full capitalize">
-                                  {product.gender}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </motion.div>
-                    );
-                  })}
+                        {cat.name}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-xs px-2 py-1 bg-gray-100 rounded-full">
+                      {product.category || 'Uncategorized'}
+                    </span>
+                  )}
+                  
+                  {product.gender && (
+                    <span className="text-xs px-2 py-1 bg-gray-100 rounded-full capitalize">
+                      {product.gender}
+                    </span>
+                  )}
                 </div>
-              ) : (
-                <div className="text-center py-12">
-                  <p className="text-gray-500">No products found</p>
-                </div>
-              )}
-            </section>
+              </div>
+            </div>
+          </motion.div>
+        );
+      })}
+    </div>
+  ) : (
+    <div className="text-center py-12">
+      <p className="text-gray-500">No products found</p>
+      {selectedCategory && (
+        <button
+          onClick={handleBackToCategories}
+          className="mt-4 px-6 py-2 bg-premium-gold text-white rounded-lg hover:bg-premium-burgundy"
+        >
+          Browse Other Categories
+        </button>
+      )}
+    </div>
+  )}
+</section>
           </div>
         </div>
       </div>
