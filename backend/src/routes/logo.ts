@@ -11,7 +11,7 @@ const router = express.Router();
 const storage = multer.memoryStorage();
 const upload = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // Increased to 5MB for GIFs
+  limits: { fileSize: 50 * 1024 * 1024 }, // Increased to 5MB for GIFs
   fileFilter: (req, file, cb) => {
     // Added 'image/gif' to allowed types
     const allowedTypes = [
