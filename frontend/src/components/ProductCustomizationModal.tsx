@@ -24,10 +24,11 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
   const { addItem } = useCart();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // Initialize with empty arrays based on admin settings
+  // Initialize with empty arrays based on admin settings - if max_lines is 0, no text inputs
   const [textLines, setTextLines] = useState<string[]>(() => {
-    // Create array with empty strings for each allowed line
-    return Array(product.max_customization_lines || 1).fill('');
+    // If max_customization_lines is 0, return empty array (no text inputs)
+    const lineCount = product.max_customization_lines || 0;
+    return lineCount > 0 ? Array(lineCount).fill('') : [];
   });
   
   const [customImages, setCustomImages] = useState<{ file: File | null; preview: string | null; url?: string; uploading?: boolean }[]>([]);
@@ -35,8 +36,8 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
   const [quantity, setQuantity] = useState(1);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
-  const maxImages = product.max_customization_images || 10;
-  const maxLines = product.max_customization_lines || 10;
+  const maxImages = product.max_customization_images || 0; // If 0, no image upload
+  const maxLines = product.max_customization_lines || 0; // If 0, no text input
   const maxChars = product.max_customization_characters || 50;
 
   // Check if customization is required
@@ -113,13 +114,15 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
   const validateCustomization = (): boolean => {
     const errors: string[] = [];
     
-    // Check if at least one text line is filled
-    const hasText = textLines.some(line => line.trim() !== '');
-    if (maxLines > 0 && !hasText) {
-      errors.push('Please add at least one line of custom text');
+    // Check if at least one text line is filled (only if maxLines > 0)
+    if (maxLines > 0) {
+      const hasText = textLines.some(line => line.trim() !== '');
+      if (!hasText) {
+        errors.push('Please add at least one line of custom text');
+      }
     }
     
-    // Check if at least one image is uploaded
+    // Check if at least one image is uploaded (only if maxImages > 0)
     if (maxImages > 0 && customImages.length === 0) {
       errors.push('Please upload at least one custom image');
     }
@@ -335,7 +338,7 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
               <div className="lg:w-1/2" onClick={handleModalClick}>
                 <h3 className="font-medium text-sm mb-3">Preview</h3>
                 <div className="space-y-4">
-                  {/* Main product image */}
+                  {/* Main product image - NO TEXT OVERLAY */}
                   <div className="relative border rounded-lg overflow-hidden bg-gray-50 aspect-square">
                     <img
                       src={product.image_url}
@@ -343,24 +346,8 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
                       className="w-full h-full object-cover"
                     />
                     
-                    {/* Text overlays */}
-                    {textLines.some(line => line.trim() !== '') && (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/30 p-6 space-y-2">
-                        {textLines.map((line, idx) => (
-                          line.trim() !== '' && (
-                            <p 
-                              key={idx} 
-                              className="text-white text-sm sm:text-base font-bold text-center break-words max-w-full"
-                              style={{
-                                textShadow: '2px 2px 4px rgba(0,0,0,0.5)'
-                              }}
-                            >
-                              {line}
-                            </p>
-                          )
-                        ))}
-                      </div>
-                    )}
+                    {/* TEXT OVERLAY REMOVED - No longer showing text on preview */}
+                    
                   </div>
 
                   {/* Image preview thumbnails */}
@@ -408,7 +395,7 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
 
               {/* Right side - Customization options */}
               <div className="lg:w-1/2 space-y-6" onClick={handleModalClick}>
-                {/* Custom Text Lines - Dynamic based on admin settings */}
+                {/* Custom Text Lines - Only show if maxLines > 0 */}
                 {maxLines > 0 && (
                   <div className="bg-gray-50 p-4 rounded-lg" onClick={handleModalClick}>
                     <div className="flex items-center justify-between mb-3">
@@ -455,7 +442,7 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
                   </div>
                 )}
 
-                {/* Custom Images - Dynamic based on admin settings */}
+                {/* Custom Images - Only show if maxImages > 0 */}
                 {maxImages > 0 && (
                   <div className="bg-gray-50 p-4 rounded-lg" onClick={handleModalClick}>
                     <div className="flex items-center justify-between mb-3">

@@ -215,23 +215,19 @@ router.delete('/products/:id', requireAuth, async (req: Request, res: Response) 
       });
     }
 
-    // Check if product is used in any combos
-    const { data: comboProducts, error: comboCheckError } = await supabase
+    // Check if product is used in any combos - FIXED VERSION
+    const { count, error: comboCheckError } = await supabase
       .from('combo_products')
-      .select('id')
-      .eq('product_id', id)
-      .limit(1);
+      .select('*', { count: 'exact', head: true })
+      .eq('product_id', id);
 
     if (comboCheckError) throw comboCheckError;
 
-    if (comboProducts && comboProducts.length > 0) {
+    if (count && count > 0) {
       return res.status(400).json({ 
         error: 'Cannot delete product that is part of a combo. Remove it from combos first.' 
       });
     }
-
-    // If no dependencies, proceed with deletion
-    // First delete related product categories
     await supabase.from('product_categories').delete().eq('product_id', id);
     
     const { error } = await supabase
@@ -247,7 +243,6 @@ router.delete('/products/:id', requireAuth, async (req: Request, res: Response) 
     res.status(500).json({ error: error.message });
   }
 });
-
 // ========== PRODUCT CATEGORIES ROUTES ==========
 
 // Delete all categories from a product
