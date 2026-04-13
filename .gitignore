@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Env files
+.env
+.env.*
+**/.env
+**/.env.*
+
+# Lock files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+**/package-lock.json
+**/yarn.lock
+**/pnpm-lock.yaml
+
+# Build
+dist/
+build/
+.vite/
+
+# Logs
+*.log
+
+# Editor
+.vscode/
+.idea/
+.DS_Store
