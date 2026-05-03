@@ -10,7 +10,7 @@ import FAQModal from './FAQModal';
 import ShippingInfoModal from './ShippingInfoModal';
 import ReturnPolicyModal from './ReturnPolicyModal';
 import FloatingCartButton from './FloatingCartButton';
-import { apiFetch, uploadFetch } from '../utils/api';
+import { publicFetch } from '../utils/api';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // X (Twitter) icon component
@@ -71,8 +71,9 @@ const Layout: React.FC = () => {
 
   const fetchActiveLogo = async () => {
     try {
-      const data = await apiFetch('/api/logo/active').catch(() => null);
+      const data = await publicFetch('/api/logo/active').catch(() => null);
       if (data?.logo_url) {
+        console.log('🖼️ Logo URL from API:', data.logo_url);
         setLogo(data.logo_url);
         
         if (data.favicon_url) {
@@ -87,6 +88,8 @@ const Layout: React.FC = () => {
           }
         }
       }
+      if (!data) console.warn('⚠️ /api/logo/active returned null — no active logo in DB');
+      else if (!data.logo_url) console.warn('⚠️ Logo record found but logo_url is empty:', data);
     } catch (error) {
       console.error('Error fetching logo:', error);
     }
@@ -111,10 +114,11 @@ const Layout: React.FC = () => {
               onClick={() => window.scrollTo(0, 0)}
             >
               {logo ? (
-                <img 
-                  src={logo} 
-                  alt="GFTD" 
+                <img
+                  src={logo}
+                  alt="GFTD"
                   className="h-12 md:h-14 w-auto"
+                  onError={() => setLogo(null)}
                 />
               ) : (
                 <div className="flex items-center gap-2">
@@ -257,7 +261,7 @@ const Layout: React.FC = () => {
             <div>
               <Link to="/" className="flex items-center space-x-3 mb-4 group" onClick={() => window.scrollTo(0, 0)}>
                 {logo ? (
-                  <img src={logo} alt="GFTD" className="h-12 w-auto" />
+                  <img src={logo} alt="GFTD" className="h-12 w-auto" onError={() => setLogo(null)} />
                 ) : (
                   <div className="flex items-center gap-2">
                     <Gift className="h-6 w-6 text-gold group-hover:scale-110 transition-transform" />

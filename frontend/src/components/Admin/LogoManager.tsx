@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Upload, Camera, RefreshCw, Calendar, Edit, Trash2, Download, Film } from 'lucide-react';
+import { X, Save, Upload, Camera, RefreshCw, Calendar, Edit, Trash2, Download, Film, Zap } from 'lucide-react';
 import { useApi } from '../../hooks/useApi';
 import { uploadFetch } from '../../utils/api';
 
@@ -153,6 +153,18 @@ const LogoManager: React.FC = () => {
       await fetchLogos();
     } catch (error) {
       console.error('Error toggling status:', error);
+    }
+  };
+
+  const activateNow = async (logo: LogoConfig) => {
+    try {
+      await fetchWithAuth(`/api/logo/admin/${logo.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ is_active: true, start_date: null, end_date: null }),
+      });
+      await fetchLogos();
+    } catch (error) {
+      console.error('Error activating logo:', error);
     }
   };
 
@@ -336,7 +348,13 @@ const LogoManager: React.FC = () => {
                           Yes
                         </span>
                       ) : (
-                        <span className="text-gray-400 text-xs">No</span>
+                        <button
+                          onClick={() => activateNow(logo)}
+                          className="flex items-center gap-1 px-3 py-1 bg-orange-500 text-white rounded-full text-xs font-medium hover:bg-orange-600"
+                        >
+                          <Zap className="h-3 w-3" />
+                          Activate Now
+                        </button>
                       )}
                     </td>
                     <td className="p-4">
