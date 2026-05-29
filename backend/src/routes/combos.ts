@@ -293,7 +293,7 @@ router.post('/', requireAuth, async (req, res) => {
       [
         name, description || '', discount_percentage || null,
         discount_price || null, image_url || '',
-        additional_images !== undefined ? JSON.stringify(additional_images) : null,
+        additional_images !== undefined ? additional_images : null,
         is_active !== undefined ? is_active : true, now, now,
       ]
     );
@@ -321,7 +321,7 @@ router.put('/:id', requireAuth, async (req, res) => {
       [
         name, description, discount_percentage || null, discount_price || null,
         image_url,
-        additional_images !== undefined ? JSON.stringify(additional_images) : null,
+        additional_images !== undefined ? additional_images : null,
         is_active, new Date().toISOString(), id,
       ]
     );

@@ -231,7 +231,7 @@ router.post('/', requireAuth, async (req, res) => {
        RETURNING *`,
       [
         name, description, price, original_price || null,
-        image_url || '', JSON.stringify(additional_images || []),
+        image_url || '', additional_images || [],
         gender || null, is_active !== undefined ? is_active : true,
         social_proof_enabled || false,
         social_proof_text || '🔺 {count} people are viewing this right now',
@@ -360,7 +360,7 @@ router.patch('/:id/images', requireAuth, async (req, res) => {
 
     await pool.query(
       `UPDATE products SET image_url = $1, additional_images = $2, updated_at = $3 WHERE id = $4`,
-      [image_url, JSON.stringify(additional_images || []), new Date().toISOString(), id]
+      [image_url, additional_images || [], new Date().toISOString(), id]
     );
     res.json({ success: true });
   } catch (error: any) {

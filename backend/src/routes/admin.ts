@@ -148,7 +148,7 @@ router.post('/products', requireAuth, async (req: Request, res: Response) => {
         max_customization_characters ? parseInt(max_customization_characters) : 50,
         max_customization_images ? parseInt(max_customization_images) : 10,
         max_customization_lines ? parseInt(max_customization_lines) : 0,
-        JSON.stringify(additional_images || []),
+        additional_images || [],
         social_proof_enabled !== false,
         social_proof_text || '🔺{count} People are Purchasing Right Now',
         social_proof_initial_count ? parseInt(social_proof_initial_count) : 5,
@@ -197,38 +197,48 @@ router.put('/products/:id', requireAuth, async (req: Request, res: Response) => 
 });
 
 router.delete('/products/:id', requireAuth, async (req: Request, res: Response) => {
+  const client = await pool.connect();
   try {
     const { id } = req.params;
 
-    const orderCheck = await pool.query(
-      'SELECT id FROM order_items WHERE product_id = $1 LIMIT 1',
-      [id]
-    );
+    // Run both dependency checks in parallel
+    const [orderCheck, comboCheck] = await Promise.all([
+      client.query('SELECT id FROM order_items WHERE product_id = $1 LIMIT 1', [id]),
+      client.query('SELECT COUNT(*) FROM combo_products WHERE product_id = $1', [id]),
+    ]);
+
     if (orderCheck.rows.length > 0) {
+      client.release();
       return res.status(400).json({
         error: 'Cannot delete product that has existing orders. Consider deactivating it instead.',
       });
     }
-
-    const comboCheck = await pool.query(
-      'SELECT COUNT(*) FROM combo_products WHERE product_id = $1',
-      [id]
-    );
     if (parseInt(comboCheck.rows[0].count) > 0) {
+      client.release();
       return res.status(400).json({
         error: 'Cannot delete product that is part of a combo. Remove it from combos first.',
       });
     }
 
-    await pool.query('DELETE FROM product_categories WHERE product_id = $1', [id]);
-    await pool.query('DELETE FROM product_colors WHERE product_id = $1', [id]);
-    await pool.query('DELETE FROM product_sizes WHERE product_id = $1', [id]);
-    await pool.query('DELETE FROM products WHERE id = $1', [id]);
+    // Delete all child records in parallel inside a transaction, then remove the product
+    await client.query('BEGIN');
+    await Promise.all([
+      client.query('DELETE FROM reviews WHERE product_id = $1', [id]),
+      client.query('DELETE FROM social_proof_stats WHERE product_id = $1', [id]),
+      client.query('DELETE FROM product_categories WHERE product_id = $1', [id]),
+      client.query('DELETE FROM product_colors WHERE product_id = $1', [id]),
+      client.query('DELETE FROM product_sizes WHERE product_id = $1', [id]),
+    ]);
+    await client.query('DELETE FROM products WHERE id = $1', [id]);
+    await client.query('COMMIT');
 
     res.json({ success: true, message: 'Product deleted successfully' });
   } catch (error: any) {
+    await client.query('ROLLBACK').catch(() => {});
     console.error('Delete product error:', error);
     res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
   }
 });
 
@@ -257,7 +267,7 @@ router.post('/products/:id/colors', requireAuth, async (req: Request, res: Respo
          (product_id, color_name, color_code, image_url, additional_images,
           stock_quantity, price_modifier, is_active, display_order, created_at, updated_at)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
-      [id, color_name, color_code, image_url, JSON.stringify(additional_images || []),
+      [id, color_name, color_code, image_url, additional_images || [],
        stock_quantity || 10, price_modifier || 0,
        is_active !== undefined ? is_active : true, display_order || 0, now, now]
     );

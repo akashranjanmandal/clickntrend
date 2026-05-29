@@ -23,6 +23,23 @@ const upload = multer({
   },
 });
 
+// Configure specialized multer for hero uploads (images and videos)
+const heroUpload = multer({
+  storage,
+  limits: { 
+    fileSize: 50 * 1024 * 1024, // 50MB
+  },
+  fileFilter: (req, file, cb) => {
+    const isImage = file.mimetype.startsWith('image/');
+    const isVideo = file.mimetype.startsWith('video/');
+    if (isImage || isVideo) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only images and videos are allowed.'));
+    }
+  },
+});
+
 // ========== PRODUCT IMAGES UPLOAD ==========
 router.post('/product-images', requireAuth, upload.array('images', 5), async (req, res) => {
   console.log('📸 POST /api/upload/product-images - Uploading product images');
@@ -140,7 +157,7 @@ router.post('/customizations', upload.array('images', 20), async (req, res) => {
 });
 
 // ========== HERO MEDIA UPLOAD ==========
-router.post('/hero', requireAuth, upload.single('media'), async (req, res) => {
+router.post('/hero', requireAuth, heroUpload.single('media'), async (req, res) => {
   console.log('🎬 POST /api/upload/hero - Uploading hero media');
   try {
     if (!req.file) {

@@ -42,7 +42,7 @@ router.post('/products/:productId/colors', requireAuth, async (req: Request, res
        RETURNING *`,
       [
         productId, color_name, color_code, image_url,
-        JSON.stringify(additional_images || []),
+        additional_images || [],
         stock_quantity || 0, price_modifier || 0,
         is_active !== undefined ? is_active : true,
         display_order || 0, now, now,

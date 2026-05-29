@@ -87,7 +87,7 @@ const HeroManager: React.FC = () => {
         setUploadProgress(prev => Math.min(prev + 10, 90));
       }, 200);
 
-      const data = await uploadFetch('/api/upload/upload-image', formData);
+      const data = await uploadFetch('/api/upload/hero', formData);
 
       clearInterval(interval);
       setUploadProgress(100);

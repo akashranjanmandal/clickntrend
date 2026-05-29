@@ -346,15 +346,23 @@ const updateOrderStatus = async (orderId: string, status: string, trackingNumber
 };
   const deleteProduct = async (productId: string) => {
   if (!confirm('Are you sure you want to delete this product?')) return;
-  
+
+  // Optimistic update — remove immediately so UI feels instant
+  const snapshot = products;
+  setProducts(prev => prev.filter(p => p.id !== productId));
+  setFilteredProducts(prev => prev.filter(p => p.id !== productId));
+  setPaginatedProducts(prev => prev.filter(p => p.id !== productId));
+  toast.success('Product deleted successfully!');
+
   try {
     await fetchWithAuth(`/api/admin/products/${productId}`, { method: 'DELETE' });
-    setProducts(prev => prev.filter(p => p.id !== productId));
-    toast.success('Product deleted successfully!');
   } catch (error: any) {
+    // Restore state on failure
+    setProducts(snapshot);
+    setFilteredProducts(snapshot);
+    setPaginatedProducts(snapshot);
     console.error('Error deleting product:', error);
-    
-    // Check if it's the "product has orders" error
+
     if (error.message?.includes('Cannot delete product that has existing orders')) {
       toast.error('This product has existing orders and cannot be deleted. You can deactivate it instead.');
     } else if (error.message?.includes('Cannot delete product that is part of a combo')) {
