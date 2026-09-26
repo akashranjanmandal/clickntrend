@@ -1,34 +1,50 @@
 # Dependencies
 node_modules/
-**/node_modules/
 
-# Env files
-.env
-.env.*
-**/.env
-**/.env.*
-
-# Lock files
+# Lock files (project choice: not committed)
 package-lock.json
 yarn.lock
 pnpm-lock.yaml
-**/package-lock.json
-**/yarn.lock
-**/pnpm-lock.yaml
 
-# Build
+# Environment files & secrets — never commit
+.env
+.env.*
+!.env.example
+**/env
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+credentials*.json
+service-account*.json
+
+# Database dumps, backups & local databases (production data)
+*.dump
+*.backup
+*.bak
+*.sql.gz
+*.sql.zip
+*backup*.sql
+*dump*.sql
+*.sqlite
+*.sqlite3
+*.db
+
+# Build output & caches
 dist/
 build/
 .vite/
+*.tsbuildinfo
+coverage/
 
 # Logs
 *.log
+npm-debug.log*
 
-# Editor
+# OS / editor
+.DS_Store
+Thumbs.db
 .vscode/
 .idea/
-.DS_Store
-# Database dumps (never commit production data)
-*.dump
-*.sql.gz
-*.tsbuildinfo
+*.swp
