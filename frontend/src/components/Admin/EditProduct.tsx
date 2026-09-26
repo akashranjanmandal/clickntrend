@@ -22,22 +22,15 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
 
   const [hasColors, setHasColors] = useState(product.has_colors || false);
   const [hasSizes, setHasSizes] = useState(product.has_sizes || false);
+  // `product` is the full record from GET /api/admin/products/:id, colors/sizes included
   const [colors, setColors] = useState<ProductColor[]>(product.colors || []);
   const [sizes, setSizes] = useState<ProductSize[]>(product.sizes || []);
-  const [loadingVariants, setLoadingVariants] = useState(false);
 
-  const [productImages, setProductImages] = useState<{ url: string; is_primary: boolean }[]>([
-    { url: product.image_url, is_primary: true }
+  // Built synchronously: MultiImageUpload only reads initialImages on mount
+  const [productImages, setProductImages] = useState<{ url: string; is_primary: boolean }[]>(() => [
+    ...(product.image_url ? [{ url: product.image_url, is_primary: true }] : []),
+    ...(product.additional_images || []).filter(Boolean).map(url => ({ url, is_primary: false })),
   ]);
-
-  useEffect(() => {
-    if (product.additional_images && product.additional_images.length > 0) {
-      setProductImages([
-        { url: product.image_url, is_primary: true },
-        ...product.additional_images.map(url => ({ url, is_primary: false }))
-      ]);
-    }
-  }, [product]);
 
   useEffect(() => {
     if (product.categories && product.categories.length > 0) {
@@ -52,7 +45,7 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
 
   const [formData, setFormData] = useState({
     name: product.name,
-    description: product.description,
+    description: product.description || '',
     gender: (product.gender || 'unisex') as GenderType,
     price: product.price.toString(),
     original_price: product.original_price?.toString() || '',
@@ -87,34 +80,7 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
   useEffect(() => {
     fetchCategories();
     fetchGenders();
-    fetchVariants();
   }, []);
-
-  // ── Fetch variants using correct /api/ paths ──────────────────────────────
-  const fetchVariants = async () => {
-    if (!product.has_colors && !product.has_sizes) return;
-    setLoadingVariants(true);
-    try {
-      if (product.has_colors) {
-        try {
-          const data = await apiFetch(`/api/admin/products/${product.id}/colors`);
-          setColors(data || []);
-        } catch (err) {
-          console.error('Error fetching colors:', err);
-        }
-      }
-      if (product.has_sizes) {
-        try {
-          const data = await apiFetch(`/api/admin/products/${product.id}/sizes/all`);
-          setSizes(data || []);
-        } catch (err) {
-          console.error('Error fetching sizes:', err);
-        }
-      }
-    } finally {
-      setLoadingVariants(false);
-    }
-  };
 
   const fetchCategories = async () => {
     try {
@@ -384,12 +350,6 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-serif font-semibold">Edit Product</h2>
             <div className="flex items-center gap-3">
-              {loadingVariants && (
-                <div className="flex items-center gap-2 text-sm text-gray-500">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-premium-gold" />
-                  Loading variants…
-                </div>
-              )}
               <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
                 <X className="h-5 w-5" />
               </button>

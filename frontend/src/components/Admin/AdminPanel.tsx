@@ -184,7 +184,7 @@ const fetchDashboardData = async () => {
       setStats(prev => ({ ...prev, totalProducts: total }));
     }).catch(console.error);
 
-    fetchWithAuth('/api/admin/combos?limit=25&offset=0').then((resp: any) => {
+    fetchWithAuth('/api/admin/combos/admin/all').then((resp: any) => {
       const data = resp.data || resp;
       const total = resp.total ?? data.length;
       setCombos(data);
@@ -240,8 +240,7 @@ const fetchProductPage = async (page: number, search?: string) => {
 const fetchComboPage = async (page: number) => {
   try {
     setLoadingCombos(true);
-    const offset = (page - 1) * combosPerPage;
-    const resp = await fetchWithAuth(`/api/admin/combos?limit=${combosPerPage}&offset=${offset}`);
+    const resp = await fetchWithAuth(`/api/admin/combos/admin/all`);
     const data = resp.data || resp;
     const total: number = resp.total ?? data.length;
     setCombos(data);
@@ -388,26 +387,16 @@ const updateOrderStatus = async (orderId: string, status: string, trackingNumber
   };
 
   const handleEditProduct = async (product: Product) => {
-    // Lazily load colors & sizes only when editing
-    let enriched = { ...product };
-    const fetches: Promise<void>[] = [];
-    if (product.has_colors && (!product.colors || product.colors.length === 0)) {
-      fetches.push(
-        fetchWithAuth(`/api/admin/products/${product.id}/colors`)
-          .then((data: any) => { enriched = { ...enriched, colors: data || [] }; })
-          .catch(() => {})
-      );
+    // The list only has summary columns — load the full product (images, description,
+    // customization, social proof, categories, colors, sizes) before opening the form.
+    try {
+      const full = await fetchWithAuth(`/api/admin/products/${product.id}`);
+      setEditingProduct(full as Product);
+      setShowEditProduct(true);
+    } catch (error) {
+      console.error('Error loading product for edit:', error);
+      toast.error('Could not load product details. Please try again.');
     }
-    if (product.has_sizes && (!product.sizes || product.sizes.length === 0)) {
-      fetches.push(
-        fetchWithAuth(`/api/admin/products/${product.id}/sizes/all`)
-          .then((data: any) => { enriched = { ...enriched, sizes: data || [] }; })
-          .catch(() => {})
-      );
-    }
-    if (fetches.length > 0) await Promise.all(fetches);
-    setEditingProduct(enriched as Product);
-    setShowEditProduct(true);
   };
 
   const handleEditCombo = (combo: Combo) => {

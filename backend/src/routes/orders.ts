@@ -71,6 +71,23 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
 });
 
 // Get order by ID (admin)
+// Order confirmation page (public). The order UUID is only known to the customer who
+// just placed it, so it acts as the access key; non-UUID ids are rejected outright.
+router.get('/confirmation/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+    const result = await pool.query('SELECT * FROM orders WHERE id = $1', [id]);
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Order not found' });
+    res.json(transformOrder(result.rows[0]));
+  } catch (error: any) {
+    console.error('Error fetching order confirmation:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.get('/:id', requireAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -127,7 +144,8 @@ router.patch('/:id/status', requireAuth, async (req: Request, res: Response) => 
 // Create COD order (public)
 router.post('/cod', async (req: Request, res: Response) => {
   try {
-    const { order_data } = req.body;
+    // Checkout sends the order fields at the top level; also accept { order_data: {...} }
+    const order_data = req.body?.order_data ?? req.body;
 
     if (!order_data?.name || !order_data?.email || !order_data?.phone) {
       return res.status(400).json({ error: 'Missing customer information' });
@@ -141,6 +159,7 @@ router.post('/cod', async (req: Request, res: Response) => {
       items: JSON.stringify(order_data.items || []),
       subtotal: order_data.subtotal || 0,
       shipping_charge: order_data.shipping_charge || 0,
+      cod_charge: order_data.cod_charge || 0,
       coupon_code: order_data.coupon_code || null,
       coupon_discount: order_data.coupon_discount || 0,
       total_amount: order_data.total_amount || 0,
@@ -161,11 +180,11 @@ router.post('/cod', async (req: Request, res: Response) => {
 
     const result = await pool.query(
       `INSERT INTO orders
-         (custom_order_id, items, subtotal, shipping_charge, coupon_code, coupon_discount,
+         (custom_order_id, items, subtotal, shipping_charge, cod_charge, coupon_code, coupon_discount,
           total_amount, customer_name, customer_email, customer_phone, special_requests,
           shipping_address, shipping_city, shipping_state, shipping_pincode,
           shipping_country, payment_method, status, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
        RETURNING *`,
       Object.values(orderRecord)
     );

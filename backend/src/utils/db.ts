@@ -7,9 +7,9 @@ export const pool = new Pool({
   user: config.dbUser,
   password: config.dbPassword,
   database: config.dbName,
-  ssl: {
-    rejectUnauthorized: false, // required for AWS RDS
-  },
+  ssl: config.dbSsl
+    ? { rejectUnauthorized: false } // required for AWS RDS
+    : false,
   max: 20,                // max connections in pool
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,

@@ -108,6 +108,43 @@ router.get('/products', requireAuth, async (req: Request, res: Response) => {
   }
 });
 
+// Full product for the edit form (the list above only returns summary columns)
+router.get('/products/:id', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const [productResult, categoriesResult, colorsResult, sizesResult] = await Promise.all([
+      pool.query('SELECT * FROM products WHERE id = $1', [id]),
+      pool.query(
+        `SELECT c.* FROM product_categories pc
+         JOIN categories c ON c.id = pc.category_id
+         WHERE pc.product_id = $1`,
+        [id]
+      ),
+      pool.query('SELECT * FROM product_colors WHERE product_id = $1 ORDER BY display_order ASC', [id]),
+      pool.query('SELECT * FROM product_sizes WHERE product_id = $1 ORDER BY display_order ASC', [id]),
+    ]);
+
+    if (productResult.rows.length === 0) return res.status(404).json({ error: 'Product not found' });
+
+    const p = productResult.rows[0];
+    const num = (v: any) => (v != null ? parseFloat(v) : v);
+    res.json({
+      ...p,
+      price: num(p.price),
+      original_price: num(p.original_price),
+      discount_percentage: num(p.discount_percentage),
+      customization_price: num(p.customization_price),
+      additional_images: p.additional_images || [],
+      categories: categoriesResult.rows,
+      colors: colorsResult.rows.map((c: any) => ({ ...c, price_modifier: num(c.price_modifier) })),
+      sizes: sizesResult.rows.map((s: any) => ({ ...s, price_modifier: num(s.price_modifier) })),
+    });
+  } catch (error: any) {
+    console.error('Error fetching product:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.post('/products', requireAuth, async (req: Request, res: Response) => {
   try {
     const {

@@ -71,7 +71,7 @@ export default function OrderConfirmation() {
       setLoading(true)
       console.log('🔍 Fetching order:', orderId)
       
-      const response = await apiFetch(`/api/orders/${orderId}`, {
+      const response = await apiFetch(`/api/orders/confirmation/${orderId}`, {
         method: 'GET',
       })
 

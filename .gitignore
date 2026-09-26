@@ -28,3 +28,7 @@ build/
 .vscode/
 .idea/
 .DS_Store
+# Database dumps (never commit production data)
+*.dump
+*.sql.gz
+*.tsbuildinfo

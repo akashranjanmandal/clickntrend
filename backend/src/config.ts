@@ -8,6 +8,8 @@
   dbUser: process.env.DB_USER!,
   dbPassword: process.env.DB_PASSWORD!,
   dbName: process.env.DB_NAME!,
+  // Set DB_SSL=false for a local Postgres without SSL (defaults to on for production)
+  dbSsl: process.env.DB_SSL !== 'false',
 
   emailUser: process.env.EMAIL_USER || '',
   emailPassword: process.env.EMAIL_PASSWORD || '',

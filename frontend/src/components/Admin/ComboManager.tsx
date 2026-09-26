@@ -50,12 +50,18 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
     }
   }, [combo]);
 
+  // The admin products API is paginated ({ data, total }, max 100 per page) — load every page
   const fetchProducts = async () => {
     try {
-      const data = await apiFetch('/api/admin/products', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('admin_token')}` },
-      });
-      setProducts(data || []);
+      const pageSize = 100;
+      const all: Product[] = [];
+      for (let offset = 0; ; offset += pageSize) {
+        const resp = await apiFetch(`/api/admin/products?limit=${pageSize}&offset=${offset}`);
+        const page: Product[] = Array.isArray(resp) ? resp : resp?.data || [];
+        all.push(...page);
+        if (page.length < pageSize || (resp?.total != null && all.length >= resp.total)) break;
+      }
+      setProducts(all);
     } catch (error) {
       console.error('Error fetching products:', error);
     }
@@ -63,9 +69,7 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
 
   const fetchCategories = async () => {
     try {
-      const data = await apiFetch('/api/admin/categories', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('admin_token')}` },
-      });
+      const data = await apiFetch('/api/admin/categories');
       // Filter only active categories
       const activeCategories = (data || []).filter((cat: Category) => cat.is_active !== false);
       setCategories(activeCategories);
@@ -232,8 +236,8 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
     
     const matchesGender = selectedGender === 'all' || product.gender === selectedGender;
     const matchesSearch = 
-      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (product.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (product.description || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (product.categories && product.categories.some(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()))) ||
       product.category?.toLowerCase().includes(searchTerm.toLowerCase());
     
