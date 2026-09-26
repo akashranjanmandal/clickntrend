@@ -4,6 +4,7 @@ import cors from 'cors';
 import config from './config';
 import logoRoutes from './routes/logo';
 import { transporter } from './services/gmailService';
+import { runMigrations } from './utils/migrate';
 import productSizeRoutes from './routes/product-sizes';
 // ===== PUBLIC ROUTES =====
 import publicColorRoutes from './routes/product-colors-public';
@@ -140,6 +141,11 @@ app.get('/smtp-test', async (_req, res) => {
 });
 /* ===================== SERVER ===================== */
 const PORT = config.port || 5000;
+
+// Bring the database schema up to date before serving (migrations are idempotent)
+runMigrations().catch((err) => {
+  console.error('❌ Database migration failed — order status/payment updates will not work until fixed:', err.message);
+});
 
 app.listen(PORT, () => {
   console.log(`\n🚀 Server running on port ${PORT}`);

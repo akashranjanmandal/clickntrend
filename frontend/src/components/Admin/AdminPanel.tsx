@@ -27,6 +27,13 @@ import CloudFileManager from './CloudFileManager';
 import LogoManager from './LogoManager';
 import toast from 'react-hot-toast';
 
+const PAYMENT_STATUS_STYLES: Record<string, string> = {
+  paid: 'bg-green-100 text-green-800 border-green-200',
+  pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+  failed: 'bg-red-100 text-red-800 border-red-200',
+  refunded: 'bg-gray-100 text-gray-700 border-gray-200',
+};
+
 const AdminPanel: React.FC = () => {
   const { fetchWithAuth } = useApi();
   const [orders, setOrders] = useState<Order[]>([]);
@@ -118,10 +125,10 @@ const AdminPanel: React.FC = () => {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // When status filter changes, refetch orders from server
+  // When any order filter changes, refetch orders from server
   useEffect(() => {
-    fetchOrderPage(1, searchQuery, orderStatusFilter);
-  }, [orderStatusFilter]);
+    fetchOrderPage(1, searchQuery, orderStatusFilter, orderPaymentFilter, orderCustomizationFilter);
+  }, [orderStatusFilter, orderPaymentFilter, orderCustomizationFilter]);
 
   // When tab changes, ensure data is loaded
   useEffect(() => {
@@ -146,7 +153,7 @@ const fetchDashboardData = async () => {
 
     const totalRevenue = ordersData.reduce(
       (sum: number, o: Order) =>
-        ['paid', 'delivered', 'completed'].includes(o.status) ? sum + o.total_amount : sum, 0
+        isOrderPaid(o) ? sum + o.total_amount : sum, 0
     );
     const pendingOrders = ordersData.filter((o: Order) =>
       ['created', 'pending', 'processing'].includes(o.status)
@@ -202,12 +209,20 @@ const fetchDashboardData = async () => {
   }
 };
 
-const fetchOrderPage = async (page: number, search?: string, status?: string) => {
+const fetchOrderPage = async (
+  page: number,
+  search?: string,
+  status?: string,
+  payment: string = orderPaymentFilter,
+  customization: string = orderCustomizationFilter,
+) => {
   try {
     const offset = (page - 1) * ordersPerPage;
     const params = new URLSearchParams({ limit: String(ordersPerPage), offset: String(offset) });
     if (search) params.set('search', search);
     if (status && status !== 'all') params.set('status', status);
+    if (payment && payment !== 'all') params.set('payment_status', payment);
+    if (customization && customization !== 'all') params.set('customization', customization);
     const resp = await fetchWithAuth(`/api/admin/orders?${params}`);
     const data: Order[] = resp.data || resp;
     const total: number = resp.total ?? data.length;
@@ -286,6 +301,9 @@ const fetchComboPage = async (page: number) => {
     }
   };
 
+const isOrderPaid = (o: Order) =>
+  o.payment_status ? o.payment_status === 'paid' : ['paid', 'delivered', 'completed'].includes(o.status);
+
 const updateOrderStatus = async (orderId: string, status: string, trackingNumber?: string) => {
   try {
     // Get the current order data before updating
@@ -297,50 +315,56 @@ const updateOrderStatus = async (orderId: string, status: string, trackingNumber
       return;
     }
     
+    const body: Record<string, string> = { status };
+    if (trackingNumber !== undefined) body.tracking_number = trackingNumber;
+
+    // The backend emails the customer itself when the status changes
     const response = await fetchWithAuth(`/api/admin/orders/${orderId}`, {
       method: 'PUT',
-      body: JSON.stringify({ 
-        status, 
-        tracking_number: trackingNumber !== undefined ? trackingNumber : (currentOrder?.tracking_number || '')
-      }),
+      body: JSON.stringify(body),
     });
-    
-    console.log('Order update response:', response);
-    
-    // After successful update, trigger status email only if status changed
+
     if (response.success) {
       if (oldStatus !== status) {
-        try {
-          const emailResponse = await fetchWithAuth('/api/orders/send-status-email', {
-            method: 'POST',
-            body: JSON.stringify({
-              orderId,
-              oldStatus,
-              newStatus: status,
-              trackingNumber
-            })
-          });
-          
-          if (emailResponse.success) {
-            toast.success(`Order status updated to ${status} and email sent!`);
-          } else {
-            toast.success(`Order status updated to ${status} (Email notification failed)`);
-          }
-        } catch (emailError) {
-          console.error('Failed to send status email:', emailError);
-          toast.success(`Order status updated to ${status} (Email notification failed)`);
-        }
+        toast.success(response.emailSent === false
+          ? `Order status updated to ${status} (email notification failed)`
+          : `Order status updated to ${status} and customer notified`);
       } else {
         toast.success('Tracking number saved!');
       }
-      
+
       // Update local state to avoid full refetch
-      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status, tracking_number: trackingNumber !== undefined ? trackingNumber : o.tracking_number } : o));
+      const applyUpdate = (o: Order) => o.id === orderId
+        ? { ...o, status, tracking_number: trackingNumber !== undefined ? trackingNumber : o.tracking_number }
+        : o;
+      setOrders(prev => prev.map(applyUpdate));
+      setFilteredOrders(prev => prev.map(applyUpdate));
+      setPaginatedOrders(prev => prev.map(applyUpdate));
       setSelectedOrder(prev => prev ? { ...prev, status, tracking_number: trackingNumber !== undefined ? trackingNumber : prev.tracking_number } : prev);
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error updating order:', error);
-    alert('Failed to update order status');
+    toast.error(`Failed to update order status: ${error.message}`);
+  }
+};
+
+const updatePaymentStatus = async (orderId: string, paymentStatus: string) => {
+  try {
+    const response = await fetchWithAuth(`/api/admin/orders/${orderId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ payment_status: paymentStatus }),
+    });
+    if (response.success) {
+      const updated = response.order as Order;
+      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, payment_status: updated.payment_status, paid_at: updated.paid_at } : o));
+      setPaginatedOrders(prev => prev.map(o => o.id === orderId ? { ...o, payment_status: updated.payment_status, paid_at: updated.paid_at } : o));
+      setFilteredOrders(prev => prev.map(o => o.id === orderId ? { ...o, payment_status: updated.payment_status, paid_at: updated.paid_at } : o));
+      setSelectedOrder(prev => prev && prev.id === orderId ? { ...prev, payment_status: updated.payment_status, paid_at: updated.paid_at } : prev);
+      toast.success(`Payment status updated to ${paymentStatus}`);
+    }
+  } catch (error: any) {
+    console.error('Error updating payment status:', error);
+    toast.error(`Failed to update payment status: ${error.message}`);
   }
 };
   const deleteProduct = async (productId: string) => {
@@ -481,7 +505,7 @@ const updateOrderStatus = async (orderId: string, status: string, trackingNumber
       'Pincode': order.shipping_pincode || '',
       'Amount': order.total_amount,
       'Status': order.status,
-      'Payment Status': ['paid', 'delivered', 'completed'].includes(order.status) ? 'Paid' : 'Pending',
+      'Payment Status': order.payment_status || (isOrderPaid(order) ? 'paid' : 'pending'),
       'Has Customization': Array.isArray(order.items) 
         ? order.items.some((item: any) => item.customization).toString()
         : 'false',
@@ -515,7 +539,7 @@ const updateOrderStatus = async (orderId: string, status: string, trackingNumber
     setOrderPaymentFilter('all');
     setOrderCustomizationFilter('all');
     setSearchQuery('');
-    fetchOrderPage(1, '', 'all');
+    fetchOrderPage(1, '', 'all', 'all', 'all');
   };
 
   const clearProductFilters = () => {
@@ -1235,7 +1259,7 @@ const updateOrderStatus = async (orderId: string, status: string, trackingNumber
                           ? order.items.some((item: any) => item.customization)
                           : false;
                         
-                        const isPaid = ['paid', 'delivered', 'completed'].includes(order.status);
+                        const paymentStatus = order.payment_status || (isOrderPaid(order) ? 'paid' : 'pending');
                         
                         return (
                           <tr key={order.id} className="border-b hover:bg-gray-50">
@@ -1274,11 +1298,16 @@ const updateOrderStatus = async (orderId: string, status: string, trackingNumber
                               </select>
                             </td>
                             <td className="p-4">
-                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                                isPaid ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                              }`}>
-                                {isPaid ? 'Paid' : 'Pending'}
-                              </span>
+                              <select
+                                value={paymentStatus}
+                                onChange={(e) => updatePaymentStatus(order.id, e.target.value)}
+                                className={`px-3 py-1 rounded text-xs font-medium border focus:outline-none ${PAYMENT_STATUS_STYLES[paymentStatus] || PAYMENT_STATUS_STYLES.pending}`}
+                              >
+                                <option value="pending">PENDING</option>
+                                <option value="paid">PAID</option>
+                                <option value="failed">FAILED</option>
+                                <option value="refunded">REFUNDED</option>
+                              </select>
                             </td>
                             <td className="p-4">
                               {hasCustomization ? (
@@ -2174,6 +2203,24 @@ const updateOrderStatus = async (orderId: string, status: string, trackingNumber
                         <option value="delivered">Delivered</option>
                         <option value="cancelled">Cancelled</option>
                       </select>
+                    </div>
+                    <div>
+                      <label className="text-sm text-gray-600">Payment Status</label>
+                      {(() => {
+                        const ps = selectedOrder.payment_status || (isOrderPaid(selectedOrder) ? 'paid' : 'pending');
+                        return (
+                          <select
+                            value={ps}
+                            onChange={(e) => updatePaymentStatus(selectedOrder.id, e.target.value)}
+                            className={`block px-4 py-2 rounded-lg border focus:outline-none ${PAYMENT_STATUS_STYLES[ps] || PAYMENT_STATUS_STYLES.pending}`}
+                          >
+                            <option value="pending">Pending</option>
+                            <option value="paid">Paid</option>
+                            <option value="failed">Failed</option>
+                            <option value="refunded">Refunded</option>
+                          </select>
+                        );
+                      })()}
                     </div>
                     <div>
                       <label className="text-sm text-gray-600">Tracking Number</label>

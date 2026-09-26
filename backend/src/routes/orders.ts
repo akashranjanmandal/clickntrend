@@ -121,6 +121,7 @@ router.patch('/:id/status', requireAuth, async (req: Request, res: Response) => 
     const { id } = req.params;
     const { status } = req.body;
 
+    const previous = await pool.query('SELECT status FROM orders WHERE id = $1', [id]);
     const result = await pool.query(
       `UPDATE orders SET status = $1, updated_at = $2 WHERE id = $3 RETURNING *`,
       [status, new Date().toISOString(), id]
@@ -130,7 +131,7 @@ router.patch('/:id/status', requireAuth, async (req: Request, res: Response) => 
     const order = result.rows[0];
 
     // Send status update email async
-    sendOrderStatusUpdateEmail(order).catch((err: any) =>
+    sendOrderStatusUpdateEmail({ ...order, old_status: previous.rows[0]?.status, new_status: status }).catch((err: any) =>
       console.error('Error sending status update email:', err)
     );
 
@@ -243,7 +244,7 @@ router.get('/admin/stats', requireAuth, async (req: Request, res: Response) => {
       `SELECT
          COUNT(*) AS total_orders,
          SUM(total_amount) AS total_revenue,
-         COUNT(*) FILTER (WHERE status = 'paid') AS paid_orders,
+         COUNT(*) FILTER (WHERE payment_status = 'paid') AS paid_orders,
          COUNT(*) FILTER (WHERE status = 'pending') AS pending_orders,
          COUNT(*) FILTER (WHERE status = 'shipped') AS shipped_orders,
          COUNT(*) FILTER (WHERE status = 'delivered') AS delivered_orders,

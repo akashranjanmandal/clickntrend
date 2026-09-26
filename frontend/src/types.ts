@@ -199,6 +199,7 @@ export interface Order {
   shipping_pincode?: string;
   shipping_country?: string;
   status: string;
+  payment_status?: 'pending' | 'paid' | 'failed' | 'refunded';
   tracking_number?: string;
   admin_notes?: string;
   paid_at?: string;

@@ -1,3 +1,4 @@
+import { requireAuth } from '../middleware/auth';
 import express, { Request, Response } from 'express';
 import Razorpay from 'razorpay';
 import crypto from 'crypto';
@@ -106,8 +107,8 @@ router.post('/verify-payment', async (req, res) => {
           items, subtotal, shipping_charge, coupon_code, coupon_discount, total_amount,
           customer_name, customer_email, customer_phone, special_requests,
           shipping_address, shipping_city, shipping_state, shipping_pincode,
-          shipping_country, payment_method, status, paid_at, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
+          shipping_country, payment_method, status, payment_status, paid_at, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)
        RETURNING *`,
       [
         custom_order_id,
@@ -130,6 +131,7 @@ router.post('/verify-payment', async (req, res) => {
         (order_data.pincode || '').trim(),
         'India',
         'online',
+        'paid',
         'paid',
         now,
         now,
@@ -224,7 +226,7 @@ router.get('/order/:orderId', async (req, res) => {
 });
 
 // Refund payment (admin only)
-router.post('/refund/:paymentId', async (req, res) => {
+router.post('/refund/:paymentId', requireAuth, async (req, res) => {
   try {
     const { paymentId } = req.params;
     const { amount, notes } = req.body;
@@ -247,7 +249,7 @@ router.post('/refund/:paymentId', async (req, res) => {
 
     await pool.query(
       `UPDATE orders
-       SET status = 'refunded', refund_data = $1, refunded_at = $2, updated_at = $3
+       SET status = 'refunded', payment_status = 'refunded', refund_data = $1, refunded_at = $2, updated_at = $3
        WHERE id = $4`,
       [JSON.stringify(refund), new Date().toISOString(), new Date().toISOString(), order.id]
     );

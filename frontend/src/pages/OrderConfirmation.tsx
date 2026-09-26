@@ -532,7 +532,11 @@ export default function OrderConfirmation() {
                 </div>
                 <div className="flex items-center gap-2 mt-3 text-sm text-gray-500">
                   <CreditCard className="w-4 h-4" />
-                  <span>Paid via {order.payment_method?.toUpperCase() || 'Online'}</span>
+                  <span>
+                    {order.payment_method === 'cod'
+                      ? 'Cash on Delivery – pay when your order arrives'
+                      : `Paid via ${order.payment_method?.toUpperCase() || 'Online'}`}
+                  </span>
                 </div>
               </div>
             </div>

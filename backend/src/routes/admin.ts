@@ -4,6 +4,7 @@ import { pool } from '../utils/db';
 import { requireAuth } from '../middleware/auth';
 import { r2 } from '../utils/r2';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
+import { sendOrderStatusUpdateEmail } from '../services/gmailService';
 
 const router = express.Router();
 
@@ -504,9 +505,11 @@ router.get('/orders', requireAuth, async (req: Request, res: Response) => {
     const search = (req.query.search as string || '').trim();
     const status = (req.query.status as string || '').trim();
     
+    // Filter params are numbered $1..$n so the same WHERE clause works for the
+    // COUNT query; LIMIT/OFFSET are appended after them for the data query.
     const conditions: string[] = [];
-    const params: any[] = [limit, offset];
-    let paramIdx = 3;
+    const params: any[] = [];
+    let paramIdx = 1;
 
     if (search) {
       conditions.push(`(customer_name ILIKE $${paramIdx} OR customer_email ILIKE $${paramIdx} OR customer_phone ILIKE $${paramIdx} OR custom_order_id ILIKE $${paramIdx})`);
@@ -518,13 +521,27 @@ router.get('/orders', requireAuth, async (req: Request, res: Response) => {
       params.push(status);
       paramIdx++;
     }
+    const paymentStatus = (req.query.payment_status as string || '').trim();
+    if (paymentStatus && paymentStatus !== 'all') {
+      conditions.push(`payment_status = $${paramIdx}`);
+      params.push(paymentStatus);
+      paramIdx++;
+    }
+    const customization = (req.query.customization as string || '').trim();
+    if (customization === 'yes' || customization === 'no') {
+      const hasCustomization = `EXISTS (SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(items) = 'array' THEN items ELSE '[]'::jsonb END) it
+                                        WHERE it ? 'customization' AND jsonb_typeof(it->'customization') <> 'null')`;
+      conditions.push(customization === 'yes' ? hasCustomization : `NOT ${hasCustomization}`);
+    }
 
     const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
-    const filterParams = params.slice(2);
 
     const [dataResult, countResult] = await Promise.all([
-      pool.query(`SELECT * FROM orders ${whereClause} ORDER BY created_at DESC LIMIT $1 OFFSET $2`, params),
-      pool.query(`SELECT COUNT(*) FROM orders ${whereClause}`, filterParams),
+      pool.query(
+        `SELECT * FROM orders ${whereClause} ORDER BY created_at DESC LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`,
+        [...params, limit, offset]
+      ),
+      pool.query(`SELECT COUNT(*) FROM orders ${whereClause}`, params),
     ]);
 
     res.json({ data: dataResult.rows.map(transformOrder), total: parseInt(countResult.rows[0].count) });
@@ -543,21 +560,62 @@ router.get('/orders/:id', requireAuth, async (req: Request, res: Response) => {
   }
 });
 
+const ORDER_STATUSES = ['pending', 'processing', 'paid', 'shipped', 'delivered', 'completed', 'cancelled'];
+const PAYMENT_STATUSES = ['pending', 'paid', 'failed', 'refunded'];
+
+// Update order status / payment status / tracking number. Only these fields are
+// accepted (column names are never taken from the request body).
 router.put('/orders/:id', requireAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const updates = { ...req.body, updated_at: new Date().toISOString() };
-    const keys = Object.keys(updates);
-    const values = Object.values(updates);
-    const setClause = keys.map((k, i) => `${k} = $${i + 1}`).join(', ');
+    const { status, payment_status, tracking_number } = req.body;
 
+    if (status !== undefined && !ORDER_STATUSES.includes(status)) {
+      return res.status(400).json({ error: `Invalid status: ${status}` });
+    }
+    if (payment_status !== undefined && !PAYMENT_STATUSES.includes(payment_status)) {
+      return res.status(400).json({ error: `Invalid payment status: ${payment_status}` });
+    }
+
+    const current = await pool.query('SELECT status FROM orders WHERE id = $1', [id]);
+    if (current.rows.length === 0) return res.status(404).json({ error: 'Order not found' });
+    const oldStatus = current.rows[0].status;
+
+    const sets: string[] = [];
+    const values: any[] = [];
+    const set = (column: string, value: any) => { values.push(value); sets.push(`${column} = $${values.length}`); };
+
+    if (status !== undefined) set('status', status);
+    if (tracking_number !== undefined) set('tracking_number', String(tracking_number).trim() || null);
+    if (payment_status !== undefined) {
+      set('payment_status', payment_status);
+      if (payment_status === 'paid') sets.push('paid_at = COALESCE(paid_at, NOW())');
+      if (payment_status === 'refunded') sets.push('refunded_at = COALESCE(refunded_at, NOW())');
+    }
+    if (sets.length === 0) return res.status(400).json({ error: 'Nothing to update' });
+    sets.push('updated_at = NOW()');
+
+    values.push(id);
     const result = await pool.query(
-      `UPDATE orders SET ${setClause} WHERE id = $${keys.length + 1} RETURNING *`,
-      [...values, id]
+      `UPDATE orders SET ${sets.join(', ')} WHERE id = $${values.length} RETURNING *`,
+      values
     );
-    if (result.rows.length === 0) return res.status(404).json({ error: 'Order not found' });
-    res.json({ success: true, order: result.rows[0] });
+    const order = result.rows[0];
+
+    // Email the customer when the order status actually changed
+    let emailSent: boolean | null = null;
+    if (status !== undefined && status !== oldStatus) {
+      const emailResult = await sendOrderStatusUpdateEmail({
+        ...order,
+        old_status: oldStatus,
+        new_status: status,
+      });
+      emailSent = emailResult.success;
+    }
+
+    res.json({ success: true, order, emailSent });
   } catch (error: any) {
+    console.error('Error updating order:', error);
     res.status(500).json({ error: error.message });
   }
 });

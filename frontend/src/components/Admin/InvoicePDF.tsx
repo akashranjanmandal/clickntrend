@@ -22,6 +22,17 @@ const InvoicePDF: React.FC<InvoicePDFProps> = ({ order, onClose }) => {
   const couponDiscount = order.coupon_discount ?? 0;
   const grandTotal = order.grand_total ?? order.total_amount;
 
+  // Real payment status (older rows without payment_status fall back to the order status)
+  const paymentStatus = order.payment_status
+    || (['paid', 'delivered', 'completed'].includes(order.status) ? 'paid' : 'pending');
+  const isCod = order.payment_method === 'cod';
+  const paymentBadge = {
+    paid: { label: 'PAID', bg: '#d1fae5', fg: '#065f46', cls: 'bg-green-100 text-green-700' },
+    pending: { label: isCod ? 'COD – PAYMENT DUE' : 'PAYMENT PENDING', bg: '#fef3c7', fg: '#92400e', cls: 'bg-yellow-100 text-yellow-800' },
+    failed: { label: 'PAYMENT FAILED', bg: '#fee2e2', fg: '#991b1b', cls: 'bg-red-100 text-red-700' },
+    refunded: { label: 'REFUNDED', bg: '#f3f4f6', fg: '#374151', cls: 'bg-gray-100 text-gray-700' },
+  }[paymentStatus] || { label: 'PAYMENT PENDING', bg: '#fef3c7', fg: '#92400e', cls: 'bg-yellow-100 text-yellow-800' };
+
   const handlePrint = () => {
     const printArea = document.getElementById('invoice-print-area');
     if (!printArea) return;
@@ -53,7 +64,7 @@ const InvoicePDF: React.FC<InvoicePDFProps> = ({ order, onClose }) => {
       </style></head><body>
       <div class="header">
         <div class="brand"><h1>GFTD</h1><p>The Art of Gifting</p><p>care@gftd.in • +91 8240398515</p></div>
-        <div class="inv-meta"><h2>INVOICE</h2><p>#${order.custom_order_id || order.id.slice(0,8).toUpperCase()}</p><p>${invoiceDate}</p><span class="badge">PAID</span></div>
+        <div class="inv-meta"><h2>INVOICE</h2><p>#${order.custom_order_id || order.id.slice(0,8).toUpperCase()}</p><p>${invoiceDate}</p><span class="badge" style="background:${paymentBadge.bg};color:${paymentBadge.fg}">${paymentBadge.label}</span></div>
       </div>
       <div class="grid2">
         <div class="box"><div class="box-label">Bill To</div><p><strong>${order.customer_name}</strong></p><p>${order.customer_email}</p>${order.customer_phone ? `<p>${order.customer_phone}</p>` : ''}<p style="margin-top:4px">${order.shipping_address || ''}</p><p>${order.shipping_city || ''}, ${order.shipping_state || ''} - ${order.shipping_pincode || ''}</p></div>
@@ -110,7 +121,7 @@ const InvoicePDF: React.FC<InvoicePDFProps> = ({ order, onClose }) => {
             <h2 className="text-lg font-bold text-yellow-600">INVOICE</h2>
             <p className="text-gray-500 text-xs">#{order.custom_order_id || order.id.slice(0,8).toUpperCase()}</p>
             <p className="text-gray-500 text-xs">{invoiceDate}</p>
-            <span className="inline-block mt-1 px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs font-medium">PAID</span>
+            <span className={`inline-block mt-1 px-2 py-0.5 rounded text-xs font-medium ${paymentBadge.cls}`}>{paymentBadge.label}</span>
           </div>
         </div>
 

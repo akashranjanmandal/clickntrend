@@ -172,7 +172,7 @@ router.post('/validate', async (req, res) => {
 });
 
 // Track coupon usage (internal - called after successful order)
-router.post('/track-usage', async (req, res) => {
+router.post('/track-usage', requireAuth, async (req, res) => {
   try {
     const { coupon_id, order_id, customer_email, discount_amount } = req.body;
 
