@@ -93,7 +93,7 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
 
   const fetchGenders = async () => {
     try {
-      const data = await apiFetch('/api/genders');
+      const data = await apiFetch('/api/genders/admin');
       setGenders(data);
     } catch (error) {
       console.error('Error fetching genders:', error);
@@ -576,7 +576,7 @@ const EditProduct: React.FC<EditProductProps> = ({ product, onClose, onSuccess }
               <div>
                 <label className="block text-sm font-medium mb-2">Target Audience</label>
                 <select value={formData.gender} onChange={e => setFormData({ ...formData, gender: e.target.value as GenderType })} className="w-full px-4 py-3 border rounded-lg focus:border-premium-gold focus:outline-none">
-                  {genders.length > 0 ? genders.map(g => <option key={g.name} value={g.name}>{g.display_name}</option>) : (
+                  {genders.length > 0 ? genders.map(g => <option key={g.name} value={g.name}>{g.display_name}{g.is_active === false ? ' (hidden)' : ''}</option>) : (
                     <>
                       <option value="unisex">Unisex</option>
                       <option value="men">Men</option>

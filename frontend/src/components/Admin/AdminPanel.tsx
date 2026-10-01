@@ -25,6 +25,7 @@ import HeroManager from './HeroManager';
 import PopupManager from './PopupManager';
 import CloudFileManager from './CloudFileManager';
 import LogoManager from './LogoManager';
+import GenderManager from './GenderManager';
 import toast from 'react-hot-toast';
 
 const PAYMENT_STATUS_STYLES: Record<string, string> = {
@@ -41,7 +42,7 @@ const AdminPanel: React.FC = () => {
   const [combos, setCombos] = useState<Combo[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'products' | 'combos' | 'coupons' | 'categories' | 'hero' | 'reviews' | 'popups' | 'logo' | 'storage'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'products' | 'combos' | 'coupons' | 'categories' | 'genders' | 'hero' | 'reviews' | 'popups' | 'logo' | 'storage'>('dashboard');
   const [showProductUpload, setShowProductUpload] = useState(false);
   const [showComboManager, setShowComboManager] = useState(false);
   const [showEditProduct, setShowEditProduct] = useState(false);
@@ -707,7 +708,7 @@ const updatePaymentStatus = async (orderId: string, paymentStatus: string) => {
                 <div className="relative group">
                   <button
                     className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
-                      ['products', 'combos', 'categories'].includes(activeTab)
+                      ['products', 'combos', 'categories', 'genders'].includes(activeTab)
                         ? 'bg-premium-gold text-white'
                         : 'text-gray-600 hover:bg-gray-100'
                     }`}
@@ -744,6 +745,15 @@ const updatePaymentStatus = async (orderId: string, paymentStatus: string) => {
                     >
                       <Tag className="h-4 w-4" />
                       <span>Categories</span>
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('genders')}
+                      className={`w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center space-x-2 ${
+                        activeTab === 'genders' ? 'bg-premium-cream text-premium-gold' : ''
+                      }`}
+                    >
+                      <Users className="h-4 w-4" />
+                      <span>Genders</span>
                     </button>
                   </div>
                 </div>
@@ -841,7 +851,7 @@ const updatePaymentStatus = async (orderId: string, paymentStatus: string) => {
 
           <div className="md:hidden mt-4 overflow-x-auto">
             <div className="flex space-x-2">
-              {['dashboard', 'orders', 'products', 'combos', 'coupons', 'categories', 'reviews', 'hero', 'popups', 'logo', 'storage'].map((tab) => (
+              {['dashboard', 'orders', 'products', 'combos', 'coupons', 'categories', 'genders', 'reviews', 'hero', 'popups', 'logo', 'storage'].map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab as any)}
@@ -2096,6 +2106,7 @@ const updatePaymentStatus = async (orderId: string, paymentStatus: string) => {
 
         {activeTab === 'coupons' && <CouponManager />}
         {activeTab === 'categories' && <CategoryManager />}
+        {activeTab === 'genders' && <GenderManager />}
         {activeTab === 'reviews' && <ReviewManager />}
         {activeTab === 'hero' && <HeroManager />}
         {activeTab === 'popups' && <PopupManager />}

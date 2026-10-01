@@ -75,3 +75,24 @@ export const debounce = <T extends (...args: any[]) => any>(
     timeout = setTimeout(() => func(...args), wait);
   };
 };
+/**
+ * Gender filter match. Unisex items suit everyone, so they also appear
+ * under "Men" and "Women"; "Unisex" itself shows only unisex items.
+ */
+export const matchesGender = (itemGender: string | undefined | null, selected: string): boolean => {
+  if (!selected || selected === 'all') return true;
+  const item = (itemGender || 'unisex').toLowerCase().trim();
+  const wanted = selected.toLowerCase().trim();
+  return item === wanted || (item === 'unisex' && wanted !== 'unisex');
+};
+
+/** A combo matches when any product inside it matches the selected gender. */
+export const comboMatchesGender = (
+  combo: { combo_products?: { product?: { gender?: string } | null }[] },
+  selected: string
+): boolean => {
+  if (!selected || selected === 'all') return true;
+  const products = (combo.combo_products || []).map(cp => cp.product).filter(Boolean);
+  if (products.length === 0) return true;
+  return products.some(p => matchesGender(p!.gender, selected));
+};

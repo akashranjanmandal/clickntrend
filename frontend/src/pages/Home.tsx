@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { getImageUrl } from '../utils/helpers';
+import { getImageUrl, matchesGender, comboMatchesGender } from '../utils/helpers';
 import {
   Search, Sparkles, TrendingUp, Shield, Gift,
   ArrowRight, Loader2, X, ChevronRight, Users, Package,
@@ -249,9 +249,7 @@ const getFilteredProducts = () => {
   }
   
   if (selectedGender !== 'all') {
-    filtered = filtered.filter(p => 
-      p.gender?.toLowerCase().trim() === selectedGender.toLowerCase().trim()
-    );
+    filtered = filtered.filter(p => matchesGender(p.gender, selectedGender));
   }
   
   return filtered;
@@ -286,11 +284,7 @@ const getFilteredProducts = () => {
 
       // Gender filter via combo products
       if (selectedGender !== 'all') {
-        const comboProducts = combo.combo_products || [];
-        const hasMatchingGender = comboProducts.some(item =>
-          item.product?.gender === selectedGender
-        );
-        if (!hasMatchingGender) return false;
+        if (!comboMatchesGender(combo, selectedGender)) return false;
       }
 
       return true;

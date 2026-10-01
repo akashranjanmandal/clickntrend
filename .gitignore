@@ -21,6 +21,7 @@ service-account*.json
 
 # Database dumps, backups & local databases (production data)
 *.dump
+*.dump *
 *.backup
 *.bak
 *.sql.gz

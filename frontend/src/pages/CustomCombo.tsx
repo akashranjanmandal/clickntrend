@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { Product, Category, Gender, CustomizationData, CartItem } from '../types';
 import toast from 'react-hot-toast';
-import { getImageUrl, formatCurrency, getProductImage } from '../utils/helpers';
+import { getImageUrl, formatCurrency, getProductImage, matchesGender } from '../utils/helpers';
 import { apiFetch } from '../utils/api';
 import CategoryCard from '../components/CategoryCard';
 import { useCart } from '../context/CartContext';
@@ -142,9 +142,7 @@ const getFilteredProducts = () => {
   }
   
   if (selectedGender !== 'all') {
-    filtered = filtered.filter(p => 
-      p.gender?.toLowerCase().trim() === selectedGender.toLowerCase().trim()
-    );
+    filtered = filtered.filter(p => matchesGender(p.gender, selectedGender));
   }
   
   return filtered;

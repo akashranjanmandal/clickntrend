@@ -3,7 +3,7 @@ import { Filter, X, SlidersHorizontal, Search, Share2 } from 'lucide-react';
 import ProductCard from '../components/ProductCard';
 import { Product, Gender, Category } from '../types';
 import { apiFetch } from '../utils/api';
-import { getImageUrl } from '../utils/helpers';
+import { getImageUrl, matchesGender } from '../utils/helpers';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -137,7 +137,7 @@ const Products: React.FC = () => {
       );
     }
     if (selectedGender !== 'all') {
-      filtered = filtered.filter(product => product.gender === selectedGender);
+      filtered = filtered.filter(product => matchesGender(product.gender, selectedGender));
     }
     switch (sortBy) {
       case 'price-low': filtered.sort((a, b) => a.price - b.price); break;

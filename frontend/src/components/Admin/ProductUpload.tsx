@@ -87,7 +87,7 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
 
   const fetchGenders = async () => {
     try {
-      const data = await apiFetch('/api/genders');
+      const data = await apiFetch('/api/genders/admin');
       setGenders(data);
     } catch (error) {
       console.error('Error fetching genders:', error);
@@ -875,7 +875,7 @@ const ProductUpload: React.FC<ProductUploadProps> = ({ onClose, onSuccess }) => 
                 >
                   {genders.map(gender => (
                     <option key={gender.name} value={gender.name}>
-                      {gender.icon} {gender.display_name}
+                      {gender.icon} {gender.display_name}{gender.is_active === false ? ' (hidden)' : ''}
                     </option>
                   ))}
                 </select>

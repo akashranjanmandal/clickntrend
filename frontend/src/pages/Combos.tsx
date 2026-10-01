@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Package, Sparkles } from 'lucide-react';
-import { Combo } from '../types';
+import { Combo, Gender } from '../types';
 import { apiFetch } from '../utils/api';
 import { Link, useNavigate } from 'react-router-dom';
 import ComboCard from '../components/ComboCard';
+import { comboMatchesGender } from '../utils/helpers';
 
 export default function Combos() {
   const navigate = useNavigate();
   const [combos, setCombos] = useState<Combo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [genders, setGenders] = useState<Gender[]>([]);
+  const [selectedGender, setSelectedGender] = useState<string>('all');
 
   useEffect(() => {
     fetchCombos();
@@ -23,8 +26,12 @@ export default function Combos() {
   const fetchCombos = async () => {
     try {
       setLoading(true);
-      const data = await apiFetch('/api/combos').catch(() => []);
+      const [data, gendersData] = await Promise.all([
+        apiFetch('/api/combos').catch(() => []),
+        apiFetch('/api/genders').catch(() => []),
+      ]);
       setCombos(data || []);
+      setGenders(gendersData || []);
     } catch {
       // silent
     } finally {
@@ -60,6 +67,8 @@ export default function Combos() {
     );
   }
 
+  const filteredCombos = combos.filter(combo => comboMatchesGender(combo, selectedGender));
+
   return (
     <div className="container mx-auto px-4 py-12">
       {/* Header */}
@@ -81,15 +90,43 @@ export default function Combos() {
         </p>
       </div>
 
+      {/* Gender filter */}
+      {genders.length > 0 && (
+        <div className="flex flex-wrap items-center justify-center gap-2 mb-8">
+          <span className="text-sm font-medium text-gray-600 mr-1">For</span>
+          {[{ name: 'all', display_name: 'All', icon: '' }, ...genders.map(g => ({ name: g.name as string, display_name: g.display_name, icon: g.icon }))].map((gender) => (
+            <button
+              key={gender.name}
+              onClick={() => setSelectedGender(gender.name)}
+              className={`px-4 py-1.5 rounded-full text-sm flex items-center gap-1 transition-colors ${
+                selectedGender === gender.name ? 'bg-premium-gold text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              {gender.icon && <span>{gender.icon}</span>}
+              <span>{gender.display_name}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Combos Grid */}
-      <motion.div layout className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-        {combos.map((combo) => (
-          <ComboCard
-            key={combo.id}
-            combo={combo}
-          />
-        ))}
-      </motion.div>
+      {filteredCombos.length > 0 ? (
+        <motion.div layout className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          {filteredCombos.map((combo) => (
+            <ComboCard
+              key={combo.id}
+              combo={combo}
+            />
+          ))}
+        </motion.div>
+      ) : (
+        <div className="text-center py-16">
+          <p className="text-gray-600 mb-4">No combos found for this selection.</p>
+          <button onClick={() => setSelectedGender('all')} className="text-premium-gold hover:underline">
+            Show all combos
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -17,7 +17,7 @@ router.get('/', async (req, res) => {
                   'product', jsonb_build_object(
                     'id', p.id, 'name', p.name, 'price', p.price,
                     'image_url', p.image_url, 'description', p.description,
-                    'is_active', p.is_active
+                    'is_active', p.is_active, 'gender', p.gender
                   )
                 )) FILTER (WHERE cp.product_id IS NOT NULL), '[]'::jsonb
               ) AS combo_products,

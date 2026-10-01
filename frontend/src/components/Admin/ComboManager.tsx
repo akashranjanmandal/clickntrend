@@ -80,7 +80,7 @@ const ComboManager: React.FC<ComboManagerProps> = ({ combo, onClose, onSuccess }
 
   const fetchGenders = async () => {
     try {
-      const data = await apiFetch('/api/genders');
+      const data = await apiFetch('/api/genders/admin');
       setGenders(data || []);
     } catch (error) {
       console.error('Error fetching genders:', error);

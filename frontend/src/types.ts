@@ -10,7 +10,7 @@ export interface Product {
   categories?: Category[];
   category?: string;
   subcategory?: string;
-  gender: 'men' | 'women' | 'unisex';
+  gender: string;
   stock_quantity: number;
   sku: string;
   is_customizable: boolean;
@@ -113,7 +113,7 @@ export interface Category {
   hover_effect?: string;
   display_order: number;
   is_active: boolean;
-  gender?: 'men' | 'women' | 'unisex';
+  gender?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -266,9 +266,10 @@ export interface PopupConfig {
 
 export interface Gender {
   id: string;
-  name: 'men' | 'women' | 'unisex';
+  name: string;
   display_name: string;
   icon: string;
   display_order: number;
   is_active: boolean;
+  product_count?: number;
 }
