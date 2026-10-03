@@ -143,7 +143,7 @@ const GenderManager: React.FC = () => {
               Gender Management
             </h2>
             <p className="text-sm text-gray-600">
-              The "For" options shoppers filter by (Men, Women, Unisex…). Unisex items also appear under every other option.
+              The "For" options shoppers filter by (Men, Women, Unisex…).
             </p>
           </div>
           <div>

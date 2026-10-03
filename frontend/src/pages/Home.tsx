@@ -132,6 +132,10 @@ const Home: React.FC = () => {
   const [searchLoading, setSearchLoading] = useState(false);
   
   const [loading, setLoading] = useState(true);
+  // The page renders as soon as the hero list arrives so its video/image starts
+  // downloading right away; the loader stays on top until that media is ready.
+  const [heroesLoaded, setHeroesLoaded] = useState(false);
+  const [heroReady, setHeroReady] = useState(false);
   const [showPopup, setShowPopup] = useState(false);
 
   // Scroll animations
@@ -198,11 +202,18 @@ const Home: React.FC = () => {
     try {
       setLoading(true);
       
-      const [productsData, categoriesData, gendersData, heroesData, statsData, combosData] = await Promise.all([
+      const heroesPromise = apiFetch('/api/hero').catch(() => []).then((data: HeroContent[]) => {
+        setHeroes(data || []);
+        if (!data || data.length === 0) setHeroReady(true);
+        setHeroesLoaded(true);
+        return data;
+      });
+
+      const [productsData, categoriesData, gendersData, , statsData, combosData] = await Promise.all([
         apiFetch('/api/products').catch(() => []),
         apiFetch('/api/categories').catch(() => []),
         apiFetch('/api/genders').catch(() => []),
-        apiFetch('/api/hero').catch(() => []),
+        heroesPromise,
         apiFetch('/api/settings?key=stats').catch(() => ({ value: defaultStats })),
         apiFetch('/api/combos').catch(() => [])
       ]);
@@ -210,7 +221,6 @@ const Home: React.FC = () => {
       setProducts(productsData || []);
       setCategories(categoriesData || []);
       setGenders(gendersData || []);
-      setHeroes(heroesData || []);
       setStats(statsData?.value || defaultStats);
       setCombos(combosData || []);
       // Auto-redirect combo from shared URL /combos?id= or /?combo=
@@ -363,7 +373,14 @@ const getFilteredProducts = () => {
     handleBackToCategories
   );
 
- if (loading) {
+  // Never keep visitors waiting on a slow hero video for more than a few seconds
+  useEffect(() => {
+    if (!heroesLoaded || heroReady) return;
+    const timer = setTimeout(() => setHeroReady(true), 8000);
+    return () => clearTimeout(timer);
+  }, [heroesLoaded, heroReady]);
+
+ if (!heroesLoaded) {
   return <PremiumLoader />;
 }
 
@@ -374,7 +391,10 @@ const getFilteredProducts = () => {
       variants={staggerContainerVariants}
       className="min-h-screen bg-gradient-to-b from-white to-gray-50 overflow-hidden"
     >
-      {showPopup && <Popup onClose={() => setShowPopup(false)} />}
+      {/* Stays on top until data and the hero's first frame are ready */}
+      {(loading || !heroReady) && <PremiumLoader />}
+
+      {showPopup && !loading && heroReady && <Popup onClose={() => setShowPopup(false)} />}
 
       {/* Exit Toast */}
       <AnimatePresence>
@@ -411,7 +431,7 @@ const getFilteredProducts = () => {
         }}
       >
         {heroes.length > 0 ? (
-          <HeroSection heroes={heroes} />
+          <HeroSection heroes={heroes} onReady={() => setHeroReady(true)} />
         ) : (
           <div className="relative h-[500px] sm:h-[600px] bg-gradient-to-r from-[#1a1a2e] via-[#16213e] to-[#0f3460] flex items-center justify-center text-white overflow-hidden">
             {/* Animated background elements */}

@@ -76,14 +76,12 @@ export const debounce = <T extends (...args: any[]) => any>(
   };
 };
 /**
- * Gender filter match. Unisex items suit everyone, so they also appear
- * under "Men" and "Women"; "Unisex" itself shows only unisex items.
+ * Gender filter match: exact (Men shows only Men items). Items with no gender
+ * set count as unisex.
  */
 export const matchesGender = (itemGender: string | undefined | null, selected: string): boolean => {
   if (!selected || selected === 'all') return true;
-  const item = (itemGender || 'unisex').toLowerCase().trim();
-  const wanted = selected.toLowerCase().trim();
-  return item === wanted || (item === 'unisex' && wanted !== 'unisex');
+  return (itemGender || 'unisex').toLowerCase().trim() === selected.toLowerCase().trim();
 };
 
 /** A combo matches when any product inside it matches the selected gender. */

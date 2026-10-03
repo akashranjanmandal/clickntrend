@@ -7,13 +7,22 @@ interface HeroSectionProps {
   heroes: HeroContent[];
   autoplay?: boolean;
   interval?: number;
+  /** Called once, when the first slide's media can be shown (or failed to load) */
+  onReady?: () => void;
 }
 
 const HeroSection: React.FC<HeroSectionProps> = ({
   heroes,
   autoplay = true,
-  interval = 5000
+  interval = 5000,
+  onReady,
 }) => {
+  const readySent = useRef(false);
+  const markReady = () => {
+    if (readySent.current) return;
+    readySent.current = true;
+    onReady?.();
+  };
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(autoplay);
   const [isMuted, setIsMuted] = useState(true);
@@ -130,7 +139,9 @@ const HeroSection: React.FC<HeroSectionProps> = ({
                 loop={currentHero.loop}
                 muted={currentHero.muted}
                 playsInline
-                onLoadedData={() => setIsVideoLoaded(true)}
+                preload="auto"
+                onLoadedData={() => { setIsVideoLoaded(true); markReady(); }}
+                onError={markReady}
                 className="w-full h-full object-cover"
               />
               {!isVideoLoaded && (
@@ -144,6 +155,9 @@ const HeroSection: React.FC<HeroSectionProps> = ({
               src={currentHero.media_url}
               alt={currentHero.title}
               className="w-full h-full object-cover"
+              fetchPriority="high"
+              onLoad={markReady}
+              onError={markReady}
             />
           )}
           

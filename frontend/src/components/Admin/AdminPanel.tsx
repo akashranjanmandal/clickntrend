@@ -126,6 +126,27 @@ const AdminPanel: React.FC = () => {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  // When any product filter changes, refetch products from server
+  const productFiltersMounted = React.useRef(false);
+  useEffect(() => {
+    if (!productFiltersMounted.current) { productFiltersMounted.current = true; return; }
+    fetchProductPage(1, searchQuery);
+  }, [productGenderFilter, productCategoryFilter, productStatusFilter, productCustomizableFilter]);
+
+  // Gender & category filter options come from the database, not just the current page
+  const [productFilterOptions, setProductFilterOptions] = useState<{ genders: { value: string; label: string }[]; categories: { value: string; label: string }[] }>({ genders: [], categories: [] });
+  useEffect(() => {
+    Promise.all([
+      fetchWithAuth('/api/genders/admin').catch(() => []),
+      fetchWithAuth('/api/admin/categories').catch(() => []),
+    ]).then(([genders, categories]: any[]) => {
+      setProductFilterOptions({
+        genders: (genders || []).map((g: any) => ({ value: g.name, label: `${g.icon ? g.icon + ' ' : ''}${g.display_name}` })),
+        categories: (categories || []).map((c: any) => c.name).filter(Boolean).sort().map((name: string) => ({ value: name, label: name })),
+      });
+    });
+  }, []);
+
   // When any order filter changes, refetch orders from server
   useEffect(() => {
     fetchOrderPage(1, searchQuery, orderStatusFilter, orderPaymentFilter, orderCustomizationFilter);
@@ -235,12 +256,22 @@ const fetchOrderPage = async (
   } catch (err) { console.error(err); }
 };
 
-const fetchProductPage = async (page: number, search?: string) => {
+const fetchProductPage = async (
+  page: number,
+  search?: string,
+  filters: Record<string, string> = {
+    gender: productGenderFilter,
+    category: productCategoryFilter,
+    status: productStatusFilter,
+    customizable: productCustomizableFilter,
+  },
+) => {
   try {
     setLoadingProducts(true);
     const offset = (page - 1) * productsPerPage;
     const params = new URLSearchParams({ limit: String(productsPerPage), offset: String(offset) });
     if (search) params.set('search', search);
+    Object.entries(filters).forEach(([key, value]) => { if (value && value !== 'all') params.set(key, value); });
     const resp = await fetchWithAuth(`/api/admin/products?${params}`);
     const data = (resp.data || resp).map((p: any) => ({ ...p, colors: p.colors || [], sizes: p.sizes || [], categories: p.categories || [] }));
     const total: number = resp.total ?? data.length;
@@ -549,7 +580,7 @@ const updatePaymentStatus = async (orderId: string, paymentStatus: string) => {
     setProductCustomizableFilter('all');
     setProductStatusFilter('all');
     setSearchQuery('');
-    fetchProductPage(1, '');
+    fetchProductPage(1, '', {});
   };
 
   const clearComboFilters = () => {
@@ -1448,22 +1479,14 @@ const updatePaymentStatus = async (orderId: string, paymentStatus: string) => {
           value={productCategoryFilter}
           onChange={setProductCategoryFilter}
           icon={<Tag className="h-4 w-4 text-gray-400" />}
-          options={(() => {
-            const allCategories = [...new Set(
-              products.flatMap(p => p.categories?.map((cat: any) => cat.name) || [])
-            )].sort();
-            return allCategories.map(cat => ({
-              value: cat,
-              label: cat
-            }));
-          })()}
+          options={productFilterOptions.categories}
         />
         <FilterDropdown
           label="Gender"
           value={productGenderFilter}
           onChange={setProductGenderFilter}
           icon={<Users className="h-4 w-4 text-gray-400" />}
-          options={[
+          options={productFilterOptions.genders.length > 0 ? productFilterOptions.genders : [
             { value: 'men', label: 'Men' },
             { value: 'women', label: 'Women' },
             { value: 'unisex', label: 'Unisex' },

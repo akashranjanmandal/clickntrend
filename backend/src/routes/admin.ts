@@ -65,9 +65,26 @@ router.get('/products', requireAuth, async (req: Request, res: Response) => {
     const limit = Math.min(parseInt(req.query.limit as string) || 25, 100);
     const offset = parseInt(req.query.offset as string) || 0;
     const search = (req.query.search as string || '').trim();
-    const params: any[] = [limit, offset];
-    const searchClause = search ? `AND (p.name ILIKE $3 OR p.sku ILIKE $3)` : '';
-    if (search) params.push(`%${search}%`);
+    const gender = (req.query.gender as string || '').trim();
+    const category = (req.query.category as string || '').trim();
+    const status = (req.query.status as string || '').trim();
+    const customizable = (req.query.customizable as string || '').trim();
+
+    // Filter params are $1..$n (shared by the COUNT query); LIMIT/OFFSET come after
+    const conditions: string[] = [];
+    const filterParams: any[] = [];
+    const add = (sql: (n: string) => string, value: any) => { filterParams.push(value); conditions.push(sql(`$${filterParams.length}`)); };
+    if (search) add(n => `(p.name ILIKE ${n} OR p.sku ILIKE ${n})`, `%${search}%`);
+    if (gender && gender !== 'all') add(n => `p.gender = ${n}`, gender);
+    if (category && category !== 'all') add(n => `EXISTS (SELECT 1 FROM product_categories pc2 JOIN categories c2 ON c2.id = pc2.category_id
+                                                         WHERE pc2.product_id = p.id AND c2.name = ${n})`, category);
+    if (status === 'active') conditions.push('p.is_active = true');
+    if (status === 'inactive') conditions.push('p.is_active = false');
+    if (customizable === 'yes') conditions.push('p.is_customizable = true');
+    if (customizable === 'no') conditions.push('COALESCE(p.is_customizable, false) = false');
+    const searchClause = conditions.map(c => `AND ${c}`).join(' ');
+    const params = [...filterParams, limit, offset];
+    const limitIdx = filterParams.length + 1;
 
     const [dataResult, countResult] = await Promise.all([
       pool.query(
@@ -85,12 +102,12 @@ router.get('/products', requireAuth, async (req: Request, res: Response) => {
          WHERE 1=1 ${searchClause}
          GROUP BY p.id
          ORDER BY p.created_at DESC
-         LIMIT $1 OFFSET $2`,
+         LIMIT $${limitIdx} OFFSET $${limitIdx + 1}`,
         params
       ),
       pool.query(
         `SELECT COUNT(*) FROM products p WHERE 1=1 ${searchClause}`,
-        search ? [`%${search}%`] : []
+        filterParams
       ),
     ]);
 
