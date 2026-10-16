@@ -60,8 +60,37 @@ router.post('/', async (req, res) => {
 // Get all reviews (admin)
 router.get('/admin', requireAuth, async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM reviews ORDER BY created_at DESC');
+    // Include the product's name and image for the admin list
+    const result = await pool.query(
+      `SELECT r.*,
+              CASE WHEN p.id IS NULL THEN NULL
+                   ELSE jsonb_build_object('name', p.name, 'image_url', p.image_url) END AS products
+       FROM reviews r
+       LEFT JOIN products p ON p.id = r.product_id
+       ORDER BY r.created_at DESC`
+    );
     res.json(result.rows);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Review counts for the admin stats cards
+router.get('/admin/stats', requireAuth, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT COUNT(*)::int AS total,
+              COUNT(*) FILTER (WHERE is_approved)::int AS approved,
+              COALESCE(ROUND(AVG(rating)::numeric, 1), 0) AS average
+       FROM reviews`
+    );
+    const { total, approved, average } = result.rows[0];
+    res.json({
+      totalReviews: total,
+      approvedReviews: approved,
+      pendingReviews: total - approved,
+      averageRating: parseFloat(average),
+    });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -72,6 +101,9 @@ router.patch('/admin/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const { is_approved } = req.body;
+    if (typeof is_approved !== 'boolean') {
+      return res.status(400).json({ error: 'is_approved must be true or false' });
+    }
 
     const result = await pool.query(
       `UPDATE reviews SET is_approved = $1, updated_at = $2 WHERE id = $3 RETURNING *`,

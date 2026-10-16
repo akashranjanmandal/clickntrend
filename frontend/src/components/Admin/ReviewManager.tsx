@@ -5,6 +5,7 @@ import {
   Search, Filter, MessageSquare, ThumbsUp, Calendar
 } from 'lucide-react';
 import { useApi } from '../../hooks/useApi';
+import toast from 'react-hot-toast';
 
 interface Review {
   id: string;
@@ -57,14 +58,16 @@ const ReviewManager: React.FC = () => {
 
   const approveReview = async (id: string, approve: boolean) => {
     try {
-      await fetchWithAuth(`/api/reviews/admin/${id}/approve`, {
-        method: 'PUT',
+      await fetchWithAuth(`/api/reviews/admin/${id}`, {
+        method: 'PATCH',
         body: JSON.stringify({ is_approved: approve }),
       });
-      await fetchReviews();
-      await fetchStats();
-    } catch (error) {
+      setReviews(prev => prev.map(r => r.id === id ? { ...r, is_approved: approve } : r));
+      toast.success(approve ? 'Review approved — now visible on the product page' : 'Review hidden from the product page');
+      fetchStats();
+    } catch (error: any) {
       console.error('Error approving review:', error);
+      toast.error(`Failed to update review: ${error.message}`);
     }
   };
 
@@ -72,17 +75,19 @@ const ReviewManager: React.FC = () => {
     if (!confirm('Delete this review?')) return;
     try {
       await fetchWithAuth(`/api/reviews/admin/${id}`, { method: 'DELETE' });
-      await fetchReviews();
-      await fetchStats();
-    } catch (error) {
+      setReviews(prev => prev.filter(r => r.id !== id));
+      toast.success('Review deleted');
+      fetchStats();
+    } catch (error: any) {
       console.error('Error deleting review:', error);
+      toast.error(`Failed to delete review: ${error.message}`);
     }
   };
 
   const filteredReviews = reviews.filter(review => {
     const matchesSearch = 
-      review.user_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      review.comment.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (review.user_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (review.comment || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (review.products?.name || '').toLowerCase().includes(searchQuery.toLowerCase());
 
     if (!matchesSearch) return false;
