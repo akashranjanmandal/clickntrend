@@ -531,6 +531,7 @@ const updatePaymentStatus = async (orderId: string, paymentStatus: string) => {
       'Customer Name': order.customer_name,
       'Customer Email': order.customer_email,
       'Customer Phone': order.customer_phone || '',
+      'Alternative Phone': order.customer_alt_phone || '',
       'Address': order.shipping_address || '',
       'City': order.shipping_city || '',
       'State': order.shipping_state || '',
@@ -2164,6 +2165,12 @@ const updatePaymentStatus = async (orderId: string, paymentStatus: string) => {
                       <label className="text-sm text-gray-600">Phone</label>
                       <p className="font-medium">{selectedOrder.customer_phone || 'N/A'}</p>
                     </div>
+                    {selectedOrder.customer_alt_phone && (
+                      <div>
+                        <label className="text-sm text-gray-600">Alternative Phone</label>
+                        <p className="font-medium">{selectedOrder.customer_alt_phone}</p>
+                      </div>
+                    )}
                     <div>
                       <label className="text-sm text-gray-600">Order Date</label>
                       <p className="font-medium">

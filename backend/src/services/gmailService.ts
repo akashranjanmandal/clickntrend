@@ -17,6 +17,7 @@ interface OrderData {
   shipping_state: string;
   shipping_pincode: string;
   customer_phone: string;
+  customer_alt_phone?: string | null;
   special_requests?: string;
   created_at: string;
   tracking_number?: string;
@@ -442,6 +443,7 @@ export const sendAdminNotification = async (orderData: OrderData): Promise<Email
             <p style="margin: 5px 0;"><strong>Name:</strong> ${orderData.customer_name}</p>
             <p style="margin: 5px 0;"><strong>Email:</strong> ${orderData.customer_email}</p>
             <p style="margin: 5px 0;"><strong>Phone:</strong> ${orderData.customer_phone}</p>
+            ${orderData.customer_alt_phone ? `<p style="margin: 5px 0;"><strong>Alternative Phone:</strong> ${orderData.customer_alt_phone}</p>` : ''}
             <p style="margin: 5px 0;"><strong>Order Date:</strong> ${formatDate(orderData.created_at)}</p>
             
             <h2>Shipping Address</h2>

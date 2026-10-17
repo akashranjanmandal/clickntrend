@@ -32,6 +32,7 @@ const Checkout: React.FC = () => {
     name: '',
     email: '',
     phone: '',
+    alt_phone: '',
     address: '',
     city: '',
     state: '',
@@ -121,6 +122,14 @@ const Checkout: React.FC = () => {
       errors.phone = "Please enter your phone number";
     } else if (!/^\d{10}$/.test(formData.phone.replace(/\D/g, ''))) {
       errors.phone = "Please enter a valid 10-digit phone number";
+    }
+    const altPhone = formData.alt_phone.replace(/\D/g, '');
+    if (altPhone) {
+      if (!/^\d{10}$/.test(altPhone)) {
+        errors.alt_phone = "Please enter a valid 10-digit phone number";
+      } else if (altPhone === formData.phone.replace(/\D/g, '')) {
+        errors.alt_phone = "Alternative number must be different from your phone number";
+      }
     }
     if (!formData.address?.trim()) {
       errors.address = "Please enter your address";
@@ -269,6 +278,7 @@ const Checkout: React.FC = () => {
         name: formData.name,
         email: formData.email,
         phone: formData.phone,
+        alt_phone: formData.alt_phone,
         address: fullAddress,
         city: formData.city,
         state: formData.state,
@@ -353,6 +363,7 @@ const Checkout: React.FC = () => {
         name: formData.name,
         email: formData.email,
         phone: formData.phone,
+        alt_phone: formData.alt_phone,
         address: fullAddress,
         city: formData.city,
         state: formData.state,
@@ -675,6 +686,7 @@ const Checkout: React.FC = () => {
                 {renderField('Full Name', 'name', 'text', 'Enter your full name')}
                 {renderField('Email', 'email', 'email', 'Enter your email')}
                 {renderField('Phone Number', 'phone', 'tel', '10-digit mobile number')}
+                {renderField('Alternative Phone Number', 'alt_phone', 'tel', 'Optional, in case we cannot reach you', false)}
                 {renderField('Address', 'address', 'textarea', 'House no, Street, Area')}
 
                 {/* City, State, Pincode */}

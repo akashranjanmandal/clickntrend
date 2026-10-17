@@ -167,6 +167,7 @@ router.post('/cod', async (req: Request, res: Response) => {
       customer_name: (order_data.name || '').trim(),
       customer_email: (order_data.email || '').trim().toLowerCase(),
       customer_phone: (order_data.phone || '').replace(/\D/g, ''),
+      customer_alt_phone: (order_data.alt_phone || '').replace(/\D/g, '') || null,
       special_requests: (order_data.special_requests || '').trim(),
       shipping_address: (order_data.address || '').trim(),
       shipping_city: (order_data.city || '').trim(),
@@ -182,10 +183,10 @@ router.post('/cod', async (req: Request, res: Response) => {
     const result = await pool.query(
       `INSERT INTO orders
          (custom_order_id, items, subtotal, shipping_charge, cod_charge, coupon_code, coupon_discount,
-          total_amount, customer_name, customer_email, customer_phone, special_requests,
+          total_amount, customer_name, customer_email, customer_phone, customer_alt_phone, special_requests,
           shipping_address, shipping_city, shipping_state, shipping_pincode,
           shipping_country, payment_method, status, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
        RETURNING *`,
       Object.values(orderRecord)
     );
