@@ -1,11 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useCart } from '../context/CartContext';
 import { formatCurrency } from '../utils/helpers';
 import { CONFIG } from '../config';
-import { Wallet, Truck, Tag, CheckCircle,Ruler, XCircle, ArrowLeft, ShoppingBag, Gift, AlertCircle, Sparkles } from 'lucide-react';
+import { Wallet, Truck, Tag, CheckCircle,Ruler, XCircle, ArrowLeft, ShoppingBag, Gift, AlertCircle, Sparkles, MapPin, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../utils/api';
 import { useSeo } from '../utils/seo';
+import { detectAddress } from '../utils/geolocation';
 
 declare global {
   interface Window {
@@ -43,6 +44,7 @@ const Checkout: React.FC = () => {
     name: '',
     email: '',
     phone: '',
+    alt_phone: '',
     address: '',
     city: '',
     state: '',
@@ -51,6 +53,45 @@ const Checkout: React.FC = () => {
   });
 
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const [locationStatus, setLocationStatus] = useState<'idle' | 'detecting' | 'filled' | 'error'>('idle');
+  const [locationMessage, setLocationMessage] = useState('');
+
+  /* ---------------- LOCATION AUTOFILL ---------------- */
+  // Fills address/city/state/pincode from the visitor's location.
+  // Only empty fields are filled so we never overwrite what the user typed.
+  const fillFromLocation = useCallback(async () => {
+    setLocationStatus('detecting');
+    setLocationMessage('');
+    try {
+      const detected = await detectAddress();
+      if (!detected.city && !detected.state && !detected.pincode) {
+        throw new Error('Could not find an address for your location. Please enter it manually.');
+      }
+      setFormData(prev => ({
+        ...prev,
+        address: prev.address.trim() ? prev.address : detected.address,
+        city: prev.city.trim() ? prev.city : detected.city,
+        state: prev.state.trim() ? prev.state : detected.state,
+        pincode: prev.pincode.trim() ? prev.pincode : detected.pincode,
+      }));
+      setFieldErrors(prev => ({ ...prev, address: '', city: '', state: '', pincode: '' }));
+      setLocationStatus('filled');
+      setLocationMessage(
+        detected.pincode
+          ? 'Filled from your location. Please verify and add your house number.'
+          : 'Filled from your location, but pincode was not found. Please enter it.'
+      );
+    } catch (e: any) {
+      setLocationStatus('error');
+      setLocationMessage(e.message || 'Could not detect your location.');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (items.length) fillFromLocation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /* ---------------- CALCULATIONS ---------------- */
   const subtotal = total;
@@ -93,6 +134,14 @@ const Checkout: React.FC = () => {
       errors.phone = "Please enter your phone number";
     } else if (!/^\d{10}$/.test(formData.phone.replace(/\D/g, ''))) {
       errors.phone = "Please enter a valid 10-digit phone number";
+    }
+    const altPhone = formData.alt_phone.replace(/\D/g, '');
+    if (altPhone) {
+      if (!/^\d{10}$/.test(altPhone)) {
+        errors.alt_phone = "Please enter a valid 10-digit phone number";
+      } else if (altPhone === formData.phone.replace(/\D/g, '')) {
+        errors.alt_phone = "Alternative number must be different from your phone number";
+      }
     }
     if (!formData.address?.trim()) {
       errors.address = "Please enter your address";
@@ -241,6 +290,7 @@ const Checkout: React.FC = () => {
         name: formData.name,
         email: formData.email,
         phone: formData.phone,
+        alt_phone: formData.alt_phone,
         address: fullAddress,
         city: formData.city,
         state: formData.state,
@@ -325,6 +375,7 @@ const Checkout: React.FC = () => {
         name: formData.name,
         email: formData.email,
         phone: formData.phone,
+        alt_phone: formData.alt_phone,
         address: fullAddress,
         city: formData.city,
         state: formData.state,
@@ -618,11 +669,36 @@ const Checkout: React.FC = () => {
           <div className="order-2 lg:order-2">
             <div className="bg-white rounded-xl md:rounded-2xl shadow-lg p-4 md:p-6">
               <h2 className="text-xl md:text-2xl font-serif font-semibold mb-4 md:mb-6">Shipping Details</h2>
-              
+
+              {/* Location Autofill */}
+              <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 bg-premium-cream/50 border border-premium-gold/20 rounded-lg">
+                <p className={`text-xs md:text-sm flex items-center gap-2 ${
+                  locationStatus === 'error' ? 'text-red-600' : locationStatus === 'filled' ? 'text-green-700' : 'text-gray-600'
+                }`}>
+                  {locationStatus === 'detecting' ? (
+                    <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
+                  ) : (
+                    <MapPin className="h-4 w-4 flex-shrink-0" />
+                  )}
+                  {locationStatus === 'detecting'
+                    ? 'Detecting your location...'
+                    : locationMessage || 'Autofill your address using your current location'}
+                </p>
+                <button
+                  type="button"
+                  onClick={fillFromLocation}
+                  disabled={locationStatus === 'detecting'}
+                  className="text-xs md:text-sm font-medium text-premium-gold hover:text-premium-burgundy disabled:opacity-50 whitespace-nowrap"
+                >
+                  Use my current location
+                </button>
+              </div>
+
               <div className="space-y-3 md:space-y-4">
                 {renderField('Full Name', 'name', 'text', 'Enter your full name')}
                 {renderField('Email', 'email', 'email', 'Enter your email')}
                 {renderField('Phone Number', 'phone', 'tel', '10-digit mobile number')}
+                {renderField('Alternative Phone Number', 'alt_phone', 'tel', 'Optional, in case we cannot reach you', false)}
                 {renderField('Address', 'address', 'textarea', 'House no, Street, Area')}
 
                 {/* City, State, Pincode */}

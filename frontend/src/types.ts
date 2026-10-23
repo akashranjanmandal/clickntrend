@@ -196,6 +196,7 @@ export interface Order {
   customer_name: string;
   customer_email: string;
   customer_phone?: string;
+  customer_alt_phone?: string | null;
   special_requests?: string;
   shipping_address?: string;
   shipping_city?: string;

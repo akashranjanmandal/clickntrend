@@ -105,10 +105,10 @@ router.post('/verify-payment', async (req, res) => {
       `INSERT INTO orders
          (custom_order_id, razorpay_order_id, razorpay_payment_id, razorpay_signature,
           items, subtotal, shipping_charge, coupon_code, coupon_discount, total_amount,
-          customer_name, customer_email, customer_phone, special_requests,
+          customer_name, customer_email, customer_phone, customer_alt_phone, special_requests,
           shipping_address, shipping_city, shipping_state, shipping_pincode,
           shipping_country, payment_method, status, payment_status, paid_at, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)
        RETURNING *`,
       [
         custom_order_id,
@@ -124,6 +124,7 @@ router.post('/verify-payment', async (req, res) => {
         (order_data.name || '').trim(),
         (order_data.email || '').trim().toLowerCase(),
         (order_data.phone || '').replace(/\D/g, ''),
+        (order_data.alt_phone || '').replace(/\D/g, '') || null,
         (order_data.special_requests || '').trim(),
         (order_data.address || '').trim(),
         (order_data.city || '').trim(),
