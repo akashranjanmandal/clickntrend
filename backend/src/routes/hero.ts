@@ -53,9 +53,10 @@ router.post('/upload', requireAuth, upload.single('media'), async (req, res) => 
   }
 });
 
+// Public: only heroes switched on in admin
 router.get('/', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM hero_content ORDER BY display_order ASC');
+    const result = await pool.query('SELECT * FROM hero_content WHERE is_active = true ORDER BY display_order ASC');
     res.json(result.rows);
   } catch (err: any) {
     res.status(500).json({ error: err.message });

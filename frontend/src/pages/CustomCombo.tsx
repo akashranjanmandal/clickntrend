@@ -12,6 +12,7 @@ import { apiFetch } from '../utils/api';
 import CategoryCard from '../components/CategoryCard';
 import { useCart } from '../context/CartContext';
 import ProductCustomizationModal from '../components/ProductCustomizationModal';
+import { useSeo } from '../utils/seo';
 
 // Extended interface for combo cart item
 interface ComboCartItem extends CartItem {
@@ -29,6 +30,7 @@ interface ComboCartItem extends CartItem {
 }
 
 const CustomCombo: React.FC = () => {
+  useSeo({ title: 'Build a Custom Gift Combo', description: 'Mix and match gifts into your own personalised combo. Add photos and messages to each piece and we will wrap it into one gift.', path: '/custom-combo' });
   const { addItem } = useCart();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -639,6 +641,7 @@ const getFilteredProducts = () => {
             : pendingProductToAdd.image_url;
           return (
             <ProductCustomizationModal
+              key={pendingProductToAdd.id}
               product={pendingProductToAdd}
               selectedImageUrl={colorImg}
               onClose={() => {

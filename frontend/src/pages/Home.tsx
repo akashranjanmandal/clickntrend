@@ -14,14 +14,14 @@ import ProductCard from '../components/ProductCard';
 import CategoryCard from '../components/CategoryCard';
 import HeroSection from '../components/HeroSection';
 // ProductDetailsModal removed - product clicks now navigate to /product/:id
-// ComboDetailsModal removed - combo clicks now navigate to /combo/:id
 import { Product, Category, HeroContent, Stat, Combo, Gender } from '../types';
 import { apiFetch } from '../utils/api';
-import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import ComboCard from '../components/ComboCard';
 import Popup from '../components/Popup';
 import PremiumLoader from '../components/PremiumLoader';
 import toast from 'react-hot-toast';
+import { useSeo } from '../utils/seo';
 
 // Custom hook for handling back button with double press to exit
 const useBackNavigation = (
@@ -83,12 +83,13 @@ const useBackNavigation = (
 };
 
 // Animation variants
+// Gentle reveal; nested children cascade in after their parent
 const fadeInUpVariants = {
-  initial: { opacity: 0, y: 60 },
-  animate: { 
-    opacity: 1, 
+  initial: { opacity: 0, y: 28 },
+  animate: {
+    opacity: 1,
     y: 0,
-    transition: { duration: 0.6, ease: "easeOut" }
+    transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1], staggerChildren: 0.08 }
   }
 };
 
@@ -101,7 +102,7 @@ const staggerContainerVariants = {
 };
 
 const scaleInVariants = {
-  initial: { opacity: 0, scale: 0.8 },
+  initial: { opacity: 0, scale: 0.96 },
   animate: { 
     opacity: 1, 
     scale: 1,
@@ -110,6 +111,7 @@ const scaleInVariants = {
 };
 
 const Home: React.FC = () => {
+  useSeo({ path: '/' });
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
@@ -139,9 +141,6 @@ const Home: React.FC = () => {
   const [showPopup, setShowPopup] = useState(false);
 
   // Scroll animations
-  const { scrollYProgress } = useScroll();
-  const heroOpacity = useTransform(scrollYProgress, [0, 0.2], [1, 0]);
-  const heroScale = useTransform(scrollYProgress, [0, 0.2], [1, 0.95]);
 
   // Custom icons for stats
   const statIcons = [
@@ -389,7 +388,7 @@ const getFilteredProducts = () => {
       initial="initial"
       animate="animate"
       variants={staggerContainerVariants}
-      className="min-h-screen bg-gradient-to-b from-white to-gray-50 overflow-hidden"
+      className="-mt-[72px] md:-mt-[84px] min-h-screen bg-gradient-to-b from-white to-gray-50 overflow-hidden"
     >
       {/* Stays on top until data and the hero's first frame are ready */}
       {(loading || !heroReady) && <PremiumLoader />}
@@ -423,117 +422,23 @@ const getFilteredProducts = () => {
         )}
       </AnimatePresence>
 
-      {/* Hero Section with Parallax */}
-      <motion.div
-        style={{ 
-          opacity: heroOpacity,
-          scale: heroScale
-        }}
-      >
+      {/* Hero — the page wrapper is pulled up 72px / 84px so it sits under the transparent navbar */}
+      <motion.div>
         {heroes.length > 0 ? (
           <HeroSection heroes={heroes} onReady={() => setHeroReady(true)} />
         ) : (
-          <div className="relative h-[500px] sm:h-[600px] bg-gradient-to-r from-[#1a1a2e] via-[#16213e] to-[#0f3460] flex items-center justify-center text-white overflow-hidden">
-            {/* Animated background elements */}
-            <motion.div
-              animate={{ 
-                scale: [1, 1.2, 1],
-                rotate: [0, 90, 0],
-                opacity: [0.1, 0.2, 0.1]
-              }}
-              transition={{ duration: 10, repeat: Infinity }}
-              className="absolute top-0 left-0 w-48 sm:w-96 h-48 sm:h-96 bg-premium-gold rounded-full filter blur-3xl"
-            />
-            <motion.div
-              animate={{ 
-                scale: [1, 1.3, 1],
-                rotate: [0, -90, 0],
-                opacity: [0.1, 0.2, 0.1]
-              }}
-              transition={{ duration: 12, repeat: Infinity }}
-              className="absolute bottom-0 right-0 w-48 sm:w-96 h-48 sm:h-96 bg-purple-600 rounded-full filter blur-3xl"
-            />
-            
-            {/* Floating particles */}
-            {[...Array(20)].map((_, i) => (
-              <motion.div
-                key={i}
-                initial={{ 
-                  x: Math.random() * window.innerWidth,
-                  y: Math.random() * window.innerHeight,
-                  scale: 0
-                }}
-                animate={{ 
-                  y: [null, -30, 30, -30],
-                  scale: [0, 1, 0.5, 1, 0],
-                  opacity: [0, 0.5, 0.2, 0.5, 0]
-                }}
-                transition={{ 
-                  duration: 5 + Math.random() * 5,
-                  repeat: Infinity,
-                  delay: Math.random() * 5
-                }}
-                className="absolute w-1 h-1 bg-white rounded-full"
-              />
-            ))}
-
-            <motion.div
-              variants={scaleInVariants}
-              className="text-center relative z-10 px-4"
-            >
-              <motion.div
-                animate={{ 
-                  rotate: [0, 10, -10, 0],
-                  scale: [1, 1.1, 1]
-                }}
-                transition={{ duration: 3, repeat: Infinity }}
-                className="inline-block mb-4 sm:mb-6"
-              >
-                <Gift className="h-16 w-16 sm:h-20 sm:w-20 text-premium-gold" />
-              </motion.div>
-              
-              <motion.h1 
-                variants={fadeInUpVariants}
-                className="text-4xl sm:text-5xl md:text-7xl font-serif font-bold mb-4 sm:mb-6"
-              >
-                GFTD
-              </motion.h1>
-              
-              <motion.p 
-                variants={fadeInUpVariants}
-                className="text-lg sm:text-xl md:text-2xl text-gray-300 mb-6 sm:mb-8"
-              >
-                The Art Of Gifting
-              </motion.p>
-              
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => navigate('/products')}
-                className="px-6 sm:px-8 py-3 sm:py-4 bg-premium-gold text-white rounded-full font-medium inline-flex items-center gap-2 hover:bg-opacity-90 transition-all shadow-lg text-sm sm:text-base relative overflow-hidden group"
-              >
-                <motion.span
-                  animate={{ x: [-2, 2, -2] }}
-                  transition={{ duration: 1.5, repeat: Infinity }}
-                  className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"
-                />
-                Explore Collection
-                <motion.div
-                  animate={{ x: [0, 5, 0] }}
-                  transition={{ duration: 1, repeat: Infinity }}
-                >
-                  <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5" />
-                </motion.div>
-              </motion.button>
-            </motion.div>
-          </div>
+          // No active hero in admin: keep a plain dark band behind the navbar and search bar, no content
+          <div className="h-[260px] bg-premium-charcoal md:h-[300px]" aria-hidden="true" />
         )}
       </motion.div>
 
-      {/* Search Section - High z-index */}
+      {/* Search Section — above page content, below the navbar (z-60) */}
       <motion.section
+        initial="initial"
+        whileInView="animate"
+        viewport={{ once: true, amount: 0.1 }}
         variants={fadeInUpVariants}
-        className="relative -mt-16 sm:-mt-24 z-50 pb-12 sm:pb-20"
+        className="relative -mt-16 sm:-mt-24 z-40 pb-12 sm:pb-20"
       >
         <div className="container mx-auto px-3 sm:px-4">
           <motion.div
@@ -543,57 +448,34 @@ const getFilteredProducts = () => {
             className="max-w-3xl mx-auto"
           >
             <div className="relative">
-              <motion.div
-                whileHover={{ scale: 1.02 }}
-                transition={{ type: "spring", stiffness: 300 }}
-                className="bg-white/80 backdrop-blur-xl rounded-2xl sm:rounded-3xl shadow-2xl p-1 sm:p-2 flex flex-col sm:flex-row items-stretch sm:items-center border border-white/20"
-              >
-                <div className="flex-1 flex items-center px-3 sm:px-4">
-                  <Search className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
-                  <input
-                    type="text"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                    placeholder="Search products..."
-                    className="w-full px-3 sm:px-4 py-3 sm:py-4 focus:outline-none bg-transparent text-sm sm:text-base"
-                  />
-                  {searchTerm && (
-                    <motion.button
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                      onClick={() => {
-                        setSearchTerm('');
-                        setShowSearchResults(false);
-                      }}
-                      className="p-1 hover:bg-gray-100 rounded-full transition-colors"
-                    >
-                      <X className="h-3 w-3 sm:h-4 sm:w-4" />
-                    </motion.button>
-                  )}
-                </div>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
+              <div className="flex items-center gap-2 rounded-full bg-white p-1.5 pl-5 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.45)] ring-1 ring-black/5 transition-shadow focus-within:ring-2 focus-within:ring-premium-gold/40 sm:p-2 sm:pl-6">
+                <Search className="h-5 w-5 flex-shrink-0 text-gray-400" />
+                <input
+                  type="search"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                  placeholder="Search for a gift…"
+                  aria-label="Search products"
+                  className="min-w-0 flex-1 bg-transparent py-2.5 text-[15px] text-premium-charcoal placeholder:text-gray-400 focus:outline-none sm:py-3 sm:text-base [&::-webkit-search-cancel-button]:hidden"
+                />
+                {searchTerm && (
+                  <button
+                    onClick={() => { setSearchTerm(''); setShowSearchResults(false); }}
+                    aria-label="Clear search"
+                    className="rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+                <button
                   onClick={() => handleSearch()}
                   disabled={searchLoading}
-                  className="mx-1 sm:mx-2 mb-1 sm:mb-0 px-4 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-premium-gold to-yellow-500 text-white rounded-xl sm:rounded-2xl hover:from-premium-burgundy hover:to-premium-gold transition-all duration-300 disabled:opacity-50 flex items-center justify-center gap-2 text-sm sm:text-base relative overflow-hidden group"
+                  className="flex flex-shrink-0 items-center gap-2 rounded-full bg-premium-charcoal px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-black disabled:opacity-60 sm:px-7 sm:py-3"
                 >
-                  <motion.span
-                    animate={{ x: [-100, 100] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                    className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
-                  />
-                  {searchLoading ? (
-                    <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
-                  ) : (
-                    <>
-                      <span className="hidden sm:inline">Search</span>
-                      <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5" />
-                    </>
-                  )}
-                </motion.button>
-              </motion.div>
+                  {searchLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Search<ArrowRight className="hidden h-4 w-4 sm:block" /></>}
+                </button>
+              </div>
 
               {/* Search Results Dropdown - Very high z-index */}
               <AnimatePresence>
@@ -668,10 +550,15 @@ const getFilteredProducts = () => {
         </div>
       </motion.section>
 
-      {/* Navigation - Medium z-index */}
+      {/* Navigation — sticks just below the navbar (72px mobile / 84px desktop) */}
+      {/* Breadcrumb only while browsing a category ('Shop by Category' covers the rest) */}
+      {selectedCategory && (
       <motion.section
+        initial="initial"
+        whileInView="animate"
+        viewport={{ once: true, amount: 0.1 }}
         variants={fadeInUpVariants}
-        className="py-4 sm:py-8 bg-white/50 backdrop-blur-sm sticky top-0 z-30 border-b border-gray-200"
+        className="py-4 sm:py-8 bg-white/80 backdrop-blur-md sticky top-[72px] md:top-[84px] z-30 border-b border-gray-200"
       >
         <div className="container mx-auto px-3 sm:px-4">
           <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm flex-wrap">
@@ -714,10 +601,14 @@ const getFilteredProducts = () => {
           </div>
         </div>
       </motion.section>
+      )}
 
  {/* Categories Grid */}
 {!selectedCategory && (
   <motion.section
+    initial="initial"
+    whileInView="animate"
+    viewport={{ once: true, amount: 0.1 }}
     variants={fadeInUpVariants}
     className="py-10 sm:py-16 lg:py-20"
   >
@@ -771,6 +662,10 @@ const getFilteredProducts = () => {
             <motion.div
               key={category.id}
               variants={scaleInVariants}
+              // Mounts after data loads, so it triggers its own reveal (the parent section has already animated)
+              initial="initial"
+              whileInView="animate"
+              viewport={{ once: true, amount: 0.2 }}
               custom={index}
               whileHover={{ y: -5 }}
             >
@@ -796,6 +691,9 @@ const getFilteredProducts = () => {
       {/* Gender Filter */}
       {selectedCategory && (
         <motion.section
+          initial="initial"
+          whileInView="animate"
+          viewport={{ once: true, amount: 0.1 }}
           variants={fadeInUpVariants}
           className="py-4 sm:py-8 bg-white/50 backdrop-blur-sm border-b border-gray-200"
         >
@@ -847,6 +745,9 @@ const getFilteredProducts = () => {
       {/* View Toggle */}
       {selectedCategory && (
         <motion.section
+          initial="initial"
+          whileInView="animate"
+          viewport={{ once: true, amount: 0.1 }}
           variants={fadeInUpVariants}
           className="py-4 sm:py-6"
         >
@@ -884,6 +785,9 @@ const getFilteredProducts = () => {
       {/* Products/Combos Grid */}
       {selectedCategory && (
         <motion.section
+          initial="initial"
+          whileInView="animate"
+          viewport={{ once: true, amount: 0.1 }}
           variants={fadeInUpVariants}
           className="py-6 sm:py-8 md:py-12"
         >
@@ -913,6 +817,10 @@ const getFilteredProducts = () => {
                     <motion.div
                       key={product.id}
                       variants={scaleInVariants}
+                      // Mounts after data loads, so it triggers its own reveal (the parent section has already animated)
+                      initial="initial"
+                      whileInView="animate"
+                      viewport={{ once: true, amount: 0.2 }}
                       custom={index}
                       whileHover={{ y: -5 }}
                       onClick={() => {
@@ -928,6 +836,10 @@ const getFilteredProducts = () => {
               ) : (
                 <motion.div 
                   variants={scaleInVariants}
+                  // Mounts after data loads, so it triggers its own reveal (the parent section has already animated)
+                  initial="initial"
+                  whileInView="animate"
+                  viewport={{ once: true, amount: 0.2 }}
                   className="text-center py-10 sm:py-12 md:py-16"
                 >
                   <motion.div
@@ -956,6 +868,10 @@ const getFilteredProducts = () => {
                     <motion.div
                       key={combo.id}
                       variants={scaleInVariants}
+                      // Mounts after data loads, so it triggers its own reveal (the parent section has already animated)
+                      initial="initial"
+                      whileInView="animate"
+                      viewport={{ once: true, amount: 0.2 }}
                       custom={index}
                       whileHover={{ y: -5 }}
                     >
@@ -969,6 +885,10 @@ const getFilteredProducts = () => {
               ) : (
                 <motion.div 
                   variants={scaleInVariants}
+                  // Mounts after data loads, so it triggers its own reveal (the parent section has already animated)
+                  initial="initial"
+                  whileInView="animate"
+                  viewport={{ once: true, amount: 0.2 }}
                   className="text-center py-10 sm:py-12 md:py-16"
                 >
                   <motion.div
@@ -991,80 +911,43 @@ const getFilteredProducts = () => {
 
       {/* CTA Section */}
       <motion.section
+        initial="initial"
+        whileInView="animate"
+        viewport={{ once: true, amount: 0.3 }}
         variants={fadeInUpVariants}
-        className="py-12 sm:py-16 md:py-20 bg-gradient-to-r from-premium-gold via-yellow-500 to-orange-500 relative overflow-hidden"
+        className="relative overflow-hidden bg-premium-charcoal py-16 sm:py-24"
       >
-        {/* Animated background elements */}
-        <motion.div
-          animate={{ 
-            scale: [1, 1.2, 1],
-            rotate: [0, 45, 0],
-            opacity: [0.1, 0.2, 0.1]
-          }}
-          transition={{ duration: 8, repeat: Infinity }}
-          className="absolute top-0 left-0 w-48 sm:w-96 h-48 sm:h-96 bg-white rounded-full filter blur-3xl"
-        />
-        <motion.div
-          animate={{ 
-            scale: [1, 1.3, 1],
-            rotate: [0, -45, 0],
-            opacity: [0.1, 0.2, 0.1]
-          }}
-          transition={{ duration: 10, repeat: Infinity }}
-          className="absolute bottom-0 right-0 w-48 sm:w-96 h-48 sm:h-96 bg-white rounded-full filter blur-3xl"
-        />
-        
-        <div className="container mx-auto px-3 sm:px-4 text-center relative z-10">
-          <motion.div
-            variants={scaleInVariants}
-            className="max-w-3xl mx-auto"
-          >
-            <motion.div
-              animate={{ 
-                rotate: [0, 15, -15, 0],
-                scale: [1, 1.2, 1]
-              }}
-              transition={{ duration: 3, repeat: Infinity }}
-              className="inline-block mb-4 sm:mb-6"
-            >
-              <Gift className="h-12 w-12 sm:h-16 sm:w-16 md:h-20 md:w-20 text-white" />
-            </motion.div>
-            
-            <motion.h2 
-              variants={fadeInUpVariants}
-              className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-serif font-bold text-white mb-3 sm:mb-4 md:mb-6 px-4"
-            >
-              Create Your Perfect Gift Combo
-            </motion.h2>
-            
-            <motion.p 
-              variants={fadeInUpVariants}
-              className="text-sm sm:text-base md:text-lg lg:text-xl text-white/90 mb-4 sm:mb-6 md:mb-8 px-4"
-            >
-              Mix and match premium gifts to create a personalized experience
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(212,175,55,0.22),transparent_55%),radial-gradient(ellipse_at_bottom_right,rgba(212,175,55,0.12),transparent_50%)]" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-premium-gold/50 to-transparent" />
+
+        <div className="container relative mx-auto px-4">
+          <div className="mx-auto max-w-3xl text-center">
+            <motion.p variants={fadeInUpVariants} className="text-xs font-semibold uppercase tracking-[0.25em] text-premium-gold">
+              Build your own
             </motion.p>
-            
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => navigate('/custom-combo')}
-              className="inline-flex items-center px-4 sm:px-6 md:px-8 py-2 sm:py-3 md:py-4 bg-white text-premium-gold rounded-full hover:shadow-2xl transition-all duration-300 text-sm sm:text-base md:text-lg font-medium group relative overflow-hidden"
-            >
-              <motion.span
-                animate={{ x: [-100, 100] }}
-                transition={{ duration: 2, repeat: Infinity }}
-                className="absolute inset-0 bg-gradient-to-r from-transparent via-premium-gold/20 to-transparent"
-              />
-              <Sparkles className="mr-1 sm:mr-2 h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6" />
-              <span className="sm:inline">Design Custom Combo</span>
-              <motion.div
-                animate={{ x: [0, 5, 0] }}
-                transition={{ duration: 1, repeat: Infinity }}
+            <motion.h2 variants={fadeInUpVariants} className="mt-4 font-serif text-3xl leading-tight text-white sm:text-5xl">
+              Create the perfect gift combo
+            </motion.h2>
+            <motion.p variants={fadeInUpVariants} className="mx-auto mt-4 max-w-xl text-base text-white/70 sm:text-lg">
+              Pick the pieces, add your photos and words, and we'll wrap it into one thoughtful gift.
+            </motion.p>
+            <motion.div variants={fadeInUpVariants} className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <button
+                onClick={() => navigate('/custom-combo')}
+                className="group inline-flex items-center gap-2 rounded-full bg-premium-gold px-7 py-3.5 text-sm font-semibold text-premium-charcoal shadow-[0_10px_30px_-10px_rgba(212,175,55,0.6)] transition-all hover:-translate-y-0.5 hover:bg-[#e0bf4f] sm:text-base"
               >
-                <ArrowRight className="ml-1 sm:ml-2 h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5" />
-              </motion.div>
-            </motion.button>
-          </motion.div>
+                <Sparkles className="h-4 w-4" />
+                Design a custom combo
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </button>
+              <button
+                onClick={() => navigate('/combos')}
+                className="inline-flex items-center gap-2 rounded-full border border-white/20 px-7 py-3.5 text-sm font-medium text-white/90 transition-colors hover:border-white/40 hover:text-white sm:text-base"
+              >
+                Browse ready-made combos
+              </button>
+            </motion.div>
+          </div>
         </div>
       </motion.section>
 
@@ -1072,6 +955,9 @@ const getFilteredProducts = () => {
       {!selectedCategory && (
         <>
           <motion.section
+            initial="initial"
+            whileInView="animate"
+            viewport={{ once: true, amount: 0.1 }}
             variants={fadeInUpVariants}
             className="py-10 sm:py-16 md:py-20 bg-gradient-to-b from-white to-gray-50"
           >
@@ -1112,6 +998,10 @@ const getFilteredProducts = () => {
                   <motion.div
                     key={product.id}
                     variants={scaleInVariants}
+                    // Mounts after data loads, so it triggers its own reveal (the parent section has already animated)
+                    initial="initial"
+                    whileInView="animate"
+                    viewport={{ once: true, amount: 0.2 }}
                     custom={index}
                     whileHover={{ y: -5 }}
                     onClick={() => handleProductClick(product)}
@@ -1127,6 +1017,9 @@ const getFilteredProducts = () => {
           {/* Featured Combos */}
           {combos.length > 0 && (
             <motion.section
+              initial="initial"
+              whileInView="animate"
+              viewport={{ once: true, amount: 0.1 }}
               variants={fadeInUpVariants}
               className="py-10 sm:py-16 md:py-20 bg-white"
             >
@@ -1167,6 +1060,10 @@ const getFilteredProducts = () => {
                     <motion.div
                       key={combo.id}
                       variants={scaleInVariants}
+                      // Mounts after data loads, so it triggers its own reveal (the parent section has already animated)
+                      initial="initial"
+                      whileInView="animate"
+                      viewport={{ once: true, amount: 0.2 }}
                       custom={index}
                       whileHover={{ y: -5 }}
                     >
@@ -1183,165 +1080,38 @@ const getFilteredProducts = () => {
         </>
       )}
 
-{/* Stats Section - Premium Golden Finish */}
-<motion.section
-  variants={fadeInUpVariants}
-  className="py-20 bg-gradient-to-br from-gray-900 to-gray-800 text-white relative overflow-hidden"
->
-  {/* Gold Glow Effect */}
-  <div className="absolute inset-0 opacity-30">
-    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(212,175,55,0.15)_0%,_transparent_70%)]" />
-  </div>
-  
-  {/* Animated Gold Particles */}
-  {[...Array(20)].map((_, i) => (
-    <motion.div
-      key={`particle-${i}`}
-      initial={{
-        x: Math.random() * window.innerWidth,
-        y: Math.random() * window.innerHeight,
-        scale: 0
-      }}
-      animate={{
-        y: [null, -50, 50, -50],
-        x: [null, 30, -30, 30],
-        scale: [0, 0.8, 0.4, 0.8, 0],
-        opacity: [0, 0.5, 0.3, 0.5, 0]
-      }}
-      transition={{
-        duration: 6 + Math.random() * 4,
-        repeat: Infinity,
-        delay: Math.random() * 5,
-        ease: "easeInOut"
-      }}
-      className="absolute w-1 h-1 bg-gold rounded-full"
-    />
-  ))}
-
-  <div className="container mx-auto px-4 relative z-10">
-    <motion.div variants={fadeInUpVariants} className="text-center mb-12">
-      <motion.h2 variants={fadeInUpVariants} className="text-4xl md:text-5xl font-serif font-bold mb-2">
-        Our <span className="gold-text">Numbers</span>
-      </motion.h2>
-      <motion.p variants={fadeInUpVariants} className="text-lg text-gray-400">
-        We take pride in our achievements
-      </motion.p>
-      
-      {/* Gold Divider */}
-      <div className="w-20 h-0.5 bg-gold mx-auto mt-4" />
-    </motion.div>
-
-    <motion.div variants={staggerContainerVariants} className="grid grid-cols-2 md:grid-cols-4 gap-8">
-      {/* Stat 1 - Happy Customers */}
-      <motion.div
-        variants={scaleInVariants}
-        whileHover={{ y: -8, scale: 1.02 }}
-        className="text-center group"
+{/* Stats Section — values are editable (site_settings "stats") */}
+      <motion.section
+        initial="initial"
+        whileInView="animate"
+        viewport={{ once: true, amount: 0.3 }}
+        variants={staggerContainerVariants}
+        className="relative overflow-hidden bg-premium-charcoal py-16 text-white sm:py-20"
       >
-        <motion.div
-          animate={{ scale: [1, 1.05, 1] }}
-          transition={{ duration: 2, delay: 0, repeat: Infinity }}
-          className="relative inline-flex items-center justify-center w-24 h-24 mb-4"
-        >
-          <div className="absolute inset-0 bg-gradient-to-br from-gold/20 to-gold/5 rounded-full blur-xl group-hover:blur-2xl transition-all" />
-          <div className="relative bg-gradient-to-br from-gold/20 to-gold/5 rounded-full p-5 border border-gold/30 group-hover:border-gold/60 transition-all">
-            <Users className="w-12 h-12 text-gold" strokeWidth={1.5} />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(212,175,55,0.12),transparent_65%)]" />
+        <div className="container relative mx-auto px-4">
+          <motion.div variants={fadeInUpVariants} className="mx-auto mb-12 max-w-2xl text-center">
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-premium-gold">Trusted by gift-givers</p>
+            <h2 className="mt-3 font-serif text-3xl sm:text-4xl">Gifting, done beautifully</h2>
+          </motion.div>
+          <div className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl bg-white/10 md:grid-cols-4">
+            {(stats.length ? stats : defaultStats).slice(0, 4).map((stat, i) => {
+              const Icon = [Users, Gift, MapPin, Star][i] || Star;
+              return (
+                <motion.div
+                  key={stat.label}
+                  variants={fadeInUpVariants}
+                  className="flex flex-col items-center bg-premium-charcoal px-4 py-8 text-center sm:py-10"
+                >
+                  <Icon className="mb-4 h-6 w-6 text-premium-gold" strokeWidth={1.5} />
+                  <div className="font-serif text-3xl text-white sm:text-4xl">{stat.value}</div>
+                  <div className="mt-2 text-xs uppercase tracking-[0.15em] text-white/60 sm:text-sm">{stat.label}</div>
+                </motion.div>
+              );
+            })}
           </div>
-        </motion.div>
-        
-        <motion.div 
-          animate={{ scale: [1, 1.05, 1] }}
-          transition={{ duration: 2, delay: 0.1, repeat: Infinity }}
-          className="text-3xl md:text-4xl font-bold gold-text mb-1"
-        >
-          10K+
-        </motion.div>
-        <div className="text-gray-400 font-medium">Happy Customers</div>
-      </motion.div>
-
-      {/* Stat 2 - Premium Gifts */}
-      <motion.div
-        variants={scaleInVariants}
-        whileHover={{ y: -8, scale: 1.02 }}
-        className="text-center group"
-      >
-        <motion.div
-          animate={{ scale: [1, 1.05, 1] }}
-          transition={{ duration: 2, delay: 0.2, repeat: Infinity }}
-          className="relative inline-flex items-center justify-center w-24 h-24 mb-4"
-        >
-          <div className="absolute inset-0 bg-gradient-to-br from-gold/20 to-gold/5 rounded-full blur-xl group-hover:blur-2xl transition-all" />
-          <div className="relative bg-gradient-to-br from-gold/20 to-gold/5 rounded-full p-5 border border-gold/30 group-hover:border-gold/60 transition-all">
-            <Gift className="w-12 h-12 text-gold" strokeWidth={1.5} />
-          </div>
-        </motion.div>
-        
-        <motion.div 
-          animate={{ scale: [1, 1.05, 1] }}
-          transition={{ duration: 2, delay: 0.3, repeat: Infinity }}
-          className="text-3xl md:text-4xl font-bold gold-text mb-1"
-        >
-          500+
-        </motion.div>
-        <div className="text-gray-400 font-medium">Premium Gifts</div>
-      </motion.div>
-
-      {/* Stat 3 - Cities Served */}
-      <motion.div
-        variants={scaleInVariants}
-        whileHover={{ y: -8, scale: 1.02 }}
-        className="text-center group"
-      >
-        <motion.div
-          animate={{ scale: [1, 1.05, 1] }}
-          transition={{ duration: 2, delay: 0.4, repeat: Infinity }}
-          className="relative inline-flex items-center justify-center w-24 h-24 mb-4"
-        >
-          <div className="absolute inset-0 bg-gradient-to-br from-gold/20 to-gold/5 rounded-full blur-xl group-hover:blur-2xl transition-all" />
-          <div className="relative bg-gradient-to-br from-gold/20 to-gold/5 rounded-full p-5 border border-gold/30 group-hover:border-gold/60 transition-all">
-            <MapPin className="w-12 h-12 text-gold" strokeWidth={1.5} />
-          </div>
-        </motion.div>
-        
-        <motion.div 
-          animate={{ scale: [1, 1.05, 1] }}
-          transition={{ duration: 2, delay: 0.5, repeat: Infinity }}
-          className="text-3xl md:text-4xl font-bold gold-text mb-1"
-        >
-          50+
-        </motion.div>
-        <div className="text-gray-400 font-medium">Cities Served</div>
-      </motion.div>
-
-      {/* Stat 4 - Star Ratings */}
-      <motion.div
-        variants={scaleInVariants}
-        whileHover={{ y: -8, scale: 1.02 }}
-        className="text-center group"
-      >
-        <motion.div
-          animate={{ scale: [1, 1.05, 1] }}
-          transition={{ duration: 2, delay: 0.6, repeat: Infinity }}
-          className="relative inline-flex items-center justify-center w-24 h-24 mb-4"
-        >
-          <div className="absolute inset-0 bg-gradient-to-br from-gold/20 to-gold/5 rounded-full blur-xl group-hover:blur-2xl transition-all" />
-          <div className="relative bg-gradient-to-br from-gold/20 to-gold/5 rounded-full p-5 border border-gold/30 group-hover:border-gold/60 transition-all">
-            <Star className="w-12 h-12 text-gold fill-gold/20" strokeWidth={1.5} />
-          </div>
-        </motion.div>
-        
-        <motion.div 
-          animate={{ scale: [1, 1.05, 1] }}
-          transition={{ duration: 2, delay: 0.7, repeat: Infinity }}
-          className="text-3xl md:text-4xl font-bold gold-text mb-1"
-        >
-          4.9/5
-        </motion.div>
-        <div className="text-gray-400 font-medium">Star Ratings</div>
-      </motion.div>
-    </motion.div>
-  </div>
-</motion.section>
+        </div>
+      </motion.section>
 
     </motion.div>
   );

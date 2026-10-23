@@ -6,8 +6,10 @@ import { apiFetch } from '../utils/api';
 import { Link, useNavigate } from 'react-router-dom';
 import ComboCard from '../components/ComboCard';
 import { comboMatchesGender } from '../utils/helpers';
+import { useSeo } from '../utils/seo';
 
 export default function Combos() {
+  useSeo({ title: 'Gift Combos & Hampers', description: 'Curated gift combos and hampers you can personalise with photos and messages — thoughtfully packed and delivered across India.', path: '/combos' });
   const navigate = useNavigate();
   const [combos, setCombos] = useState<Combo[]>([]);
   const [loading, setLoading] = useState(true);

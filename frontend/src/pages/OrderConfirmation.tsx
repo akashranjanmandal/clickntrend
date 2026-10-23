@@ -25,6 +25,7 @@ import { apiFetch } from '../utils/api'
 import { formatCurrency } from '../utils/helpers'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import { useSeo } from '../utils/seo';
 
 interface Order {
   id: string
@@ -46,6 +47,7 @@ interface Order {
 }
 
 export default function OrderConfirmation() {
+  useSeo({ title: 'Order Confirmed', noindex: true });
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const [order, setOrder] = useState<Order | null>(null)

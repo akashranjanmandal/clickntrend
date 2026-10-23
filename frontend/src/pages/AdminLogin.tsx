@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { Lock, Eye, EyeOff } from 'lucide-react';
 import AdminPanel from '../components/Admin/AdminPanel';
+import { useSeo } from '../utils/seo';
 
 const AdminLogin: React.FC = () => {
+  useSeo({ title: 'Admin', noindex: true });
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);

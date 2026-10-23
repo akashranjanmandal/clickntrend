@@ -7,31 +7,9 @@ import { getImageUrl, matchesGender } from '../utils/helpers';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { setSeo } from '../utils/seo';
 
 /* ─── Dynamic OG / Twitter meta helper ─── */
-const setMetaTags = (title: string, description: string, imageUrl: string, url: string) => {
-  const upsert = (selector: string, attrName: string, attrVal: string, contentVal: string) => {
-    let el = document.querySelector(selector) as HTMLMetaElement | null;
-    if (!el) {
-      el = document.createElement('meta');
-      el.setAttribute(attrName, attrVal);
-      document.head.appendChild(el);
-    }
-    el.setAttribute('content', contentVal);
-  };
-  document.title = `${title} — GFTD`;
-  upsert('meta[name="description"]', 'name', 'description', description);
-  upsert('meta[property="og:title"]', 'property', 'og:title', title);
-  upsert('meta[property="og:description"]', 'property', 'og:description', description);
-  upsert('meta[property="og:image"]', 'property', 'og:image', imageUrl);
-  upsert('meta[property="og:url"]', 'property', 'og:url', url);
-  upsert('meta[property="og:type"]', 'property', 'og:type', 'website');
-  upsert('meta[name="twitter:card"]', 'name', 'twitter:card', 'summary_large_image');
-  upsert('meta[name="twitter:title"]', 'name', 'twitter:title', title);
-  upsert('meta[name="twitter:description"]', 'name', 'twitter:description', description);
-  upsert('meta[name="twitter:image"]', 'name', 'twitter:image', imageUrl);
-};
-
 const Products: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -68,21 +46,17 @@ const Products: React.FC = () => {
         : `${window.location.origin}/logo.png`;
       const desc = catObj?.description
         || `Shop our ${catName} collection — premium gifts for every occasion.`;
-      setMetaTags(
-        `${catName} — GFTD Collection`,
-        desc,
-        imageUrl,
-        window.location.href,
-      );
+      setSeo({ title: `${catName} — Personalised Gifts`, description: desc, image: imageUrl, path: '/products' });
     } else if (selectedCategories.length === 0 && !searchQuery) {
-      setMetaTags(
-        'Our Collection — GFTD',
-        'Discover premium gifts for every occasion. Shop our curated collection today.',
-        `${window.location.origin}/logo.png`,
-        window.location.href,
-      );
+      setSeo({
+        title: 'Shop All Gifts',
+        description: 'Browse personalised gifts for him, her and everyone — custom photo gifts, keepsakes and more, delivered across India.',
+        path: '/products',
+      });
+    } else if (searchQuery) {
+      setSeo({ title: `Search: ${searchQuery}`, path: '/products', noindex: true });
     }
-  }, [selectedCategories, categories]);
+  }, [selectedCategories, categories, searchQuery]);
 
   const fetchData = async () => {
     try {
@@ -352,12 +326,12 @@ const Products: React.FC = () => {
                   <motion.div
                     initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                     onClick={() => setShowFilters(false)}
-                    className="fixed inset-0 bg-black/50 z-40 md:hidden"
+                    className="fixed inset-0 bg-black/50 z-[70] md:hidden"
                   />
                   <motion.div
                     initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }}
                     transition={{ type: 'tween' }}
-                    className="fixed left-0 top-0 bottom-0 w-[280px] sm:w-[320px] bg-white z-50 md:hidden overflow-y-auto"
+                    className="fixed left-0 top-0 bottom-0 w-[280px] sm:w-[320px] bg-white z-[71] md:hidden overflow-y-auto"
                   >
                     <div className="p-4">
                       <div className="flex items-center justify-between mb-4">

@@ -7,8 +7,10 @@ import {
 import { apiFetch } from '../utils/api';
 import { Order } from '../types';
 import { formatCurrency, getImageUrl } from '../utils/helpers';
+import { useSeo } from '../utils/seo';
 
 const OrderTracking: React.FC = () => {
+  useSeo({ title: 'Track Your Order', noindex: true });
   const [orderId, setOrderId] = useState('');
   const [phone, setPhone] = useState('');
   const [order, setOrder] = useState<Order | null>(null);

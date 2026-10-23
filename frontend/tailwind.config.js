@@ -7,6 +7,12 @@ export default {
   theme: {
     extend: {
       colors: {
+        // Used across Layout, CategoryCard and PremiumLoader (text-gold, border-gold/20, …)
+        gold: {
+          DEFAULT: '#D4AF37',
+          light: '#E8CF73',
+          dark: '#B8942E',
+        },
         premium: {
           gold: '#D4AF37',
           charcoal: '#1A1A1A',
@@ -16,7 +22,8 @@ export default {
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
-        serif: ['Playfair Display', 'Georgia', 'serif'],
+        // Fraunces: variable serif (300–700 + italics) used for all display headings
+        serif: ['Fraunces', 'Georgia', 'serif'],
       },
       animation: {
         'fade-in': 'fadeIn 0.5s ease-in-out',

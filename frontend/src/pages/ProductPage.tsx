@@ -12,30 +12,7 @@ import { useCart } from '../context/CartContext';
 import { apiFetch } from '../utils/api';
 import toast from 'react-hot-toast';
 import ProductCustomizationModal from '../components/ProductCustomizationModal';
-
-/* ─── Dynamic OG / Twitter meta helper ─── */
-const setMetaTags = (title: string, description: string, imageUrl: string, url: string) => {
-  const upsert = (selector: string, attrName: string, attrVal: string, contentVal: string) => {
-    let el = document.querySelector(selector) as HTMLMetaElement | null;
-    if (!el) {
-      el = document.createElement('meta');
-      el.setAttribute(attrName, attrVal);
-      document.head.appendChild(el);
-    }
-    el.setAttribute('content', contentVal);
-  };
-  document.title = `${title} — GFTD`;
-  upsert('meta[name="description"]', 'name', 'description', description);
-  upsert('meta[property="og:title"]', 'property', 'og:title', title);
-  upsert('meta[property="og:description"]', 'property', 'og:description', description);
-  upsert('meta[property="og:image"]', 'property', 'og:image', imageUrl);
-  upsert('meta[property="og:url"]', 'property', 'og:url', url);
-  upsert('meta[property="og:type"]', 'property', 'og:type', 'product');
-  upsert('meta[name="twitter:card"]', 'name', 'twitter:card', 'summary_large_image');
-  upsert('meta[name="twitter:title"]', 'name', 'twitter:title', title);
-  upsert('meta[name="twitter:description"]', 'name', 'twitter:description', description);
-  upsert('meta[name="twitter:image"]', 'name', 'twitter:image', imageUrl);
-};
+import { setSeo, absoluteUrl } from '../utils/seo';
 
 const ProductPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -64,6 +41,42 @@ const ProductPage: React.FC = () => {
   const [reviewForm, setReviewForm] = useState({ user_name: '', user_email: '', rating: 5, comment: '' });
   const autoSlideRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // SEO: title, share preview and Product structured data (price, stock, rating)
+  useEffect(() => {
+    if (!product) return;
+    const image = absoluteUrl(getImageUrl(product.image_url || ''));
+    const images = [product.image_url, ...(product.additional_images || [])].filter(Boolean).map(u => absoluteUrl(getImageUrl(u as string)));
+    const rated = reviews.length > 0;
+    const avg = rated ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length : 0;
+    setSeo({
+      title: product.name,
+      description: product.description || `Shop ${product.name} at GFTD — personalised gifts delivered across India.`,
+      image,
+      type: 'product',
+      path: `/product/${product.id}`,
+      jsonLd: {
+        '@context': 'https://schema.org',
+        '@type': 'Product',
+        name: product.name,
+        description: product.description,
+        image: images,
+        sku: product.sku || product.id,
+        brand: { '@type': 'Brand', name: 'GFTD' },
+        offers: {
+          '@type': 'Offer',
+          url: absoluteUrl(`/product/${product.id}`),
+          priceCurrency: 'INR',
+          price: Number(product.price).toFixed(2),
+          availability: (product.stock_quantity ?? 1) > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+          itemCondition: 'https://schema.org/NewCondition',
+        },
+        ...(rated && {
+          aggregateRating: { '@type': 'AggregateRating', ratingValue: avg.toFixed(1), reviewCount: reviews.length },
+        }),
+      },
+    });
+  }, [product, reviews]);
+
   useEffect(() => { if (id) fetchProduct(id); }, [id]);
 
   // Auto-slide images every 3 seconds
@@ -86,10 +99,6 @@ const ProductPage: React.FC = () => {
       const data = await apiFetch(`/api/products/${productId}`);
       setProduct(data);
 
-      // Set OG meta tags for sharing
-      const imgUrl = getImageUrl(data.image_url || '');
-      const desc = data.description || `Shop ${data.name} — premium gifts at great prices.`;
-      setMetaTags(data.name, desc, imgUrl, window.location.href);
 
       const productColors: ProductColor[] = data.colors || [];
       const productSizes: ProductSize[] = data.sizes || [];

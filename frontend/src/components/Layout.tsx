@@ -35,6 +35,11 @@ const Layout: React.FC = () => {
   const [showBackToTop, setShowBackToTop] = useState(false);
   const { itemCount } = useCart();
   const location = useLocation();
+
+  // Start each new page at the top (SPA navigation keeps the old scroll position otherwise)
+  useEffect(() => {
+    if (!location.hash) window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [location.pathname]);
   const navigate = useNavigate();
 
   // Check if current page is checkout
@@ -96,157 +101,174 @@ const Layout: React.FC = () => {
   };
 
   const navItems = [
-    { name: 'Categories', path: '/products', icon: Gift },
-    { name: 'Combos', path: '/combos', icon: Package },
-    { name: 'Custom Combo', path: '/custom-combo', icon: Sparkles },
+    { name: 'Shop', path: '/products' },
+    { name: 'Combos', path: '/combos' },
+    { name: 'Build a Combo', path: '/custom-combo' },
   ];
+
+  // Over the home hero the header starts transparent and turns solid on scroll
+  const isHome = location.pathname === '/';
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 24);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+  const headerSolid = !isHome || scrolled || isMenuOpen;
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-black/95 backdrop-blur-sm border-b border-gold/20">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            {/* Logo - Clickable to home */}
-            <Link 
-              to="/" 
-              className="flex items-center space-x-3 hover:opacity-80 transition-opacity cursor-pointer group"
-              onClick={() => window.scrollTo(0, 0)}
-            >
-              {logo ? (
-                <img
-                  src={logo}
-                  alt="GFTD"
-                  className="h-12 md:h-14 w-auto"
-                  onError={() => setLogo(null)}
-                />
-              ) : (
-                <div className="flex items-center gap-2">
-                  <Gift className="h-8 w-8 text-gold group-hover:scale-110 transition-transform" />
-                  <span className="text-2xl font-serif font-bold gold-text">
-                    GFTD
-                  </span>
-                </div>
-              )}
-            </Link>
+      {/* Header — transparent over the home hero, solid once scrolled (fixed height: 72px / 84px) */}
+      <header
+        className={`sticky top-0 z-[60] transition-[background-color,box-shadow,border-color] duration-500 ${
+          headerSolid
+            ? 'bg-premium-charcoal/90 backdrop-blur-xl border-b border-white/10 shadow-[0_8px_30px_-12px_rgba(0,0,0,0.5)]'
+            : 'bg-transparent border-b border-transparent'
+        }`}
+      >
+        <div className="container mx-auto flex h-[72px] items-center justify-between gap-6 px-4 md:h-[84px] md:px-6">
+          {/* Logo */}
+          <Link to="/" className="flex shrink-0 items-center" onClick={() => window.scrollTo(0, 0)} aria-label="GFTD home">
+            {logo ? (
+              <img src={logo} alt="GFTD" className="h-14 w-auto md:h-[70px]" onError={() => setLogo(null)} />
+            ) : (
+              <span className="font-serif text-3xl font-light tracking-tight text-white md:text-4xl">
+                GFTD<span className="text-gold">.</span>
+              </span>
+            )}
+          </Link>
 
-            {/* Desktop Navigation */}
-            <nav className="hidden md:flex items-center space-x-8">
-              {navItems.map(item => (
+          {/* Desktop navigation */}
+          <nav className="hidden items-center gap-9 md:flex" aria-label="Main">
+            {navItems.map(item => {
+              const active = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
+              return (
                 <Link
                   key={item.path}
                   to={item.path}
-                  className="flex items-center space-x-1 text-white hover:text-gold transition-colors font-medium"
+                  className={`group relative py-2 text-[13px] font-medium uppercase tracking-[0.14em] transition-colors ${
+                    active ? 'text-white' : 'text-white/70 hover:text-white'
+                  }`}
                 >
-                  <item.icon className="h-4 w-4" />
-                  <span>{item.name}</span>
+                  {item.name}
+                  <span className={`absolute inset-x-0 -bottom-0.5 h-px origin-left bg-gold transition-transform duration-300 ${
+                    active ? 'scale-x-100' : 'scale-x-0 group-hover:scale-x-100'
+                  }`} />
                 </Link>
-              ))}
-              <button
-                onClick={() => setShowFAQ(true)}
-                className="flex items-center space-x-1 text-white hover:text-gold transition-colors font-medium"
-              >
-                <HelpCircle className="h-4 w-4" />
-                <span>FAQ</span>
-              </button>
-            </nav>
+              );
+            })}
+            <button
+              onClick={() => setShowFAQ(true)}
+              className="group relative py-2 text-[13px] font-medium uppercase tracking-[0.14em] text-white/70 transition-colors hover:text-white"
+            >
+              FAQ
+              <span className="absolute inset-x-0 -bottom-0.5 h-px origin-left scale-x-0 bg-gold transition-transform duration-300 group-hover:scale-x-100" />
+            </button>
+          </nav>
 
-            {/* Cart */}
-            <div className="flex items-center space-x-2">
-              <Link
-                to="/track-order"
-                className="hidden md:flex items-center space-x-1 text-white hover:text-gold transition-colors mr-2"
-              >
-                <Package className="h-5 w-5" />
-                <span>Track Order</span>
-              </Link>
-              <button
-                onClick={() => setIsCartOpen(true)}
-                className="relative flex items-center justify-center w-10 h-10 rounded-full hover:bg-gold/10 transition-colors"
-              >
-                <ShoppingBag className="h-5 w-5 text-white" />
-                {itemCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-gradient-to-r from-gold to-gold-dark text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                    {itemCount}
-                  </span>
-                )}
-              </button>
-
-              {/* Mobile Menu Button */}
-              <button
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="md:hidden flex items-center justify-center w-10 h-10 rounded-full hover:bg-gold/10 transition-colors"
-              >
-                {isMenuOpen ? (
-                  <X className="h-5 w-5 text-white" />
-                ) : (
-                  <Menu className="h-5 w-5 text-white" />
-                )}
-              </button>
-            </div>
+          {/* Actions */}
+          <div className="flex items-center gap-1 sm:gap-2">
+            <button
+              onClick={() => navigate('/products')}
+              aria-label="Search products"
+              className="hidden h-10 w-10 items-center justify-center rounded-full text-white/80 transition-colors hover:bg-white/10 hover:text-white sm:flex"
+            >
+              <Search className="h-[18px] w-[18px]" />
+            </button>
+            <Link
+              to="/track-order"
+              className="hidden items-center gap-2 rounded-full px-3 py-2 text-[13px] font-medium text-white/80 transition-colors hover:bg-white/10 hover:text-white md:flex"
+            >
+              <Package className="h-[18px] w-[18px]" />
+              Track order
+            </Link>
+            <button
+              onClick={() => setIsCartOpen(true)}
+              aria-label={`Open cart${itemCount ? ` (${itemCount} items)` : ''}`}
+              className="relative flex h-10 w-10 items-center justify-center rounded-full text-white transition-colors hover:bg-white/10"
+            >
+              <ShoppingBag className="h-5 w-5" />
+              {itemCount > 0 && (
+                <motion.span
+                  key={itemCount}
+                  initial={{ scale: 0.5 }} animate={{ scale: 1 }}
+                  className="absolute right-0.5 top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-gold px-1 text-[10px] font-semibold text-premium-charcoal"
+                >
+                  {itemCount}
+                </motion.span>
+              )}
+            </button>
+            <button
+              onClick={() => setIsMenuOpen(true)}
+              aria-label="Open menu"
+              className="flex h-10 w-10 items-center justify-center rounded-full text-white transition-colors hover:bg-white/10 md:hidden"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
           </div>
-
-          {/* Mobile Menu */}
-          <AnimatePresence>
-            {isMenuOpen && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="md:hidden mt-4 overflow-hidden"
-              >
-                <div className="border-t border-gold/20 pt-4">
-                  <div className="flex flex-col space-y-2">
-                    {navItems.map(item => (
-                      <Link
-                        key={item.path}
-                        to={item.path}
-                        className="flex items-center space-x-2 px-4 py-3 text-white hover:bg-gold/5 rounded-lg transition-colors"
-                        onClick={() => setIsMenuOpen(false)}
-                      >
-                        <item.icon className="h-5 w-5" />
-                        <span>{item.name}</span>
-                      </Link>
-                    ))}
-                    <Link
-                      to="/track-order"
-                      className="flex items-center space-x-2 px-4 py-3 text-white hover:bg-gold/5 rounded-lg transition-colors"
-                      onClick={() => setIsMenuOpen(false)}
-                    >
-                      <Package className="h-5 w-5" />
-                      <span>Track Order</span>
-                    </Link>
-                    <button
-                      onClick={() => {
-                        setShowFAQ(true);
-                        setIsMenuOpen(false);
-                      }}
-                      className="flex items-center space-x-2 px-4 py-3 text-white hover:bg-gold/5 rounded-lg transition-colors w-full text-left"
-                    >
-                      <HelpCircle className="h-5 w-5" />
-                      <span>FAQ</span>
-                    </button>
-                  </div>
-
-                  {/* Mobile Contact Info */}
-                  <div className="mt-4 pt-4 border-t border-gold/20">
-                    <div className="space-y-2 px-4">
-                      <a href="tel:+918240398515" className="flex items-center gap-2 text-sm text-gray-600 hover:text-gold transition-colors">
-                        <Phone className="h-4 w-4" />
-                        +91 82 403 98515
-                      </a>
-                      <a href="mailto:care@gftd.in" className="flex items-center gap-2 text-sm text-gray-600 hover:text-gold transition-colors">
-                        <Mail className="h-4 w-4" />
-                        care@gftd.in
-                      </a>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
         </div>
       </header>
+
+      {/* Mobile menu — full-height panel */}
+      <AnimatePresence>
+        {isMenuOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm md:hidden"
+              onClick={() => setIsMenuOpen(false)}
+            />
+            <motion.aside
+              initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+              className="fixed inset-y-0 right-0 z-[71] flex w-[86%] max-w-sm flex-col bg-premium-charcoal text-white md:hidden"
+              aria-label="Menu"
+            >
+              <div className="flex h-[72px] items-center justify-between border-b border-white/10 px-6">
+                <span className="text-[11px] uppercase tracking-[0.3em] text-gold">Menu</span>
+                <button onClick={() => setIsMenuOpen(false)} aria-label="Close menu" className="-mr-2 rounded-full p-2 hover:bg-white/10">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <nav className="flex-1 overflow-y-auto px-6 py-8">
+                {[...navItems, { name: 'Track order', path: '/track-order' }].map((item, i) => (
+                  <motion.div
+                    key={item.path}
+                    initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.08 + i * 0.05 }}
+                  >
+                    <Link
+                      to={item.path}
+                      onClick={() => setIsMenuOpen(false)}
+                      className="flex items-center justify-between border-b border-white/10 py-4 font-serif text-2xl font-light"
+                    >
+                      {item.name}
+                      <ChevronRight className="h-5 w-5 text-white/40" />
+                    </Link>
+                  </motion.div>
+                ))}
+                <motion.button
+                  initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }}
+                  onClick={() => { setShowFAQ(true); setIsMenuOpen(false); }}
+                  className="flex w-full items-center justify-between border-b border-white/10 py-4 text-left font-serif text-2xl font-light"
+                >
+                  FAQ
+                  <ChevronRight className="h-5 w-5 text-white/40" />
+                </motion.button>
+              </nav>
+              <div className="space-y-3 border-t border-white/10 px-6 py-6 text-sm text-white/70">
+                <a href="tel:+918240398515" className="flex items-center gap-3 hover:text-white">
+                  <Phone className="h-4 w-4 text-gold" /> +91 82 403 98515
+                </a>
+                <a href="mailto:care@gftd.in" className="flex items-center gap-3 hover:text-white">
+                  <Mail className="h-4 w-4 text-gold" /> care@gftd.in
+                </a>
+              </div>
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Main Content */}
       <main className="min-h-[60vh]">

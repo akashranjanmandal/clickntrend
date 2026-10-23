@@ -130,6 +130,10 @@ export interface HeroContent {
   muted?: boolean;
   cta_text?: string;
   cta_link?: string;
+  eyebrow?: string;
+  secondary_cta_text?: string;
+  secondary_cta_link?: string;
+  highlights?: string[];
   content_alignment?: 'left' | 'center' | 'right';
   is_active: boolean;
   display_order: number;

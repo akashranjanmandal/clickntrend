@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { CartProvider } from './context/CartContext';
+import { MotionConfig } from 'framer-motion';
 import Layout from './components/Layout';
 import Home from './pages/Home';
 import Products from './pages/Products';
@@ -17,6 +18,8 @@ import ComboPage from './pages/ComboPage';
 
 function App() {
   return (
+    // reducedMotion="user": skip transform animations for visitors who ask for less motion
+    <MotionConfig reducedMotion="user">
     <Router>
       <CartProvider>
         <Routes>
@@ -31,16 +34,16 @@ function App() {
             <Route path="/order-confirmation" element={<OrderConfirmation />} />
             <Route path="/product/:id" element={<ProductPage />} />
             <Route path="/combo/:id" element={<ComboPage />} />
+            {/* 404 inside the shop layout so visitors keep the navbar */}
+            <Route path="*" element={<NotFound />} />
           </Route>
           
           {/* Admin route without Layout */}
           <Route path="/admin" element={<AdminLogin />} />
-          
-          {/* 404 route */}
-          <Route path="*" element={<NotFound />} />
         </Routes>
       </CartProvider>
     </Router>
+    </MotionConfig>
   );
 }
 

@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import { pool } from '../utils/db';
 import { requireAuth } from '../middleware/auth';
+import { getPaymentSettings } from '../utils/paymentSettings';
 import {
   sendOrderConfirmationEmail,
   sendAdminNotification,
@@ -152,6 +153,12 @@ router.post('/cod', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Missing customer information' });
     }
 
+    // COD is switched on/off from the admin Settings tab; the charge comes from there too
+    const paymentSettings = await getPaymentSettings();
+    if (!paymentSettings.cod_enabled) {
+      return res.status(403).json({ error: 'Cash on Delivery is currently not available. Please pay online.' });
+    }
+
     const custom_order_id = await generateCustomOrderId();
     const now = new Date().toISOString();
 
@@ -160,7 +167,7 @@ router.post('/cod', async (req: Request, res: Response) => {
       items: JSON.stringify(order_data.items || []),
       subtotal: order_data.subtotal || 0,
       shipping_charge: order_data.shipping_charge || 0,
-      cod_charge: order_data.cod_charge || 0,
+      cod_charge: paymentSettings.cod_charge,
       coupon_code: order_data.coupon_code || null,
       coupon_discount: order_data.coupon_discount || 0,
       total_amount: order_data.total_amount || 0,

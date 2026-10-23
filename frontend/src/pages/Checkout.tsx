@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useCart } from '../context/CartContext';
 import { formatCurrency } from '../utils/helpers';
 import { CONFIG } from '../config';
 import { Wallet, Truck, Tag, CheckCircle,Ruler, XCircle, ArrowLeft, ShoppingBag, Gift, AlertCircle, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../utils/api';
+import { useSeo } from '../utils/seo';
 
 declare global {
   interface Window {
@@ -13,11 +14,22 @@ declare global {
 }
 
 const Checkout: React.FC = () => {
+  useSeo({ title: 'Checkout', noindex: true });
   const { items, total, clearCart } = useCart();
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'online' | 'cod'>('online');
+  // COD availability and charge are controlled from the admin Settings tab (off by default)
+  const [codSettings, setCodSettings] = useState<{ cod_enabled: boolean; cod_charge: number }>({ cod_enabled: false, cod_charge: 49 });
+  useEffect(() => {
+    apiFetch('/api/settings?key=payment')
+      .then((res: any) => { if (res?.value) setCodSettings(res.value); })
+      .catch(() => { /* keep COD hidden if settings can't be loaded */ });
+  }, []);
+  useEffect(() => {
+    if (!codSettings.cod_enabled && paymentMethod === 'cod') setPaymentMethod('online');
+  }, [codSettings.cod_enabled, paymentMethod]);
 
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
@@ -46,7 +58,7 @@ const Checkout: React.FC = () => {
   
   // FIX: Ensure shipping charge is calculated correctly
   const shippingCharge = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : 79;
-  const codCharge = paymentMethod === 'cod' ? 49 : 0;
+  const codCharge = paymentMethod === 'cod' && codSettings.cod_enabled ? codSettings.cod_charge : 0;
   const grandTotal = Math.max(
     subtotal + shippingCharge + codCharge - couponDiscount,
     0
@@ -743,7 +755,7 @@ const Checkout: React.FC = () => {
                     Payment Method
                   </h3>
                   
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className={`grid grid-cols-1 gap-3 ${codSettings.cod_enabled ? 'sm:grid-cols-2' : ''}`}>
                     <button
                       type="button"
                       onClick={() => setPaymentMethod('online')}
@@ -757,18 +769,22 @@ const Checkout: React.FC = () => {
                       <p className="text-xs text-gray-600">Cards, UPI, NetBanking</p>
                     </button>
 
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMethod('cod')}
-                      className={`p-3 border rounded-lg text-left transition-all ${
-                        paymentMethod === 'cod'
-                          ? 'border-premium-gold bg-premium-gold/5 ring-2 ring-premium-gold/20'
-                          : 'border-gray-200 hover:border-premium-gold'
-                      }`}
-                    >
-                      <p className="font-medium text-sm md:text-base">Cash on Delivery</p>
-                      <p className="text-xs text-gray-600">Pay ₹49 at delivery</p>
-                    </button>
+                    {codSettings.cod_enabled && (
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMethod('cod')}
+                        className={`p-3 border rounded-lg text-left transition-all ${
+                          paymentMethod === 'cod'
+                            ? 'border-premium-gold bg-premium-gold/5 ring-2 ring-premium-gold/20'
+                            : 'border-gray-200 hover:border-premium-gold'
+                        }`}
+                      >
+                        <p className="font-medium text-sm md:text-base">Cash on Delivery</p>
+                        <p className="text-xs text-gray-600">
+                          {codSettings.cod_charge > 0 ? `${formatCurrency(codSettings.cod_charge)} COD fee · pay at delivery` : 'Pay at delivery'}
+                        </p>
+                      </button>
+                    )}
                   </div>
                 </div>
 

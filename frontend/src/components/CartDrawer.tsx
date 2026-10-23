@@ -37,11 +37,11 @@ const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
   return (
     <>
       <div
-        className="fixed inset-0 bg-black/50 z-50 transition-opacity"
+        className="fixed inset-0 bg-black/50 z-[80] transition-opacity"
         onClick={onClose}
       />
       
-      <div className="fixed inset-y-0 right-0 w-full md:w-96 bg-white z-50 shadow-2xl animate-slide-up">
+      <div className="fixed inset-y-0 right-0 w-full md:w-96 bg-white z-[80] shadow-2xl animate-slide-up">
         <div className="flex flex-col h-full">
           <div className="flex items-center justify-between p-6 border-b">
             <div className="flex items-center space-x-3">

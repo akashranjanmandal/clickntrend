@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700;800&display=swap');
+/* Fonts are loaded from index.html (preconnect + stylesheet link) */
 
 @tailwind base;
 @tailwind components;
@@ -10,7 +10,59 @@
   }
 
   body {
-    @apply antialiased;
+    @apply antialiased text-premium-charcoal;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: rgba(212, 175, 55, 0.3);
+    color: #1A1A1A;
+  }
+
+  /* Visible focus for keyboard users only */
+  :focus-visible {
+    outline: 2px solid rgba(212, 175, 55, 0.7);
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+  /* Mouse/touch clicks never show the ring */
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  h1, h2, h3 {
+    text-wrap: balance;
+  }
+
+  /* Fraunces reads best light-to-medium; heavy weights look clunky at display sizes */
+  .font-serif {
+    font-optical-sizing: auto;
+    letter-spacing: -0.01em;
+  }
+  .font-serif.font-bold,
+  .font-serif.font-semibold,
+  .font-serif.font-extrabold {
+    font-weight: 500;
+  }
+}
+
+@layer utilities {
+  /* Metallic gold text (used for the logo fallback and accents) */
+  .gold-text {
+    background: linear-gradient(135deg, #B8942E 0%, #E8CF73 45%, #D4AF37 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+}
+
+/* Respect the "reduce motion" accessibility setting */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 

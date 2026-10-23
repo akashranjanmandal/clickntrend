@@ -26,7 +26,9 @@ import PopupManager from './PopupManager';
 import CloudFileManager from './CloudFileManager';
 import LogoManager from './LogoManager';
 import GenderManager from './GenderManager';
+import StoreSettings from './StoreSettings';
 import toast from 'react-hot-toast';
+import { useSeo } from '../../utils/seo';
 
 const PAYMENT_STATUS_STYLES: Record<string, string> = {
   paid: 'bg-green-100 text-green-800 border-green-200',
@@ -36,13 +38,14 @@ const PAYMENT_STATUS_STYLES: Record<string, string> = {
 };
 
 const AdminPanel: React.FC = () => {
+  useSeo({ title: 'Admin', noindex: true });
   const { fetchWithAuth } = useApi();
   const [orders, setOrders] = useState<Order[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [combos, setCombos] = useState<Combo[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'products' | 'combos' | 'coupons' | 'categories' | 'genders' | 'hero' | 'reviews' | 'popups' | 'logo' | 'storage'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'products' | 'combos' | 'coupons' | 'categories' | 'genders' | 'hero' | 'reviews' | 'popups' | 'logo' | 'storage' | 'settings'>('dashboard');
   const [showProductUpload, setShowProductUpload] = useState(false);
   const [showComboManager, setShowComboManager] = useState(false);
   const [showEditProduct, setShowEditProduct] = useState(false);
@@ -793,7 +796,7 @@ const updatePaymentStatus = async (orderId: string, paymentStatus: string) => {
                 <div className="relative group">
                   <button
                     className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
-                      ['coupons', 'reviews', 'hero', 'popups', 'logo'].includes(activeTab)
+                      ['coupons', 'reviews', 'hero', 'popups', 'logo', 'storage', 'settings'].includes(activeTab)
                         ? 'bg-premium-gold text-white'
                         : 'text-gray-600 hover:bg-gray-100'
                     }`}
@@ -857,6 +860,14 @@ const updatePaymentStatus = async (orderId: string, paymentStatus: string) => {
                     >
                       ☁️ Cloud Storage
                     </button>
+                    <button
+                      onClick={() => setActiveTab('settings')}
+                      className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-colors flex items-center gap-3 ${
+                        activeTab === 'settings' ? 'bg-premium-cream text-premium-gold' : ''
+                      }`}
+                    >
+                      ⚙️ Settings
+                    </button>
                   </div>
                 </div>
               </div>
@@ -882,7 +893,7 @@ const updatePaymentStatus = async (orderId: string, paymentStatus: string) => {
 
           <div className="md:hidden mt-4 overflow-x-auto">
             <div className="flex space-x-2">
-              {['dashboard', 'orders', 'products', 'combos', 'coupons', 'categories', 'genders', 'reviews', 'hero', 'popups', 'logo', 'storage'].map((tab) => (
+              {['dashboard', 'orders', 'products', 'combos', 'coupons', 'categories', 'genders', 'reviews', 'hero', 'popups', 'logo', 'storage', 'settings'].map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab as any)}
@@ -2134,6 +2145,8 @@ const updatePaymentStatus = async (orderId: string, paymentStatus: string) => {
         {activeTab === 'hero' && <HeroManager />}
         {activeTab === 'popups' && <PopupManager />}
         {activeTab === 'logo' && <LogoManager />}
+        {activeTab === 'storage' && <CloudFileManager />}
+        {activeTab === 'settings' && <StoreSettings />}
       </div>
 
       {/* Order Details Modal with Enhanced Customization Display */}

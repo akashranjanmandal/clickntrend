@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /checkout
+Disallow: /order-confirmation
+Disallow: /track-order
+Disallow: /api/
+
+# Generated from live products and combos (served by the backend through nginx's /api/ proxy)
+Allow: /api/sitemap.xml
+Sitemap: https://gftd.in/api/sitemap.xml

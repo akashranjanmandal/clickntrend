@@ -5,7 +5,8 @@ import { Combo, ComboProduct, CustomizationData, Product } from '../types';
 import { getImageUrl, formatCurrency, getProductImage } from '../utils/helpers';
 import { useCart } from '../context/CartContext';
 import { apiFetch } from '../utils/api';
-import ProductCustomizationModal from '../components/ProductCustomizationModal';
+import { setSeo, absoluteUrl } from '../utils/seo';
+import ComboCustomizationWizard, { WizardDrafts, missingFor } from '../components/ComboCustomizationWizard';
 import toast from 'react-hot-toast';
 
 const ComboPage: React.FC = () => {
@@ -17,8 +18,10 @@ const ComboPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [selectedImageIdx, setSelectedImageIdx] = useState(0);
   const [selectedVariants, setSelectedVariants] = useState<Map<string, { colorId?: string; colorName?: string; colorCode?: string; colorImage?: string; sizeId?: string; sizeName?: string; sizeCode?: string; }>>(new Map());
-  const [customizationStep, setCustomizationStep] = useState<number | null>(null);
-  const [collectedCustomizations, setCollectedCustomizations] = useState<Record<number, CustomizationData>>({});
+  // Personalisation is kept per combo line (by index), so closing the wizard
+  // and reopening it continues where the customer left off.
+  const [showWizard, setShowWizard] = useState(false);
+  const [drafts, setDrafts] = useState<WizardDrafts>({});
   const autoSlideRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => { if (id) fetchCombo(id); }, [id]);
@@ -29,6 +32,38 @@ const ComboPage: React.FC = () => {
     if (imgs.length <= 1) return;
     autoSlideRef.current = setInterval(() => setSelectedImageIdx(p => (p + 1) % imgs.length), 3000);
     return () => { if (autoSlideRef.current) clearInterval(autoSlideRef.current); };
+  }, [combo]);
+
+  // SEO: share preview + structured data for the combo
+  useEffect(() => {
+    if (!combo) return;
+    const items = combo.combo_products || combo.products || [];
+    const mrp = items.reduce((sum, it) => sum + (it.product?.price || 0) * (it.quantity || 1), 0);
+    const price = combo.discount_price != null ? combo.discount_price : mrp;
+    const names = items.map(it => it.product?.name).filter(Boolean).join(', ');
+    const description = combo.description || `A curated GFTD gift combo${names ? ` with ${names}` : ''}.`;
+    setSeo({
+      title: combo.name,
+      description,
+      image: getImageUrl(combo.image_url || ''),
+      type: 'product',
+      path: `/combo/${combo.id}`,
+      jsonLd: {
+        '@context': 'https://schema.org',
+        '@type': 'Product',
+        name: combo.name,
+        description,
+        image: getAllImages(combo).map(u => absoluteUrl(getImageUrl(u))),
+        brand: { '@type': 'Brand', name: 'GFTD' },
+        offers: {
+          '@type': 'Offer',
+          url: absoluteUrl(`/combo/${combo.id}`),
+          priceCurrency: 'INR',
+          price: Number(price).toFixed(2),
+          availability: 'https://schema.org/InStock',
+        },
+      },
+    });
   }, [combo]);
 
   const pauseSlide = () => { if (autoSlideRef.current) clearInterval(autoSlideRef.current); };
@@ -60,7 +95,9 @@ const ComboPage: React.FC = () => {
   const finalPrice = combo.discount_price != null ? combo.discount_price : originalPrice;
   const savings = combo.discount_price != null && combo.discount_price < originalPrice ? originalPrice - combo.discount_price : 0;
   const savingsPercentage = savings > 0 ? Math.round((savings / originalPrice) * 100) : 0;
-  const customizableItems = comboProducts.filter(item => item.product?.is_customizable);
+  const customizableItems = comboProducts
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) => item.product?.is_customizable);
 
   const validateVariants = (): boolean => {
     for (const item of comboProducts) {
@@ -74,34 +111,30 @@ const ComboPage: React.FC = () => {
 
   const handleAddToCart = () => {
     if (!validateVariants()) return;
-    if (customizableItems.length > 0) setCustomizationStep(0);
+    if (customizableItems.length > 0) setShowWizard(true);
     else commitToCart({});
   };
 
-  const handleCustomizationComplete = (data: CustomizationData) => {
-    const idx = customizationStep!;
-    const updated = { ...collectedCustomizations, [idx]: data };
-    setCollectedCustomizations(updated);
-    const next = idx + 1;
-    if (next < customizableItems.length) setCustomizationStep(next);
-    else { setCustomizationStep(null); commitToCart(updated); }
-  };
-
   const commitToCart = (customizations: Record<number, CustomizationData>) => {
-    const payload = comboProducts.map((item) => {
+    const payload = comboProducts.map((item, index) => {
       const p = item.product; const v = p ? (selectedVariants.get(p.id) || {}) : {};
-      const cidx = customizableItems.findIndex(ci => ci.product?.id === p?.id);
       return { id: p?.id || '', name: p?.name || '', quantity: item.quantity, price: p?.price || 0,
-        image_url: v.colorImage || (p ? (p.image_url || '') : ''), customization: cidx >= 0 ? customizations[cidx] : undefined,
+        image_url: v.colorImage || (p ? (p.image_url || '') : ''), customization: customizations[index],
         color_id: v.colorId, color_name: v.colorName, color_code: v.colorCode, size_id: v.sizeId, size_name: v.sizeName, size_code: v.sizeCode };
     });
     addItem({ id: `combo-${combo.id}-${Date.now()}`, name: combo.name, price: finalPrice, quantity: 1, image_url: combo.image_url || '', type: 'combo', combo_products: payload } as any);
+    setShowWizard(false);
+    setDrafts({});
     toast.success('Combo added to cart!');
     navigate('/');
   };
 
-  const currentProduct = customizationStep !== null ? customizableItems[customizationStep]?.product : undefined;
-  const getCurrentColorImage = () => { if (!currentProduct) return undefined; const v = selectedVariants.get(currentProduct.id) || {}; return v.colorImage || currentProduct.image_url || undefined; };
+  const wizardItems = customizableItems.map(({ item, index }) => ({
+    key: index,
+    product: item.product as Product,
+    quantity: item.quantity || 1,
+    imageUrl: selectedVariants.get(item.product!.id)?.colorImage || item.product?.image_url,
+  }));
   const needsSelection = comboProducts.some(item => {
     const p = item.product; if (!p) return false; const v = selectedVariants.get(p.id) || {};
     return (p.has_colors && p.colors && p.colors.length > 0 && !v.colorId) || (p.has_sizes && p.sizes && p.sizes.length > 0 && !v.sizeId);
@@ -262,7 +295,11 @@ const ComboPage: React.FC = () => {
                 <AlertCircle className="h-4 w-4 text-purple-600 flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="text-xs sm:text-sm font-semibold text-purple-800">Personalisation included</p>
-                  <p className="text-xs text-purple-600 mt-0.5">You'll personalise {customizableItems.length} item{customizableItems.length > 1 ? 's' : ''} after clicking Add to Cart.</p>
+                  <p className="text-xs text-purple-600 mt-0.5">
+                    {customizableItems.length > 1
+                      ? `You'll add your photos/text to ${customizableItems.length} items, one at a time, then review before adding to cart.`
+                      : `You'll add your photos/text after clicking Personalise.`}
+                  </p>
                 </div>
               </div>
             )}
@@ -293,7 +330,12 @@ const ComboPage: React.FC = () => {
               </div>
               <button onClick={handleAddToCart} className="w-full py-3.5 sm:py-4 bg-yellow-500 text-white rounded-xl hover:bg-yellow-600 active:scale-95 transition-all font-semibold text-base sm:text-lg flex items-center justify-center gap-2 shadow-md">
                 <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5" />
-                {customizableItems.length > 0 ? 'Personalise & Add to Cart' : `Add Combo · ${formatCurrency(finalPrice)}`}
+                {customizableItems.length === 0
+                  ? `Add Combo · ${formatCurrency(finalPrice)}`
+                  : (() => {
+                      const done = wizardItems.filter(w => missingFor(w.product, drafts[w.key]).length === 0).length;
+                      return done > 0 ? `Continue personalising · ${done} of ${wizardItems.length} done` : 'Personalise & Add to Cart';
+                    })()}
               </button>
             </div>
 
@@ -307,8 +349,15 @@ const ComboPage: React.FC = () => {
         </div>
       </div>
 
-      {customizationStep !== null && currentProduct && (
-        <ProductCustomizationModal product={currentProduct as Product} selectedImageUrl={getCurrentColorImage()} onClose={() => { setCustomizationStep(null); setCollectedCustomizations({}); }} onCustomizeComplete={handleCustomizationComplete} />
+      {showWizard && (
+        <ComboCustomizationWizard
+          items={wizardItems}
+          drafts={drafts}
+          onDraftsChange={setDrafts}
+          totalPrice={finalPrice}
+          onClose={() => setShowWizard(false)}
+          onComplete={commitToCart}
+        />
       )}
     </div>
   );

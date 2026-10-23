@@ -239,7 +239,8 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
     const customization: CustomizationData = {
       text_lines: nonEmptyTextLines.length > 0 ? nonEmptyTextLines : undefined,
       image_urls: imageUrls.length > 0 ? imageUrls : undefined,
-      preview_urls: customImages.map(img => img.preview).filter(Boolean) as string[],
+      // Uploaded URLs, not base64 previews: those bloated the cart and every order row
+      preview_urls: imageUrls,
       image_paths: imageUrls
     };
 
@@ -282,7 +283,7 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
   const modalContent = (
     <AnimatePresence>
       <div 
-        className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4"
+        className="fixed inset-0 z-[75] flex items-end sm:items-center justify-center p-0 sm:p-4"
         onClick={handleBackdropClick}
       >
         <motion.div

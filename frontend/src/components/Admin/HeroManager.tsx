@@ -21,6 +21,10 @@ interface HeroContent {
   muted: boolean;
   cta_text?: string;
   cta_link?: string;
+  eyebrow?: string;
+  secondary_cta_text?: string;
+  secondary_cta_link?: string;
+  highlights?: string[];
   content_alignment?: 'left' | 'center' | 'right';
   is_active: boolean;
   display_order: number;
@@ -51,6 +55,10 @@ const HeroManager: React.FC = () => {
     muted: true,
     cta_text: '',
     cta_link: '',
+    eyebrow: '',
+    secondary_cta_text: '',
+    secondary_cta_link: '',
+    highlights: '', // one per line
     content_alignment: 'center' as 'left' | 'center' | 'right',
     is_active: true,
     display_order: 0,
@@ -160,6 +168,10 @@ const HeroManager: React.FC = () => {
         muted: formData.muted,
         cta_text: formData.cta_text,
         cta_link: formData.cta_link,
+        eyebrow: formData.eyebrow.trim(),
+        secondary_cta_text: formData.secondary_cta_text.trim(),
+        secondary_cta_link: formData.secondary_cta_link.trim(),
+        highlights: formData.highlights.split('\n').map(h => h.trim()).filter(Boolean),
         content_alignment: formData.content_alignment,
         is_active: formData.is_active,
         display_order: formData.display_order,
@@ -255,6 +267,10 @@ const HeroManager: React.FC = () => {
       muted: hero.muted,
       cta_text: hero.cta_text || '',
       cta_link: hero.cta_link || '',
+      eyebrow: hero.eyebrow || '',
+      secondary_cta_text: hero.secondary_cta_text || '',
+      secondary_cta_link: hero.secondary_cta_link || '',
+      highlights: (hero.highlights || []).join('\n'),
       content_alignment: hero.content_alignment || 'center',
       is_active: hero.is_active,
       display_order: hero.display_order,
@@ -277,6 +293,10 @@ const HeroManager: React.FC = () => {
       muted: true,
       cta_text: '',
       cta_link: '',
+      eyebrow: '',
+      secondary_cta_text: '',
+      secondary_cta_link: '',
+      highlights: '',
       content_alignment: 'center',
       is_active: true,
       display_order: heroes.length,
@@ -510,6 +530,17 @@ const HeroManager: React.FC = () => {
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Small label above the title</label>
+                  <input
+                    type="text"
+                    value={formData.eyebrow}
+                    onChange={(e) => setFormData({...formData, eyebrow: e.target.value})}
+                    className="w-full px-4 py-2 border rounded-lg"
+                    placeholder="The Art of Gifting"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Optional. Shown in small spaced capitals with a gold line.</p>
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium mb-2">Title *</label>
@@ -519,7 +550,11 @@ const HeroManager: React.FC = () => {
                       onChange={(e) => setFormData({...formData, title: e.target.value})}
                       className="w-full px-4 py-2 border rounded-lg"
                       required
+                      placeholder="Gifts that feel *made for them*"
                     />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Wrap words in *asterisks* to show them in gold italics.
+                    </p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-2">Display Order</label>
@@ -716,6 +751,9 @@ const HeroManager: React.FC = () => {
                       className="w-full px-4 py-2 border rounded-lg"
                       placeholder="Shop Now"
                     />
+                    <p className="text-xs text-gray-500 mt-1">
+                      The button only shows when both its text and link are filled in.
+                    </p>
                   </div>
                   <div>
                     <LinkPicker
@@ -724,6 +762,39 @@ const HeroManager: React.FC = () => {
                       label="CTA Link"
                     />
                   </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Second link text</label>
+                    <input
+                      type="text"
+                      value={formData.secondary_cta_text}
+                      onChange={(e) => setFormData({...formData, secondary_cta_text: e.target.value})}
+                      className="w-full px-4 py-2 border rounded-lg"
+                      placeholder="Explore gift combos"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Optional underlined link next to the button.</p>
+                  </div>
+                  <div>
+                    <LinkPicker
+                      value={formData.secondary_cta_link}
+                      onChange={(url) => setFormData({...formData, secondary_cta_link: url})}
+                      label="Second link"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2">Highlights</label>
+                  <textarea
+                    value={formData.highlights}
+                    onChange={(e) => setFormData({...formData, highlights: e.target.value})}
+                    rows={3}
+                    className="w-full px-4 py-2 border rounded-lg"
+                    placeholder={'Personalised with your photos & words\nFree shipping over ₹499\nDelivered across India'}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Optional. One per line (up to 6), shown as small points under the buttons on larger screens.</p>
                 </div>
 
                 <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">

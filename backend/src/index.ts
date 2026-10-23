@@ -5,6 +5,7 @@ import config from './config';
 import logoRoutes from './routes/logo';
 import { transporter } from './services/gmailService';
 import { runMigrations } from './utils/migrate';
+import sitemapRoutes from './routes/sitemap';
 import productSizeRoutes from './routes/product-sizes';
 // ===== PUBLIC ROUTES =====
 import publicColorRoutes from './routes/product-colors-public';
@@ -46,6 +47,7 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 console.log('📝 Registering routes...');
 
 /* ===================== PUBLIC APIs ===================== */
+app.use('/api', sitemapRoutes); // /api/sitemap.xml
 app.use('/api/products', productRoutes);
 console.log('✅ /api/products');
 

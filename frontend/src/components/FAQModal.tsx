@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { apiFetch } from '../utils/api';
 import { X, ChevronDown, ChevronUp, HelpCircle, Mail, Phone, MessageCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -17,18 +18,25 @@ interface FAQModalProps {
 const FAQModal: React.FC<FAQModalProps> = ({ isOpen, onClose }) => {
   const [openItems, setOpenItems] = useState<string[]>([]);
   const [activeCategory, setActiveCategory] = useState<string>('all');
+  // COD answers follow the admin's payment settings
+  const [cod, setCod] = useState<{ cod_enabled: boolean; cod_charge: number } | null>(null);
+  useEffect(() => {
+    if (!isOpen || cod) return;
+    apiFetch('/api/settings?key=payment').then((res: any) => setCod(res?.value || null)).catch(() => {});
+  }, [isOpen]);
+  const codOn = cod?.cod_enabled === true;
 
   const faqs: FAQItem[] = [
     {
       id: '1',
       question: 'How do I place an order?',
-      answer: 'Simply browse our products, add items to your cart, and proceed to checkout. You can pay via Credit/Debit cards, UPI, NetBanking, or Cash on Delivery.',
+      answer: `Simply browse our products, add items to your cart, and proceed to checkout. You can pay via Credit/Debit cards, UPI or NetBanking${codOn ? ', or Cash on Delivery' : ''}.`,
       category: 'ordering'
     },
     {
       id: '2',
       question: 'What payment methods do you accept?',
-      answer: 'We accept all major credit/debit cards, UPI (Google Pay, PhonePe, Paytm), NetBanking, and Cash on Delivery for orders under ₹10,000.',
+      answer: `We accept all major credit/debit cards, UPI (Google Pay, PhonePe, Paytm) and NetBanking${codOn ? ', plus Cash on Delivery' : ''}.`,
       category: 'payment'
     },
     {
@@ -64,7 +72,9 @@ const FAQModal: React.FC<FAQModalProps> = ({ isOpen, onClose }) => {
     {
       id: '8',
       question: 'Is Cash on Delivery available?',
-      answer: 'Yes, COD is available for orders under ₹10,000. A nominal fee of ₹49 applies for COD orders.',
+      answer: codOn
+        ? `Yes, Cash on Delivery is available.${cod!.cod_charge > 0 ? ` A fee of ₹${cod!.cod_charge} applies to COD orders.` : ''}`
+        : 'Cash on Delivery is not available at the moment. Please pay securely online with cards, UPI or NetBanking.',
       category: 'payment'
     },
     {
@@ -104,7 +114,7 @@ const FAQModal: React.FC<FAQModalProps> = ({ isOpen, onClose }) => {
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
