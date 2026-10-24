@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { getImageUrl, matchesGender, comboMatchesGender } from '../utils/helpers';
+import { getImageUrl, matchesGender, comboMatchesGender, formatCurrency } from '../utils/helpers';
 import {
   Search, Sparkles, TrendingUp, Shield, Gift,
   ArrowRight, Loader2, X, ChevronRight, Users, Package,
@@ -477,73 +477,98 @@ const getFilteredProducts = () => {
                 </button>
               </div>
 
-              {/* Search Results Dropdown - Very high z-index */}
+              {/* Search results: products from the API + matching combos (already loaded on this page).
+                  Rows animate on their own — the section's reveal has finished long before results arrive. */}
               <AnimatePresence>
-                {showSearchResults && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="absolute top-full left-0 right-0 mt-2 bg-white/80 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-xl border border-white/20 max-h-80 sm:max-h-96 overflow-y-auto z-[45]"
-                  >
-                    {searchLoading ? (
-                      <div className="p-6 sm:p-8 text-center">
-                        <Loader2 className="h-6 w-6 sm:h-8 sm:w-8 animate-spin text-premium-gold mx-auto" />
-                      </div>
-                    ) : searchResults.length > 0 ? (
-                      <motion.div variants={staggerContainerVariants} className="divide-y divide-gray-100">
-                        {searchResults.map((product, index) => (
-                          <motion.div
-                            key={product.id}
-                            variants={fadeInUpVariants}
-                            custom={index}
-                            whileHover={{ backgroundColor: '#f9fafb', x: 5 }}
-                            onClick={() => handleProductClick(product)}
-                            className="p-3 sm:p-4 cursor-pointer flex items-center gap-3 sm:gap-4 transition-all"
+                {showSearchResults && (() => {
+                  const q = searchTerm.trim().toLowerCase();
+                  const comboMatches = q
+                    ? combos.filter(c =>
+                        [c.name, c.description, ...(c.combo_products || []).map(cp => cp.product?.name)]
+                          .some(t => (t || '').toLowerCase().includes(q))
+                      ).slice(0, 4)
+                    : [];
+                  const row = 'flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-gray-50 sm:gap-4';
+                  const rowAnim = (i: number) => ({ initial: { opacity: 0, y: 6 }, animate: { opacity: 1, y: 0 }, transition: { delay: i * 0.03, duration: 0.25 } });
+                  return (
+                    <motion.div
+                      initial={{ opacity: 0, y: -8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      transition={{ duration: 0.2 }}
+                      className="absolute left-0 right-0 top-full z-[45] mt-3 max-h-[26rem] overflow-y-auto rounded-2xl bg-white shadow-[0_24px_60px_-20px_rgba(0,0,0,0.35)] ring-1 ring-black/5"
+                    >
+                      {searchLoading ? (
+                        <div className="p-8 text-center">
+                          <Loader2 className="mx-auto h-6 w-6 animate-spin text-premium-gold" />
+                        </div>
+                      ) : searchResults.length === 0 && comboMatches.length === 0 ? (
+                        <div className="p-8 text-center text-sm text-gray-500">
+                          <Package className="mx-auto mb-3 h-10 w-10 text-gray-300" />
+                          <p>No gifts found for “{searchTerm}”.</p>
+                          <p className="mt-1">Try another word, or browse all products.</p>
+                        </div>
+                      ) : (
+                        <div className="py-2">
+                          {searchResults.length > 0 && (
+                            <>
+                              <p className="px-4 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400">Products</p>
+                              {searchResults.slice(0, 8).map((product, i) => (
+                                <motion.button key={product.id} {...rowAnim(i)} onClick={() => handleProductClick(product)} className={row}>
+                                  <img
+                                    src={getImageUrl(
+                                      (product.has_colors && product.colors && product.colors.length > 0
+                                        ? product.colors.find(c => c.is_active)?.image_url
+                                        : null) || product.image_url
+                                    )}
+                                    alt=""
+                                    className="h-12 w-12 flex-shrink-0 rounded-lg object-cover sm:h-14 sm:w-14"
+                                    onError={(e) => { e.currentTarget.src = '/logo.png'; }}
+                                  />
+                                  <div className="min-w-0 flex-1">
+                                    <p className="truncate text-sm font-medium text-premium-charcoal sm:text-base">{product.name}</p>
+                                    {product.category && <p className="truncate text-xs text-gray-500">{product.category}</p>}
+                                  </div>
+                                  <span className="flex-shrink-0 text-sm font-semibold text-premium-charcoal">{formatCurrency(product.price)}</span>
+                                </motion.button>
+                              ))}
+                            </>
+                          )}
+                          {comboMatches.length > 0 && (
+                            <>
+                              <p className="px-4 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400">Combos</p>
+                              {comboMatches.map((combo, i) => {
+                                const mrp = (combo.combo_products || []).reduce((sum, cp) => sum + (cp.product?.price || 0) * (cp.quantity || 1), 0);
+                                const price = combo.discount_price != null ? Number(combo.discount_price) : mrp;
+                                return (
+                                  <motion.button key={combo.id} {...rowAnim(searchResults.length + i)} onClick={() => handleComboClick(combo)} className={row}>
+                                    <img
+                                      src={getImageUrl(combo.image_url || '')}
+                                      alt=""
+                                      className="h-12 w-12 flex-shrink-0 rounded-lg object-cover sm:h-14 sm:w-14"
+                                      onError={(e) => { e.currentTarget.src = '/logo.png'; }}
+                                    />
+                                    <div className="min-w-0 flex-1">
+                                      <p className="truncate text-sm font-medium text-premium-charcoal sm:text-base">{combo.name}</p>
+                                      <p className="truncate text-xs text-gray-500">{(combo.combo_products || []).length} items in this combo</p>
+                                    </div>
+                                    <span className="flex-shrink-0 text-sm font-semibold text-premium-charcoal">{formatCurrency(price)}</span>
+                                  </motion.button>
+                                );
+                              })}
+                            </>
+                          )}
+                          <button
+                            onClick={() => navigate(`/products?search=${encodeURIComponent(searchTerm.trim())}`)}
+                            className="mt-1 flex w-full items-center justify-center gap-2 border-t border-gray-100 px-4 py-3 text-sm font-medium text-premium-gold hover:text-premium-burgundy"
                           >
-                            <motion.img
-                              whileHover={{ scale: 1.1 }}
-                              src={getImageUrl(
-                                (product.has_colors && product.colors && product.colors.length > 0
-                                  ? product.colors.find(c => c.is_active)?.image_url
-                                  : null) || product.image_url
-                              )}
-                              alt={product.name}
-                              className="w-12 h-12 sm:w-16 sm:h-16 object-cover rounded-lg sm:rounded-xl"
-                              onError={(e) => { e.currentTarget.src = '/logo.png'; }}
-                            />
-                            <div className="flex-1 min-w-0">
-                              <h4 className="font-medium text-sm sm:text-base truncate">{product.name}</h4>
-                              <p className="text-xs sm:text-sm text-gray-600 truncate">{product.category}</p>
-                              <p className="text-xs text-gray-500 capitalize truncate">{product.gender}</p>
-                              <p className="text-premium-gold font-semibold text-sm sm:text-base mt-0.5 sm:mt-1">
-                                ₹{product.price.toLocaleString()}
-                              </p>
-                            </div>
-                          </motion.div>
-                        ))}
-                      </motion.div>
-                    ) : (
-                      <motion.div 
-                        variants={scaleInVariants}
-                        className="p-6 sm:p-8 text-center text-sm sm:text-base text-gray-500"
-                      >
-                        <motion.div
-                          animate={{ 
-                            rotate: [0, 10, -10, 0],
-                            scale: [1, 1.1, 1]
-                          }}
-                          transition={{ duration: 2, repeat: Infinity }}
-                          className="inline-block mb-3"
-                        >
-                          <Package className="h-12 w-12 text-gray-300" />
-                        </motion.div>
-                        <p>We are currently out of stock for this category,</p>
-                        <p className="mt-2">We will bring surprises for you soon.🩷 "{searchTerm}"</p>
-                      </motion.div>
-                    )}
-                  </motion.div>
-                )}
+                            See all results <ArrowRight className="h-4 w-4" />
+                          </button>
+                        </div>
+                      )}
+                    </motion.div>
+                  );
+                })()}
               </AnimatePresence>
             </div>
           </motion.div>

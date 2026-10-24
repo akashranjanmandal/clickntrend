@@ -5,7 +5,10 @@
   "scripts": {
     "dev": "nodemon --exec tsx src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:db:create": "createdb -O gftd_user gftd_test"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.540.0",
@@ -26,9 +29,12 @@
     "razorpay": "^2.9.2"
   },
   "devDependencies": {
+    "@types/supertest": "^7.2.1",
     "nodemon": "^3.1.11",
+    "supertest": "^7.3.1",
     "tsx": "^4.7.0",
-    "typescript": "^5.2.2"
+    "typescript": "^5.2.2",
+    "vitest": "^3.2.7"
   },
   "engines": {
     "node": "18.x"
