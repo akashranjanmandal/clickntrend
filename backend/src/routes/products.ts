@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import { pool } from '../utils/db';
 import { requireAuth } from '../middleware/auth';
+import { buildUpdate, PRODUCT_FIELDS } from '../utils/sqlUpdate';
 
 const router = express.Router();
 
@@ -138,7 +139,8 @@ router.get('/search', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const product = await getFullProduct(req.params.id);
-    if (!product) return res.status(404).json({ error: 'Product not found' });
+    // Switched-off products are hidden from shoppers (admins use /api/admin/products/:id)
+    if (!product || product.is_active === false) return res.status(404).json({ error: 'Product not found' });
     res.json(product);
   } catch (error: any) {
     console.error('Error fetching product:', error);
@@ -264,17 +266,16 @@ router.post('/', requireAuth, async (req, res) => {
 router.put('/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const { category_ids, ...fields } = req.body;
-    const updates = { ...fields, updated_at: new Date().toISOString() };
+    const { category_ids } = req.body;
 
-    const keys = Object.keys(updates);
-    const values = Object.values(updates);
-    const setClause = keys.map((k, i) => `${k} = $${i + 1}`).join(', ');
-
-    await pool.query(
-      `UPDATE products SET ${setClause} WHERE id = $${keys.length + 1}`,
-      [...values, id]
-    );
+    // Only real product columns are written; anything else in the body is ignored
+    const update = buildUpdate(req.body, PRODUCT_FIELDS, { extra: ['updated_at = NOW()'] });
+    if (update) {
+      await pool.query(
+        `UPDATE products SET ${update.setClause} WHERE id = $${update.values.length + 1}`,
+        [...update.values, id]
+      );
+    }
 
     // Re-assign categories if provided
     if (category_ids !== undefined) {

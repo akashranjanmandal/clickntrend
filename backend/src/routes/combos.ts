@@ -57,6 +57,34 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Must be registered before GET '/:id', otherwise 'available-products' is read as a combo id
+// Get available products for combo (admin)
+router.get('/available-products', requireAuth, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT p.*,
+              COALESCE(
+                jsonb_agg(DISTINCT jsonb_build_object('category', to_jsonb(cat.*)))
+                FILTER (WHERE cat.id IS NOT NULL), '[]'::jsonb
+              ) AS product_categories
+       FROM products p
+       LEFT JOIN product_categories pc ON pc.product_id = p.id
+       LEFT JOIN categories cat ON cat.id = pc.category_id
+       WHERE p.is_active = true
+       GROUP BY p.id
+       ORDER BY p.name`
+    );
+    const data = result.rows.map((p: any) => ({
+      ...p,
+      categories: (p.product_categories || []).map((pc: any) => pc.category),
+    }));
+    res.json(data);
+  } catch (error: any) {
+    console.error('Error fetching available products:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get single combo by ID (public) — includes colors + sizes per product
 router.get('/:id', async (req, res) => {
   try {
@@ -520,32 +548,6 @@ router.post('/:id/products/bulk', requireAuth, async (req, res) => {
   }
 });
 
-// Get available products for combo (admin)
-router.get('/available-products', requireAuth, async (req, res) => {
-  try {
-    const result = await pool.query(
-      `SELECT p.*,
-              COALESCE(
-                jsonb_agg(DISTINCT jsonb_build_object('category', to_jsonb(cat.*)))
-                FILTER (WHERE cat.id IS NOT NULL), '[]'::jsonb
-              ) AS product_categories
-       FROM products p
-       LEFT JOIN product_categories pc ON pc.product_id = p.id
-       LEFT JOIN categories cat ON cat.id = pc.category_id
-       WHERE p.is_active = true
-       GROUP BY p.id
-       ORDER BY p.name`
-    );
-    const data = result.rows.map((p: any) => ({
-      ...p,
-      categories: (p.product_categories || []).map((pc: any) => pc.category),
-    }));
-    res.json(data);
-  } catch (error: any) {
-    console.error('Error fetching available products:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
 
 // Get all categories for combo filtering (admin)
 router.get('/categories/all', requireAuth, async (req, res) => {

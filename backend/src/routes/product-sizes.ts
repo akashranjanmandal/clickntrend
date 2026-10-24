@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import { pool } from '../utils/db';
 import { requireAuth } from '../middleware/auth';
+import { buildUpdate, SIZE_FIELDS } from '../utils/sqlUpdate';
 
 const router = express.Router();
 
@@ -75,14 +76,13 @@ router.post('/products/:productId/sizes', requireAuth, async (req: Request, res:
 router.put('/sizes/:sizeId', requireAuth, async (req: Request, res: Response) => {
   try {
     const { sizeId } = req.params;
-    const updates = { ...req.body, updated_at: new Date().toISOString() };
-    const keys = Object.keys(updates);
-    const values = Object.values(updates);
-    const setClause = keys.map((k, i) => `${k} = $${i + 1}`).join(', ');
+    // Only real product_sizes columns are written; unknown keys are ignored
+    const update = buildUpdate(req.body, SIZE_FIELDS, { extra: ['updated_at = NOW()'] });
+    if (!update) return res.status(400).json({ error: 'Nothing to update' });
 
     const result = await pool.query(
-      `UPDATE product_sizes SET ${setClause} WHERE id = $${keys.length + 1} RETURNING *`,
-      [...values, sizeId]
+      `UPDATE product_sizes SET ${update.setClause} WHERE id = $${update.values.length + 1} RETURNING *`,
+      [...update.values, sizeId]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Size not found' });
     console.log(`✅ Size variant updated:`, result.rows[0]);

@@ -1,6 +1,7 @@
 import express from 'express';
 import { pool } from '../utils/db';
 import { requireAuth } from '../middleware/auth';
+import { buildUpdate, CATEGORY_FIELDS } from '../utils/sqlUpdate';
 
 const router = express.Router();
 
@@ -94,15 +95,13 @@ router.post('/admin/categories', requireAuth, async (req, res) => {
 router.put('/admin/categories/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const updates = { ...req.body, updated_at: new Date().toISOString() };
-
-    const keys = Object.keys(updates);
-    const values = Object.values(updates);
-    const setClause = keys.map((k, i) => `${k} = $${i + 1}`).join(', ');
+    // Only real categories columns are written; unknown keys are ignored
+    const update = buildUpdate(req.body, CATEGORY_FIELDS, { extra: ['updated_at = NOW()'] });
+    if (!update) return res.status(400).json({ error: 'Nothing to update' });
 
     const result = await pool.query(
-      `UPDATE categories SET ${setClause} WHERE id = $${keys.length + 1} RETURNING *`,
-      [...values, id]
+      `UPDATE categories SET ${update.setClause} WHERE id = $${update.values.length + 1} RETURNING *`,
+      [...update.values, id]
     );
 
     if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' });

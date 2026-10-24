@@ -5,6 +5,7 @@ import { requireAuth } from '../middleware/auth';
 import { r2 } from '../utils/r2';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { sendOrderStatusUpdateEmail } from '../services/gmailService';
+import { buildUpdate, CATEGORY_FIELDS, PRODUCT_FIELDS } from '../utils/sqlUpdate';
 
 const router = express.Router();
 
@@ -227,20 +228,16 @@ router.post('/products', requireAuth, async (req: Request, res: Response) => {
 router.put('/products/:id', requireAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { category, categories, subcategory, ...cleanUpdates } = req.body;
+    const body = { ...req.body };
+    if (body.max_customization_lines) body.max_customization_lines = parseInt(body.max_customization_lines);
 
-    if (cleanUpdates.max_customization_lines) {
-      cleanUpdates.max_customization_lines = parseInt(cleanUpdates.max_customization_lines);
-    }
-
-    const updates = { ...cleanUpdates, updated_at: new Date().toISOString() };
-    const keys = Object.keys(updates);
-    const values = Object.values(updates);
-    const setClause = keys.map((k, i) => `${k} = $${i + 1}`).join(', ');
+    // Only real product columns are written; anything else in the body is ignored
+    const update = buildUpdate(body, PRODUCT_FIELDS, { extra: ['updated_at = NOW()'] });
+    if (!update) return res.status(400).json({ error: 'No product fields to update' });
 
     const result = await pool.query(
-      `UPDATE products SET ${setClause} WHERE id = $${keys.length + 1} RETURNING *`,
-      [...values, id]
+      `UPDATE products SET ${update.setClause} WHERE id = $${update.values.length + 1} RETURNING *`,
+      [...update.values, id]
     );
 
     if (result.rows.length === 0) return res.status(404).json({ error: 'Product not found' });
@@ -488,14 +485,13 @@ router.put('/categories/:id', requireAuth, async (req: Request, res: Response) =
       updates.image_url = updates.image_url || updates.icon;
       updates.icon = 'image';
     }
-    const finalUpdates = { ...updates, updated_at: new Date().toISOString() };
-    const keys = Object.keys(finalUpdates);
-    const values = Object.values(finalUpdates);
-    const setClause = keys.map((k, i) => `${k} = $${i + 1}`).join(', ');
+    // Only real category columns are written; unknown keys are ignored
+    const update = buildUpdate(updates, CATEGORY_FIELDS, { extra: ['updated_at = NOW()'] });
+    if (!update) return res.status(400).json({ error: 'Nothing to update' });
 
     const result = await pool.query(
-      `UPDATE categories SET ${setClause} WHERE id = $${keys.length + 1} RETURNING *`,
-      [...values, req.params.id]
+      `UPDATE categories SET ${update.setClause} WHERE id = $${update.values.length + 1} RETURNING *`,
+      [...update.values, req.params.id]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' });
     res.json(result.rows[0]);

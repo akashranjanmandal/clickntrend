@@ -23,7 +23,7 @@ const SocialProofStats: React.FC = () => {
   const fetchStats = async () => {
     try {
       setLoading(true);
-      const data = await fetchWithAuth('/api/admin/social-proof/stats');
+      const data = await fetchWithAuth('/api/social-proof/admin/stats');
       setStats(data || []);
     } catch (error) {
       console.error('Error fetching stats:', error);

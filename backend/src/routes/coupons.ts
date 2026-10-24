@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import { pool } from '../utils/db';
 import { requireAuth } from '../middleware/auth';
+import { buildUpdate, buildInsert, COUPON_FIELDS } from '../utils/sqlUpdate';
 
 const router = express.Router();
 
@@ -40,14 +41,13 @@ router.get('/active', async (req, res) => {
 router.post('/', requireAuth, async (req, res) => {
   try {
     const now = new Date().toISOString();
-    const body = { ...req.body, used_count: 0, created_at: now, updated_at: now };
-    const keys = Object.keys(body);
-    const values = Object.values(body);
-    const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
+    // Only real coupons columns from the client; server-set values always win
+    const insert = buildInsert(req.body, COUPON_FIELDS, { used_count: 0, created_at: now, updated_at: now });
+    if (!insert) return res.status(400).json({ error: 'No fields provided' });
 
     const result = await pool.query(
-      `INSERT INTO coupons (${keys.join(', ')}) VALUES (${placeholders}) RETURNING *`,
-      values
+      `INSERT INTO coupons (${insert.columns}) VALUES (${insert.placeholders}) RETURNING *`,
+      insert.values
     );
     res.json(result.rows[0]);
   } catch (error: any) {
@@ -60,14 +60,13 @@ router.post('/', requireAuth, async (req, res) => {
 router.put('/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const updates = { ...req.body, updated_at: new Date().toISOString() };
-    const keys = Object.keys(updates);
-    const values = Object.values(updates);
-    const setClause = keys.map((k, i) => `${k} = $${i + 1}`).join(', ');
+    // Only real coupons columns are written; unknown keys are ignored
+    const update = buildUpdate(req.body, COUPON_FIELDS, { extra: ['updated_at = NOW()'] });
+    if (!update) return res.status(400).json({ error: 'Nothing to update' });
 
     const result = await pool.query(
-      `UPDATE coupons SET ${setClause} WHERE id = $${keys.length + 1} RETURNING *`,
-      [...values, id]
+      `UPDATE coupons SET ${update.setClause} WHERE id = $${update.values.length + 1} RETURNING *`,
+      [...update.values, id]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Coupon not found' });
     res.json(result.rows[0]);
@@ -110,7 +109,16 @@ router.post('/validate', async (req, res) => {
       return res.status(404).json({ valid: false, message: 'Invalid coupon code' });
     }
 
-    const coupon = couponResult.rows[0];
+    // Postgres returns numeric columns as text — convert before doing any maths
+    const raw = couponResult.rows[0];
+    const num = (v: any) => (v === null || v === undefined ? null : Number(v));
+    const coupon = {
+      ...raw,
+      discount_value: Number(raw.discount_value),
+      min_order_amount: num(raw.min_order_amount),
+      max_discount_amount: num(raw.max_discount_amount),
+    };
+    const orderSubtotal = Number(subtotal) || 0;
 
     if (coupon.end_date && new Date(coupon.end_date) < new Date()) {
       return res.status(400).json({ valid: false, message: 'Coupon has expired' });
@@ -118,7 +126,7 @@ router.post('/validate', async (req, res) => {
     if (coupon.start_date && new Date(coupon.start_date) > new Date()) {
       return res.status(400).json({ valid: false, message: 'Coupon is not active yet' });
     }
-    if (coupon.min_order_amount && subtotal < coupon.min_order_amount) {
+    if (coupon.min_order_amount && orderSubtotal < coupon.min_order_amount) {
       return res.status(400).json({ valid: false, message: `Minimum order amount should be ₹${coupon.min_order_amount}` });
     }
     if (coupon.usage_limit && coupon.used_count >= coupon.usage_limit) {
@@ -147,7 +155,7 @@ router.post('/validate', async (req, res) => {
 
     let discountAmount = 0;
     if (coupon.discount_type === 'percentage') {
-      discountAmount = (subtotal * coupon.discount_value) / 100;
+      discountAmount = (orderSubtotal * coupon.discount_value) / 100;
       if (coupon.max_discount_amount) {
         discountAmount = Math.min(discountAmount, coupon.max_discount_amount);
       }
@@ -168,6 +176,20 @@ router.post('/validate', async (req, res) => {
   } catch (error: any) {
     console.error('Error validating coupon:', error);
     res.status(500).json({ valid: false, message: 'Error validating coupon' });
+  }
+});
+
+// Usage history for one coupon (admin)
+router.get('/:id/usage', requireAuth, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, coupon_id, order_id, customer_email, discount_amount, used_at
+       FROM coupon_usage WHERE coupon_id = $1 ORDER BY used_at DESC`,
+      [req.params.id]
+    );
+    res.json(result.rows.map((u: any) => ({ ...u, discount_amount: Number(u.discount_amount) || 0 })));
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
   }
 });
 

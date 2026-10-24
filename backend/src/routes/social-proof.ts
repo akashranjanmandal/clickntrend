@@ -116,7 +116,7 @@ router.get('/admin/stats', requireAuth, async (req, res) => {
       purchase_count: stat.purchase_count || 0,
       conversion_rate:
         stat.view_count > 0
-          ? ((stat.purchase_count / stat.view_count) * 100).toFixed(1)
+          ? Number(((stat.purchase_count / stat.view_count) * 100).toFixed(1))
           : 0,
       social_proof: {
         enabled: stat.social_proof_enabled || false,

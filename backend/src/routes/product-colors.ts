@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import { pool } from '../utils/db';
 import { requireAuth } from '../middleware/auth';
+import { buildUpdate, COLOR_FIELDS } from '../utils/sqlUpdate';
 
 const router = express.Router();
 
@@ -61,14 +62,13 @@ router.post('/products/:productId/colors', requireAuth, async (req: Request, res
 router.put('/products/colors/:colorId', requireAuth, async (req: Request, res: Response) => {
   try {
     const { colorId } = req.params;
-    const updates = { ...req.body, updated_at: new Date().toISOString() };
-    const keys = Object.keys(updates);
-    const values = Object.values(updates);
-    const setClause = keys.map((k, i) => `${k} = $${i + 1}`).join(', ');
+    // Only real product_colors columns are written; unknown keys are ignored
+    const update = buildUpdate(req.body, COLOR_FIELDS, { extra: ['updated_at = NOW()'] });
+    if (!update) return res.status(400).json({ error: 'Nothing to update' });
 
     const result = await pool.query(
-      `UPDATE product_colors SET ${setClause} WHERE id = $${keys.length + 1} RETURNING *`,
-      [...values, colorId]
+      `UPDATE product_colors SET ${update.setClause} WHERE id = $${update.values.length + 1} RETURNING *`,
+      [...update.values, colorId]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Color not found' });
     console.log(`✅ Color variant updated:`, result.rows[0]);
