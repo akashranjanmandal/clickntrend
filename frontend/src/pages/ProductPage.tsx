@@ -14,6 +14,7 @@ import toast from 'react-hot-toast';
 import ProductCustomizationModal from '../components/ProductCustomizationModal';
 import { setSeo, absoluteUrl } from '../utils/seo';
 import ItemUnavailable from '../components/ItemUnavailable';
+import { shareItem, extractId } from '../utils/share';
 
 const ProductPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -78,7 +79,13 @@ const ProductPage: React.FC = () => {
     });
   }, [product, reviews]);
 
-  useEffect(() => { if (id) fetchProduct(id); }, [id]);
+  // Repair pasted/garbled links ("/product/<id>%20some%20text") to the clean URL, keeping any query string
+  useEffect(() => {
+    const cleanId = extractId(id);
+    if (cleanId && cleanId !== id) { navigate(`/product/${cleanId}${window.location.search}`, { replace: true }); return; }
+    if (cleanId) fetchProduct(cleanId);
+    else { setProduct(null); setLoading(false); }
+  }, [id]);
 
   // Auto-slide images every 3 seconds
   useEffect(() => {
@@ -217,21 +224,8 @@ const ProductPage: React.FC = () => {
     finally { setSubmitting(false); }
   };
 
-  const handleShare = async () => {
-    const url = window.location.href;
-    const shareData = {
-      title: product?.name || '',
-      text: product?.description || `Check out ${product?.name}!`,
-      url,
-    };
-    try {
-      if (navigator.share) {
-        await navigator.share(shareData);
-      } else {
-        await navigator.clipboard.writeText(url);
-        toast.success('Link copied!');
-      }
-    } catch { /* user cancelled */ }
+  const handleShare = () => {
+    if (product) shareItem('product', product.id, product.name);
   };
 
   const averageRating = reviews.length > 0 ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length : 0;

@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { apiFetch, uploadFetch } from '../utils/api';
 import toast from 'react-hot-toast';
 import ProductCustomizationModal from './ProductCustomizationModal';
+import { shareItem } from '../utils/share';
 
 interface ProductDetailsModalProps {
   product: Product;
@@ -383,12 +384,7 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  const url = `${window.location.origin}/products?id=${product.id}`;
-                  if (navigator.share) {
-                    navigator.share({ title: product.name, url }).catch(() => {});
-                  } else {
-                    navigator.clipboard.writeText(url).then(() => toast.success('Product link copied!')).catch(() => {});
-                  }
+                  shareItem('product', product.id, product.name);
                 }}
                 className="p-2 sm:p-2.5 bg-white/90 backdrop-blur-sm rounded-full shadow-lg hover:bg-premium-gold hover:text-white transition-all duration-300"
                 title="Share product"

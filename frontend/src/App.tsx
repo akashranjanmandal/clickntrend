@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { CartProvider } from './context/CartContext';
 import { MotionConfig } from 'framer-motion';
+import { Toaster } from 'react-hot-toast';
 import Layout from './components/Layout';
 import Home from './pages/Home';
 import Products from './pages/Products';
@@ -22,6 +23,16 @@ function App() {
     <MotionConfig reducedMotion="user">
     <Router>
       <CartProvider>
+        {/* Renders every toast() message in the shop and admin (was missing, so none ever showed) */}
+        <Toaster
+          position="bottom-center"
+          toastOptions={{
+            duration: 3000,
+            style: { background: '#1A1A1A', color: '#fff', borderRadius: '9999px', padding: '10px 18px', fontSize: '14px' },
+            success: { iconTheme: { primary: '#D4AF37', secondary: '#1A1A1A' } },
+          }}
+          containerStyle={{ zIndex: 9999 }}
+        />
         <Routes>
           {/* Routes with Layout */}
           <Route path="/" element={<Layout />}>

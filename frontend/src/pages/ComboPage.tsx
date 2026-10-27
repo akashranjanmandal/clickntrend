@@ -9,6 +9,7 @@ import { setSeo, absoluteUrl } from '../utils/seo';
 import ItemUnavailable from '../components/ItemUnavailable';
 import ComboCustomizationWizard, { WizardDrafts, missingFor } from '../components/ComboCustomizationWizard';
 import toast from 'react-hot-toast';
+import { shareItem, extractId } from '../utils/share';
 
 const ComboPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -25,7 +26,13 @@ const ComboPage: React.FC = () => {
   const [drafts, setDrafts] = useState<WizardDrafts>({});
   const autoSlideRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => { if (id) fetchCombo(id); }, [id]);
+  // Repair pasted/garbled links to the clean URL, keeping any query string
+  useEffect(() => {
+    const cleanId = extractId(id);
+    if (cleanId && cleanId !== id) { navigate(`/combo/${cleanId}${window.location.search}`, { replace: true }); return; }
+    if (cleanId) fetchCombo(cleanId);
+    else { setCombo(null); setLoading(false); }
+  }, [id]);
 
   useEffect(() => {
     if (!combo) return;
@@ -214,7 +221,7 @@ const ComboPage: React.FC = () => {
                   </div>
                   <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 leading-tight">{combo.name}</h1>
                 </div>
-                <button onClick={() => { const url = window.location.href; if (navigator.share) navigator.share({ title: combo.name, url }).catch(() => {}); else navigator.clipboard.writeText(url).then(() => toast.success('Link copied!')).catch(() => {}); }} className="p-2 rounded-full hover:bg-gray-100 flex-shrink-0">
+                <button onClick={() => shareItem('combo', combo.id, combo.name)} aria-label="Share this combo" className="p-2 rounded-full hover:bg-gray-100 flex-shrink-0">
                   <Share2 className="h-4 w-4 sm:h-5 sm:w-5 text-gray-500" />
                 </button>
               </div>
