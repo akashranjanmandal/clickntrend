@@ -6,6 +6,7 @@ import { getImageUrl, formatCurrency, getProductImage } from '../utils/helpers';
 import { useCart } from '../context/CartContext';
 import { apiFetch } from '../utils/api';
 import { setSeo, absoluteUrl } from '../utils/seo';
+import ItemUnavailable from '../components/ItemUnavailable';
 import ComboCustomizationWizard, { WizardDrafts, missingFor } from '../components/ComboCustomizationWizard';
 import toast from 'react-hot-toast';
 
@@ -74,7 +75,10 @@ const ComboPage: React.FC = () => {
       setLoading(true);
       const data = await apiFetch(`/api/combos/${comboId}`);
       setCombo(data);
-    } catch { toast.error('Combo not found'); navigate('/'); }
+    } catch {
+      // Stay on this link (ad/share visitors must not be dumped on the home page)
+      setCombo(null);
+    }
     finally { setLoading(false); }
   };
 
@@ -87,7 +91,9 @@ const ComboPage: React.FC = () => {
       <div className="text-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500 mx-auto mb-4"></div><p className="text-gray-500">Loading combo…</p></div>
     </div>
   );
-  if (!combo) return null;
+  if (!combo) return (
+    <ItemUnavailable kind="combo" onShop={() => navigate('/combos')} onHome={() => navigate('/')} />
+  );
 
   const comboProducts = combo.combo_products || combo.products || [];
   const allImages = getAllImages(combo);

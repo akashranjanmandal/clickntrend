@@ -13,6 +13,7 @@ import { apiFetch } from '../utils/api';
 import toast from 'react-hot-toast';
 import ProductCustomizationModal from '../components/ProductCustomizationModal';
 import { setSeo, absoluteUrl } from '../utils/seo';
+import ItemUnavailable from '../components/ItemUnavailable';
 
 const ProductPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -112,8 +113,9 @@ const ProductPage: React.FC = () => {
       fetchReviews(productId);
       fetchRelatedProducts(data);
     } catch (err) {
-      toast.error('Product not found');
-      navigate('/');
+      // Stay on this link (ad/share visitors must not be dumped on the home page);
+      // the page shows an "unavailable" message with ways to keep shopping.
+      setProduct(null);
     } finally {
       setLoading(false);
     }
@@ -255,7 +257,13 @@ const ProductPage: React.FC = () => {
       </div>
     </div>
   );
-  if (!product) return null;
+  if (!product) return (
+    <ItemUnavailable
+      kind="product"
+      onShop={() => navigate('/products')}
+      onHome={() => navigate('/')}
+    />
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
