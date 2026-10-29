@@ -150,3 +150,14 @@
     overflow: hidden;
   }
 }
+/* Text styling for the policy / help pages (PolicyLayout) */
+.policy-content h2 { @apply mt-10 mb-3 font-serif text-2xl text-premium-charcoal first:mt-0; }
+.policy-content h3 { @apply mt-6 mb-2 text-base font-semibold text-premium-charcoal; }
+.policy-content p { @apply mb-4 leading-relaxed text-gray-700; }
+.policy-content ul { @apply mb-4 list-disc space-y-1.5 pl-5 text-gray-700; }
+.policy-content ol { @apply mb-4 list-decimal space-y-1.5 pl-5 text-gray-700; }
+.policy-content a { @apply text-premium-charcoal underline decoration-premium-gold/60 underline-offset-2 hover:decoration-premium-gold; }
+.policy-content strong { @apply font-semibold text-premium-charcoal; }
+.policy-content table { @apply mb-6 w-full border-collapse text-sm; }
+.policy-content th { @apply border-b border-gray-200 py-2 pr-4 text-left font-semibold text-premium-charcoal; }
+.policy-content td { @apply border-b border-gray-100 py-2 pr-4 align-top text-gray-700; }

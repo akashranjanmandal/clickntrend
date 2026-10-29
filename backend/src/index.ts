@@ -7,6 +7,7 @@ import { transporter } from './services/gmailService';
 import { runMigrations } from './utils/migrate';
 import sitemapRoutes from './routes/sitemap';
 import ogRoutes from './routes/og';
+import renderRoutes from './routes/render';
 import productSizeRoutes from './routes/product-sizes';
 // ===== PUBLIC ROUTES =====
 import publicColorRoutes from './routes/product-colors-public';
@@ -42,7 +43,8 @@ app.use(cors({
 app.options('*', cors());
 
 // ===== PAYLOAD TOO LARGE ERROR =====
-app.use(express.json({ limit: '50mb' }));
+// rawBody is kept for webhook signature checks (Cashfree signs the exact request body)
+app.use(express.json({ limit: '50mb', verify: (req: any, _res, buf) => { req.rawBody = buf.toString('utf8'); } }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 console.log('📝 Registering routes...');
@@ -126,6 +128,10 @@ console.log('✅ /api/admin/hero');
 
 app.use('/api/admin/popups', adminPopupRoutes);
 console.log('✅ /api/admin/popups');
+/* ===================== SERVER-RENDERED PAGES (SEO) ===================== */
+// / /products /combos /custom-combo /product/:id /combo/:id — nginx proxies these here
+app.use(renderRoutes);
+
 /* ===================== HEALTH ===================== */
 app.get('/health', (_req, res) => {
   res.json({ status: 'OK', time: new Date().toISOString() });

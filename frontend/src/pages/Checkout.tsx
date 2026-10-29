@@ -1,18 +1,14 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useCart } from '../context/CartContext';
 import { formatCurrency } from '../utils/helpers';
-import { CONFIG } from '../config';
+import toast from 'react-hot-toast';
+import { loadCashfree, savePendingPayment, clearPendingPayment, verifyCashfreePayment } from '../utils/cashfree';
 import { Wallet, Truck, Tag, CheckCircle,Ruler, XCircle, ArrowLeft, ShoppingBag, Gift, AlertCircle, Sparkles, MapPin, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../utils/api';
 import { useSeo } from '../utils/seo';
 import { detectAddress } from '../utils/geolocation';
 
-declare global {
-  interface Window {
-    Razorpay: any;
-  }
-}
 
 const Checkout: React.FC = () => {
   useSeo({ title: 'Checkout', noindex: true });
@@ -341,29 +337,16 @@ const Checkout: React.FC = () => {
     }
   };
 
-  /* ---------------- RAZORPAY ---------------- */
-  const loadRazorpayScript = () =>
-    new Promise<boolean>((resolve) => {
-      if (window.Razorpay) return resolve(true);
-      const script = document.createElement('script');
-      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-      document.body.appendChild(script);
-    });
-
+  /* ---------------- CASHFREE ---------------- */
   const handleOnlinePayment = async () => {
     if (!validateForm()) return;
     setLoading(true);
 
     try {
-      if (!(await loadRazorpayScript())) {
-        throw new Error('Failed to load payment gateway');
+      if (!(await loadCashfree())) {
+        throw new Error('Could not load the payment page. Please check your connection and try again.');
       }
 
-      const fullAddress = getFullAddress();
-
-      // Use the v1 format that worked for COD
       const orderDataPayload = {
         items,
         subtotal,
@@ -376,77 +359,46 @@ const Checkout: React.FC = () => {
         email: formData.email,
         phone: formData.phone,
         alt_phone: formData.alt_phone,
-        address: fullAddress,
+        address: getFullAddress(),
         city: formData.city,
         state: formData.state,
         pincode: formData.pincode,
         special_requests: formData.special_requests,
       };
 
-      // Create Razorpay order
-      const orderData = await apiFetch('/api/payment/create-order', {
+      // 1. Backend creates the Cashfree order and returns a payment session
+      const session = await apiFetch('/api/payment/cashfree/create-order', {
         method: 'POST',
-        body: JSON.stringify({
-          amount: Math.round(grandTotal * 100),
-          currency: 'INR',
-          receipt: `receipt_${Date.now()}`,
-        }),
+        body: JSON.stringify({ order_data: orderDataPayload }),
       });
+      if (!session?.payment_session_id) throw new Error(session?.error || 'Could not start the payment.');
 
-      const razorpay = new window.Razorpay({
-        key: CONFIG.RAZORPAY_KEY_ID,
-        amount: orderData.amount,
-        currency: orderData.currency,
-        order_id: orderData.id,
-        name: 'GFTD',
-        description: 'Premium Gift Purchase',
-        handler: async (res: any) => {
-          try {
-            const verifyResponse = await apiFetch('/api/payment/verify-payment', {
-              method: 'POST',
-              body: JSON.stringify({
-                razorpay_order_id: res.razorpay_order_id,
-                razorpay_payment_id: res.razorpay_payment_id,
-                razorpay_signature: res.razorpay_signature,
-                order_data: orderDataPayload,
-              }),
-            });
+      // Kept until the order is saved, in case the bank/UPI app redirects back to the site
+      savePendingPayment({ order_id: session.order_id, order_data: orderDataPayload, created_at: Date.now() });
 
-            console.log('✅ Verification response:', verifyResponse);
+      // 2. Cashfree's secure checkout popup
+      const cashfree = window.Cashfree!({ mode: session.mode === 'production' ? 'production' : 'sandbox' });
+      const result = await cashfree.checkout({ paymentSessionId: session.payment_session_id, redirectTarget: '_modal' });
 
-            const orderId = extractOrderId(verifyResponse);
-            
-            if (verifyResponse.success && orderId) {
-              clearCart();
-              navigate(`/order-confirmation?orderId=${orderId}`);
-            } else {
-              alert('Payment verification failed. Please contact support.');
-            }
-          } catch (error) {
-            console.error('Verification error:', error);
-            alert('Payment verification failed.');
-          }
-        },
-        prefill: {
-          name: formData.name,
-          email: formData.email,
-          contact: formData.phone,
-        },
-        notes: {
-          name: formData.name,
-          email: formData.email,
-          phone: formData.phone,
-        },
-        theme: { color: '#D4AF37' },
-        modal: {
-          ondismiss: () => setLoading(false),
-        },
-      });
+      if (result?.redirect) return; // a redirect flow took over; /order-confirmation finishes the order
+      if (result?.error) {
+        // closed the popup or the payment failed — nothing was charged
+        toast.error(result.error.message || 'Payment was not completed.');
+        return;
+      }
 
-      razorpay.open();
+      // 3. Backend confirms with Cashfree that it is paid, then saves the order
+      const verified = await verifyCashfreePayment(session.order_id, orderDataPayload);
+      if (verified.success && verified.order?.id) {
+        clearPendingPayment();
+        clearCart();
+        navigate(`/order-confirmation?orderId=${verified.order.id}`);
+      } else {
+        toast.error(verified.error || 'We could not confirm your payment yet. If money was deducted, contact us with your phone number.');
+      }
     } catch (e: any) {
       console.error('Payment error:', e);
-      alert(e.message || 'Payment failed. Please try again.');
+      toast.error(e.message || 'Payment failed. Please try again.');
     } finally {
       setLoading(false);
     }

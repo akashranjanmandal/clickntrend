@@ -11,6 +11,13 @@ import CustomCombo from './pages/CustomCombo';
 import Checkout from './pages/Checkout';
 import AdminLogin from './pages/AdminLogin';
 import NotFound from './pages/NotFound';
+import About from './pages/info/About';
+import Contact from './pages/info/Contact';
+import FAQ from './pages/info/FAQ';
+import ShippingPolicy from './pages/info/ShippingPolicy';
+import RefundPolicy from './pages/info/RefundPolicy';
+import Terms from './pages/info/Terms';
+import Privacy from './pages/info/Privacy';
 import './styles/globals.css';
 import OrderTracking from './pages/OrderTracking';
 import OrderConfirmation from './pages/OrderConfirmation';
@@ -45,6 +52,14 @@ function App() {
             <Route path="/order-confirmation" element={<OrderConfirmation />} />
             <Route path="/product/:id" element={<ProductPage />} />
             <Route path="/combo/:id" element={<ComboPage />} />
+            {/* Help, policy and legal pages */}
+            <Route path="/about" element={<About />} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/faq" element={<FAQ />} />
+            <Route path="/shipping-policy" element={<ShippingPolicy />} />
+            <Route path="/refund-policy" element={<RefundPolicy />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/privacy-policy" element={<Privacy />} />
             {/* 404 inside the shop layout so visitors keep the navbar */}
             <Route path="*" element={<NotFound />} />
           </Route>

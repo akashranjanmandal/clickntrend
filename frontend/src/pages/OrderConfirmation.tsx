@@ -26,6 +26,8 @@ import { formatCurrency } from '../utils/helpers'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { useSeo } from '../utils/seo';
+import { useCart } from '../context/CartContext';
+import { readPendingPayment, clearPendingPayment, verifyCashfreePayment } from '../utils/cashfree';
 
 interface Order {
   id: string
@@ -56,8 +58,36 @@ export default function OrderConfirmation() {
   const [copySuccess, setCopySuccess] = useState(false)
 
   const orderId = searchParams.get('orderId')
+  // Set when Cashfree redirects back here (UPI app / bank page) instead of closing its popup
+  const cfOrderId = searchParams.get('cf_order_id')
+  const { clearCart } = useCart()
+  const [paymentProblem, setPaymentProblem] = useState<string | null>(null)
 
   useEffect(() => {
+    if (!cfOrderId || orderId) return
+    // Confirm the payment with the backend, then show the normal confirmation (?orderId=…)
+    const pending = readPendingPayment(cfOrderId)
+    verifyCashfreePayment(cfOrderId, pending?.order_data)
+      .then(res => {
+        if (res.success && res.order?.id) {
+          clearPendingPayment()
+          clearCart()
+          navigate(`/order-confirmation?orderId=${res.order.id}`, { replace: true })
+        } else {
+          setPaymentProblem(res.error || 'We could not confirm this payment.')
+          setLoading(false)
+        }
+      })
+      .catch((err: any) => {
+        setPaymentProblem(/not completed/i.test(err?.message || '')
+          ? 'This payment was not completed, so nothing was charged. You can try again from your cart.'
+          : 'We could not confirm your payment yet. If money was deducted from your account, please contact us with your phone number and we will sort it out.')
+        setLoading(false)
+      })
+  }, [cfOrderId, orderId])
+
+  useEffect(() => {
+    if (cfOrderId && !orderId) return // handled above
     if (orderId) {
       fetchOrder()
     } else {
@@ -339,9 +369,24 @@ export default function OrderConfirmation() {
           transition={{ delay: 0.5 }}
           className="mt-6 text-xl font-medium text-gray-700"
         >
-          Fetching your order details...
+          {cfOrderId && !orderId ? 'Confirming your payment...' : 'Fetching your order details...'}
         </motion.p>
         <p className="text-gray-500 mt-2">This will just take a moment</p>
+      </div>
+    )
+  }
+
+  if (paymentProblem) {
+    return (
+      <div className="min-h-[70vh] flex flex-col items-center justify-center px-4 text-center">
+        <Package className="w-12 h-12 text-premium-gold mb-5" />
+        <h2 className="font-serif text-3xl text-gray-900 mb-3">Payment not confirmed</h2>
+        <p className="text-gray-600 max-w-md">{paymentProblem}</p>
+        <p className="text-gray-500 text-sm mt-2">Payment reference: <span className="font-mono">{cfOrderId}</span></p>
+        <div className="mt-8 flex flex-col sm:flex-row gap-3">
+          <button onClick={() => navigate('/checkout')} className="px-7 py-3 rounded-full bg-premium-charcoal text-white text-sm font-semibold hover:bg-black">Back to checkout</button>
+          <a href="mailto:care@gftd.in" className="px-7 py-3 rounded-full border border-gray-300 text-sm font-medium hover:border-gray-400">Contact care@gftd.in</a>
+        </div>
       </div>
     )
   }

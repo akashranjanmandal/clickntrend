@@ -6,9 +6,7 @@ import {
 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import CartDrawer from './CartDrawer';
-import FAQModal from './FAQModal';
-import ShippingInfoModal from './ShippingInfoModal';
-import ReturnPolicyModal from './ReturnPolicyModal';
+import { BUSINESS, fullAddress, POLICY_LINKS } from '../content/business';
 import FloatingCartButton from './FloatingCartButton';
 import { publicFetch } from '../utils/api';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -28,9 +26,6 @@ const XIcon = ({ className }: { className?: string }) => (
 const Layout: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [showFAQ, setShowFAQ] = useState(false);
-  const [showShipping, setShowShipping] = useState(false);
-  const [showReturns, setShowReturns] = useState(false);
   const [logo, setLogo] = useState<string | null>(null);
   const [showBackToTop, setShowBackToTop] = useState(false);
   const { itemCount } = useCart();
@@ -104,6 +99,7 @@ const Layout: React.FC = () => {
     { name: 'Shop', path: '/products' },
     { name: 'Combos', path: '/combos' },
     { name: 'Build a Combo', path: '/custom-combo' },
+    { name: 'FAQ', path: '/faq' },
   ];
 
   // Over the home hero the header starts transparent and turns solid on scroll
@@ -158,13 +154,6 @@ const Layout: React.FC = () => {
                 </Link>
               );
             })}
-            <button
-              onClick={() => setShowFAQ(true)}
-              className="group relative py-2 text-[13px] font-medium uppercase tracking-[0.14em] text-white/70 transition-colors hover:text-white"
-            >
-              FAQ
-              <span className="absolute inset-x-0 -bottom-0.5 h-px origin-left scale-x-0 bg-gold transition-transform duration-300 group-hover:scale-x-100" />
-            </button>
           </nav>
 
           {/* Actions */}
@@ -241,14 +230,6 @@ const Layout: React.FC = () => {
                     </Link>
                   </motion.div>
                 ))}
-                <motion.button
-                  initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }}
-                  onClick={() => { setShowFAQ(true); setIsMenuOpen(false); }}
-                  className="flex w-full items-center justify-between border-b border-white/10 py-4 text-left font-serif text-2xl font-light"
-                >
-                  FAQ
-                  <ChevronRight className="h-5 w-5 text-white/40" />
-                </motion.button>
               </nav>
               <div className="space-y-3 border-t border-white/10 px-6 py-6 text-sm text-white/70">
                 <a href="tel:+918240398515" className="flex items-center gap-3 hover:text-white">
@@ -372,33 +353,14 @@ const Layout: React.FC = () => {
                 Support
               </h3>
               <ul className="space-y-3">
-                <li>
-                  <button
-                    onClick={() => setShowFAQ(true)}
-                    className="text-gray-400 hover:text-gold transition-colors flex items-center gap-2 w-full text-left"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                    FAQ
-                  </button>
-                </li>
-                <li>
-                  <button
-                    onClick={() => setShowShipping(true)}
-                    className="text-gray-400 hover:text-gold transition-colors flex items-center gap-2 w-full text-left"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                    Shipping Info
-                  </button>
-                </li>
-                <li>
-                  <button
-                    onClick={() => setShowReturns(true)}
-                    className="text-gray-400 hover:text-gold transition-colors flex items-center gap-2 w-full text-left"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                    Returns Policy
-                  </button>
-                </li>
+                {POLICY_LINKS.filter(l => ['/faq', '/shipping-policy', '/refund-policy', '/contact'].includes(l.to)).map(link => (
+                  <li key={link.to}>
+                    <Link to={link.to} className="text-gray-400 hover:text-gold transition-colors flex items-center gap-2">
+                      <ChevronRight className="h-4 w-4" />
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
               </ul>
             </div>
             
@@ -421,23 +383,27 @@ const Layout: React.FC = () => {
                     care@gftd.in
                   </a>
                 </li>
+                <li className="flex items-start gap-3">
+                  <MapPin className="h-5 w-5 flex-shrink-0 mt-0.5" />
+                  <span>{BUSINESS.name}, {fullAddress}</span>
+                </li>
               </ul>
             </div>
           </div>
           
           {/* Copyright */}
           <div className="border-t border-white/10 mt-8 pt-8 text-center">
+            <nav aria-label="Legal" className="mb-4 flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm">
+              {POLICY_LINKS.map(link => (
+                <Link key={link.to} to={link.to} className="text-gray-400 hover:text-gold transition-colors">{link.label}</Link>
+              ))}
+            </nav>
             <p className="text-sm text-gray-500">
               © {new Date().getFullYear()} GFTD. All rights reserved.
             </p>
           </div>
         </div>
       </footer>
-
-      {/* Modals */}
-      <FAQModal isOpen={showFAQ} onClose={() => setShowFAQ(false)} />
-      <ShippingInfoModal isOpen={showShipping} onClose={() => setShowShipping(false)} />
-      <ReturnPolicyModal isOpen={showReturns} onClose={() => setShowReturns(false)} />
 
       {/* Cart Drawer */}
       <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />

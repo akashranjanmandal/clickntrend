@@ -21,6 +21,9 @@ router.get('/sitemap.xml', async (_req, res) => {
       { loc: '/products', priority: '0.9' },
       { loc: '/combos', priority: '0.8' },
       { loc: '/custom-combo', priority: '0.7' },
+      // Help, policy and legal pages
+      ...['/about', '/contact', '/faq', '/shipping-policy', '/refund-policy', '/terms', '/privacy-policy']
+        .map(loc => ({ loc, priority: '0.4' })),
       ...products.rows.map((p: any) => ({ loc: `/product/${p.id}`, lastmod: p.updated_at, priority: '0.8' })),
       ...combos.rows.map((c: any) => ({ loc: `/combo/${c.id}`, lastmod: c.updated_at, priority: '0.7' })),
     ];

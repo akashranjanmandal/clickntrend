@@ -13,8 +13,15 @@
 
   emailUser: process.env.EMAIL_USER || '',
   emailPassword: process.env.EMAIL_PASSWORD || '',
-  razorpayKeyId: process.env.RAZORPAY_KEY_ID!,
-  razorpayKeySecret: process.env.RAZORPAY_KEY_SECRET!,
+  // Razorpay: kept only to refund orders paid before the switch to Cashfree
+  razorpayKeyId: process.env.RAZORPAY_KEY_ID || '',
+  razorpayKeySecret: process.env.RAZORPAY_KEY_SECRET || '',
+
+  // Cashfree (all new online payments). CASHFREE_ENV: sandbox | production
+  cashfreeAppId: process.env.CASHFREE_APP_ID || '',
+  cashfreeSecretKey: process.env.CASHFREE_SECRET_KEY || '',
+  cashfreeEnv: (process.env.CASHFREE_ENV === 'production' ? 'production' : 'sandbox') as 'production' | 'sandbox',
+  clientUrl: (process.env.CLIENT_URL || 'https://gftd.in').replace(/\/+$/, ''),
 };
 
 export default config;
