@@ -1,6 +1,7 @@
 import express from 'express';
 import { pool } from '../utils/db';
 import { requireAuth } from '../middleware/auth';
+import { isUuid } from '../utils/validate';
 
 const router = express.Router();
 
@@ -58,6 +59,9 @@ router.get('/:productId', async (req, res) => {
 router.post('/track-view', async (req, res) => {
   try {
     const { product_id } = req.body;
+    if (!isUuid(product_id)) return res.status(400).json({ error: 'Invalid product' });
+    const exists = await pool.query('SELECT 1 FROM products WHERE id = $1', [product_id]);
+    if (exists.rows.length === 0) return res.status(404).json({ error: 'Product not found' });
     const now = new Date().toISOString();
 
     await pool.query(
@@ -78,6 +82,9 @@ router.post('/track-view', async (req, res) => {
 router.post('/track-purchase', async (req, res) => {
   try {
     const { product_id } = req.body;
+    if (!isUuid(product_id)) return res.status(400).json({ error: 'Invalid product' });
+    const exists = await pool.query('SELECT 1 FROM products WHERE id = $1', [product_id]);
+    if (exists.rows.length === 0) return res.status(404).json({ error: 'Product not found' });
     const now = new Date().toISOString();
 
     await pool.query(

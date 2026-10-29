@@ -1,6 +1,7 @@
 import express from 'express';
 import { pool } from '../utils/db';
 import { requireAuth } from '../middleware/auth';
+import { isUuid, cleanText, isEmail } from '../utils/validate';
 
 const router = express.Router();
 
@@ -26,14 +27,22 @@ router.get('/product/:productId', async (req, res) => {
 // Submit a review
 router.post('/', async (req, res) => {
   try {
-    const { product_id, user_name, user_email, rating, comment } = req.body;
+    const { product_id, user_email } = req.body;
+    const user_name = cleanText(req.body.user_name, 80);
+    const comment = cleanText(req.body.comment, 2000);
+    const rating = Number(req.body.rating);
 
-    if (!product_id || !user_name || !rating || !comment) {
-      return res.status(400).json({ error: 'Missing required fields' });
+    if (!isUuid(product_id) || !user_name || !comment) {
+      return res.status(400).json({ error: 'Please add your name and a review (up to 2000 characters).' });
     }
-    if (rating < 1 || rating > 5) {
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
       return res.status(400).json({ error: 'Rating must be between 1 and 5' });
     }
+    if (user_email && !isEmail(user_email)) {
+      return res.status(400).json({ error: 'Please enter a valid email address' });
+    }
+    const product = await pool.query('SELECT 1 FROM products WHERE id = $1 AND is_active = true', [product_id]);
+    if (product.rows.length === 0) return res.status(404).json({ error: 'Product not found' });
 
     const now = new Date().toISOString();
     const result = await pool.query(
@@ -41,7 +50,7 @@ router.post('/', async (req, res) => {
          (product_id, user_name, user_email, rating, comment, is_approved, created_at, updated_at)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
        RETURNING *`,
-      [product_id, user_name, user_email, rating, comment, false, now, now]
+      [product_id, user_name, user_email || null, rating, comment, false, now, now]
     );
 
     res.json({

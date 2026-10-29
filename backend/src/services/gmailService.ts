@@ -96,6 +96,23 @@ const getVariantText = (item: any): string => {
 };
 
 // Helper to create items table with variants
+
+/**
+ * Customer-typed text (name, address, special requests, personalisation text…) goes into
+ * HTML emails, so every string is HTML-escaped first. The raw values are kept for the
+ * recipient address.
+ */
+const escapeHtml = (v: string) =>
+  v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+function escapeDeep<T>(value: T): T {
+  if (typeof value === 'string') return escapeHtml(value) as any;
+  if (Array.isArray(value)) return value.map(escapeDeep) as any;
+  if (value && typeof value === 'object' && !(value instanceof Date)) {
+    return Object.fromEntries(Object.entries(value as any).map(([k, v]) => [k, escapeDeep(v)])) as any;
+  }
+  return value;
+}
+
 const createItemsTable = (items: any[]): string => {
   const rows = items.map(item => {
     const variantHtml = getVariantText(item);
@@ -144,7 +161,8 @@ const createItemsTable = (items: any[]): string => {
 // ===========================================
 // SEND ORDER CONFIRMATION EMAIL (MINIMAL UI)
 // ===========================================
-export const sendOrderConfirmationEmail = async (orderData: OrderData): Promise<EmailResult> => {
+export const sendOrderConfirmationEmail = async (rawOrder: OrderData): Promise<EmailResult> => {
+  const orderData = escapeDeep(rawOrder);
   try {
     console.log('📧 Sending order confirmation email to:', orderData.customer_email);
 
@@ -320,7 +338,7 @@ export const sendOrderConfirmationEmail = async (orderData: OrderData): Promise<
 
     const mailOptions = {
       from: `"GFTD" <${config.emailUser}>`,
-      to: orderData.customer_email,
+      to: rawOrder.customer_email,
       cc: ['care@gftd.in'],
       subject: `Order Confirmed: ${orderData.custom_order_id || '#' + orderData.id}`,
       html: html
@@ -342,7 +360,8 @@ export const sendOrderConfirmationEmail = async (orderData: OrderData): Promise<
 // ===========================================
 // SEND ADMIN NOTIFICATION (MINIMAL UI)
 // ===========================================
-export const sendAdminNotification = async (orderData: OrderData): Promise<EmailResult> => {
+export const sendAdminNotification = async (rawOrder: OrderData): Promise<EmailResult> => {
+  const orderData = escapeDeep(rawOrder);
   try {
     const orderDisplayId = orderData.custom_order_id || '#' + orderData.id;
 
@@ -495,7 +514,8 @@ export const sendAdminNotification = async (orderData: OrderData): Promise<Email
 // ===========================================
 // SEND ORDER STATUS UPDATE EMAIL (MINIMAL UI)
 // ===========================================
-export const sendOrderStatusUpdateEmail = async (data: StatusUpdateData): Promise<EmailResult> => {
+export const sendOrderStatusUpdateEmail = async (rawData: StatusUpdateData): Promise<EmailResult> => {
+  const data = escapeDeep(rawData);
   try {
     console.log(`📧 Sending status update email for order ${data.custom_order_id}`);
 
@@ -646,7 +666,7 @@ export const sendOrderStatusUpdateEmail = async (data: StatusUpdateData): Promis
 
     const mailOptions = {
       from: `"GFTD" <${config.emailUser}>`,
-      to: data.customer_email,
+      to: rawData.customer_email,
       subject: `Order #${data.custom_order_id} - ${data.new_status}`,
       html: html
     };

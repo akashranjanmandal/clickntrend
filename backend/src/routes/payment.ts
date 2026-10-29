@@ -11,6 +11,8 @@ import {
   createOrder as cfCreateOrder, getOrder as cfGetOrder, getOrderPayments as cfGetOrderPayments,
   createRefund as cfCreateRefund, isValidWebhookSignature, cashfreeMode, CashfreeError,
 } from '../utils/cashfree';
+import { priceOrder, assertTotalsMatch, withServerPrices, PricingError } from '../utils/pricing';
+import { ORDER_NUMBER_LOCK } from '../utils/orderNumber';
 
 const router = express.Router();
 
@@ -40,6 +42,25 @@ async function generateCustomOrderId(): Promise<string> {
   }
 }
 
+/*
+ * Pending online payments are kept in the existing site_settings table (key "pending_payment:<id>"),
+ * so the order can be saved from the webhook even if the customer never returns to the site.
+ */
+const pendingKey = (orderId: string) => `pending_payment:${orderId}`;
+async function savePending(orderId: string, order_data: any) {
+  await pool.query(
+    `INSERT INTO site_settings (key, value, updated_at) VALUES ($1, $2::jsonb, NOW())
+     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+    [pendingKey(orderId), JSON.stringify({ order_data, created_at: new Date().toISOString() })]
+  );
+  // housekeeping: drop abandoned checkouts older than 7 days
+  await pool.query(`DELETE FROM site_settings WHERE key LIKE 'pending_payment:%' AND updated_at < NOW() - INTERVAL '7 days'`);
+}
+async function loadPending(orderId: string): Promise<any | null> {
+  const { rows } = await pool.query('SELECT value FROM site_settings WHERE key = $1', [pendingKey(orderId)]);
+  return rows[0]?.value?.order_data || null;
+}
+
 /** Customer details checks shared by create + verify */
 function customerProblem(order_data: any): string | null {
   if (!order_data?.name || !order_data?.email || !order_data?.phone) return 'Missing customer information';
@@ -59,6 +80,8 @@ async function savePaidOrder(order_data: any, gateway: { orderId: string; paymen
   try {
     await client.query('BEGIN');
     await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [gateway.orderId]);
+    // one order number at a time (shared with COD orders)
+    await client.query('SELECT pg_advisory_xact_lock($1)', [ORDER_NUMBER_LOCK]);
 
     const existing = await client.query('SELECT * FROM orders WHERE razorpay_order_id = $1 LIMIT 1', [gateway.orderId]);
     if (existing.rows.length > 0) {
@@ -121,6 +144,7 @@ async function savePaidOrder(order_data: any, gateway: { orderId: string; paymen
       }
     }
 
+    await client.query('DELETE FROM site_settings WHERE key = $1', [pendingKey(gateway.orderId)]);
     await client.query('COMMIT');
     console.log('✅ Order saved:', order.custom_order_id);
 
@@ -161,7 +185,11 @@ router.post('/cashfree/create-order', async (req, res) => {
     const problem = customerProblem(order_data);
     if (problem) return res.status(400).json({ success: false, error: problem });
 
-    const amount = amountOf(order_data);
+    // The amount comes from the database, never the browser; the cart must show the same total
+    const priced = await priceOrder(order_data, 'online');
+    assertTotalsMatch(order_data, priced);
+    const pricedOrder = withServerPrices(order_data, priced);
+    const amount = priced.total_amount;
     if (amount < 1) return res.status(400).json({ success: false, error: 'Invalid order amount' });
 
     const phone = String(order_data.phone).replace(/\D/g, '');
@@ -182,10 +210,12 @@ router.post('/cashfree/create-order', async (req, res) => {
       note: `GFTD order — ${(order_data.items || []).length} item(s)`,
     });
 
-    res.json({ success: true, order_id: cfOrder.order_id, payment_session_id: cfOrder.payment_session_id, mode: cashfreeMode });
+    await savePending(cfOrder.order_id, pricedOrder);
+    res.json({ success: true, order_id: cfOrder.order_id, payment_session_id: cfOrder.payment_session_id, mode: cashfreeMode, total_amount: amount });
   } catch (error: any) {
+    if (error instanceof PricingError) return res.status(error.status).json({ success: false, error: error.message, ...error.extra });
     console.error('Cashfree create-order error:', error instanceof CashfreeError ? error.body : error);
-    res.status(502).json({ success: false, error: 'Could not start the payment. Please try again.', details: error.message });
+    res.status(502).json({ success: false, public: true, error: 'Could not start the payment. Please try again.', details: error.message });
   }
 });
 
@@ -199,7 +229,10 @@ router.post('/cashfree/verify', async (req, res) => {
     const existing = await pool.query('SELECT * FROM orders WHERE razorpay_order_id = $1 LIMIT 1', [order_id]);
     if (existing.rows.length > 0) return res.json({ success: true, order: orderSummary(existing.rows[0]) });
 
-    const problem = customerProblem(order_data);
+    // Use the order stored at payment start (server-priced) — not whatever the browser sends now
+    const pending = await loadPending(order_id);
+    if (!pending) return res.status(404).json({ success: false, error: 'Payment session not found. If money was deducted, please contact us.' });
+    const problem = customerProblem(pending);
     if (problem) return res.status(400).json({ success: false, error: problem });
 
     const cfOrder = await cfGetOrder(order_id);
@@ -207,25 +240,24 @@ router.post('/cashfree/verify', async (req, res) => {
       return res.status(402).json({ success: false, status: cfOrder.order_status, error: 'Payment not completed' });
     }
     // The order must be exactly what was paid for
-    if (Math.abs(Number(cfOrder.order_amount) - amountOf(order_data)) > 0.01) {
-      console.error(`❌ Amount mismatch for ${order_id}: paid ${cfOrder.order_amount}, order says ${amountOf(order_data)}`);
+    if (Math.abs(Number(cfOrder.order_amount) - amountOf(pending)) > 0.01) {
+      console.error(`❌ Amount mismatch for ${order_id}: paid ${cfOrder.order_amount}, order says ${amountOf(pending)}`);
       return res.status(400).json({ success: false, error: 'Payment amount does not match the order. Please contact support.' });
     }
 
     const payments = await cfGetOrderPayments(order_id).catch(() => []);
     const paid = payments.find(p => p.payment_status === 'SUCCESS');
 
-    const { order } = await savePaidOrder(order_data, { orderId: order_id, paymentId: paid ? String(paid.cf_payment_id) : null });
+    const { order } = await savePaidOrder(pending, { orderId: order_id, paymentId: paid ? String(paid.cf_payment_id) : null });
     res.json({ success: true, message: 'Payment verified successfully', order: orderSummary(order) });
   } catch (error: any) {
     console.error('❌ Cashfree verify error:', error instanceof CashfreeError ? error.body : error);
-    res.status(500).json({ success: false, error: 'Payment verification failed', details: error.message });
+    res.status(500).json({ success: false, public: true, error: 'We could not confirm your payment yet. If money was deducted, please contact us with your phone number.', details: error.message });
   }
 });
 
 // Cashfree server-to-server notification (sent to the notify_url given at order creation).
-// Orders are saved by /cashfree/verify (it has the cart); this logs payments whose order
-// never got saved — e.g. the customer closed the browser right after paying.
+// Saves the order when the customer paid but closed the browser before returning to the site.
 router.post('/cashfree/webhook', async (req: any, res) => {
   const signature = req.headers['x-webhook-signature'] as string | undefined;
   const timestamp = req.headers['x-webhook-timestamp'] as string | undefined;
@@ -235,12 +267,20 @@ router.post('/cashfree/webhook', async (req: any, res) => {
   try {
     const event = req.body;
     const orderId: string | undefined = event?.data?.order?.order_id;
-    if (event?.type === 'PAYMENT_SUCCESS_WEBHOOK' && orderId) {
+    if (event?.type === 'PAYMENT_SUCCESS_WEBHOOK' && isCashfreeOrder(orderId)) {
       const saved = await pool.query('SELECT custom_order_id FROM orders WHERE razorpay_order_id = $1 LIMIT 1', [orderId]);
       if (saved.rows.length === 0) {
-        const c = event?.data?.customer_details || {};
-        console.error(`⚠️ Cashfree payment ${orderId} (₹${event?.data?.payment?.payment_amount}) has no saved order yet — ` +
-          `customer ${c.customer_name || ''} ${c.customer_phone || ''} ${c.customer_email || ''}. Check Cashfree dashboard.`);
+        // Customer paid but never returned to the site: confirm with Cashfree, then save the order
+        const pending = await loadPending(orderId!);
+        const cfOrder = await cfGetOrder(orderId!);
+        if (pending && cfOrder.order_status === 'PAID' && Math.abs(Number(cfOrder.order_amount) - amountOf(pending)) <= 0.01) {
+          const paymentId = event?.data?.payment?.cf_payment_id;
+          const { order } = await savePaidOrder(pending, { orderId: orderId!, paymentId: paymentId ? String(paymentId) : null });
+          console.log(`✅ Order ${order.custom_order_id} saved from Cashfree webhook`);
+        } else {
+          const c = event?.data?.customer_details || {};
+          console.error(`⚠️ Cashfree payment ${orderId} could not be matched to a pending order — customer ${c.customer_name || ''} ${c.customer_phone || ''}. Check the Cashfree dashboard.`);
+        }
       }
     }
     res.json({ received: true });

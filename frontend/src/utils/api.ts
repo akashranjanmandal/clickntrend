@@ -13,6 +13,24 @@
  * creates double /api/api prefixes. Leave it empty.
  */
 
+/** Error with the server's status, code (e.g. PRICE_CHANGED) and full JSON body */
+export class ApiError extends Error {
+  constructor(message: string, public status: number, public data: any = null) { super(message); }
+  get code(): string | undefined { return this.data?.code; }
+}
+
+/** Reads a failed response into an ApiError (JSON message when available) */
+async function toApiError(res: Response, prefix = 'API error'): Promise<ApiError> {
+  const ct = res.headers.get('content-type') || '';
+  if (ct.includes('application/json')) {
+    const data = await res.json().catch(() => null);
+    return new ApiError(data?.message || data?.error || `${prefix} ${res.status}`, res.status, data);
+  }
+  const text = await res.text().catch(() => '');
+  console.error('Non-JSON error response:', text.substring(0, 300));
+  return new ApiError(`${prefix} ${res.status}`, res.status);
+}
+
 const getBaseUrl = (): string => {
   const raw = (import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '');
   // Safety: if someone accidentally set it to end with /api, strip it to avoid doubling
@@ -48,16 +66,7 @@ export const apiFetch = async <T = any>(
 
   const res = await fetch(url, { ...options, headers });
 
-  if (!res.ok) {
-    const ct = res.headers.get('content-type') || '';
-    if (ct.includes('application/json')) {
-      const err = await res.json();
-      throw new Error(err.message || err.error || `API error ${res.status}`);
-    }
-    const text = await res.text();
-    console.error('Non-JSON error response:', text.substring(0, 300));
-    throw new Error(`API error ${res.status}: ${text.substring(0, 100)}`);
-  }
+  if (!res.ok) throw await toApiError(res);
 
   return res.json();
 };
@@ -77,10 +86,7 @@ export const publicFetch = async <T = any>(
 
   const res = await fetch(url, { ...options, headers });
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`API error ${res.status}: ${text.substring(0, 100)}`);
-  }
+  if (!res.ok) throw await toApiError(res);
 
   return res.json();
 };
@@ -101,10 +107,7 @@ export const uploadFetch = async <T = any>(
     body: formData,
   });
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Upload error ${res.status}: ${text.substring(0, 100)}`);
-  }
+  if (!res.ok) throw await toApiError(res, 'Upload error');
 
   return res.json();
 };

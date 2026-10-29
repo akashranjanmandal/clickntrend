@@ -302,16 +302,26 @@ const getFilteredProducts = () => {
 
   const getCurrentDiscountTier = () => {
     const totalItems = getTotalItems();
-    return discountTiers.find(tier => 
+    // 10+ items keep the top discount (previously 11+ fell back to 0%)
+    if (totalItems >= discountTiers[discountTiers.length - 1].minItems) return discountTiers[discountTiers.length - 1];
+    return discountTiers.find(tier =>
       totalItems >= tier.minItems && totalItems <= tier.maxItems
     ) || discountTiers[0];
+  };
+
+  // Same rule as the server: price + colour/size extras + personalisation fee only when personalised
+  const piecePrice = (item: { product: Product; customization?: CustomizationData; colorId?: string; sizeId?: string }) => {
+    const colorMod = item.colorId ? Number(item.product.colors?.find(c => c.id === item.colorId)?.price_modifier) || 0 : 0;
+    const sizeMod = item.sizeId ? Number(item.product.sizes?.find(s => s.id === item.sizeId)?.price_modifier) || 0 : 0;
+    const c = item.customization;
+    const personalised = !!c && ((c.text_lines || []).some(t => String(t).trim()) || (c.image_urls || []).length > 0);
+    return (Number(item.product.price) || 0) + colorMod + sizeMod + (personalised ? Number(item.product.customization_price) || 0 : 0);
   };
 
   const calculateSubtotal = () => {
     let total = 0;
     selectedProducts.forEach(item => {
-      const itemPrice = item.product.price + (item.product.customization_price || 0);
-      total += itemPrice * item.quantity;
+      total += piecePrice(item) * item.quantity;
     });
     return total;
   };
@@ -345,7 +355,7 @@ const getFilteredProducts = () => {
     
     // Prepare combo products array - ensuring all customizations are included
     const comboProducts = Array.from(selectedProducts.values()).map(item => {
-      const itemPrice = item.product.price + (item.product.customization_price || 0);
+      const itemPrice = piecePrice(item);
       return {
         id: item.product.id,
         name: item.product.name,
@@ -498,8 +508,8 @@ const getFilteredProducts = () => {
           </div>
         ) : (
           <div className="space-y-3">
-            {Array.from(selectedProducts.values()).map(({ product, quantity, customization, colorId, colorName, colorCode, sizeName, sizeCode }) => {
-              const itemPrice = product.price + (product.customization_price || 0);
+            {Array.from(selectedProducts.values()).map(({ product, quantity, customization, colorId, colorName, colorCode, sizeId, sizeName, sizeCode }) => {
+              const itemPrice = piecePrice({ product, customization, colorId, sizeId });
               const colorImg = colorId && product.colors
                 ? product.colors.find(c => c.id === colorId)?.image_url
                 : null;
@@ -830,7 +840,7 @@ const getFilteredProducts = () => {
   {displayProducts.length > 0 ? (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
       {displayProducts.map((product) => {
-        const finalPrice = product.price + (product.customization_price || 0);
+        const finalPrice = Number(product.price) || 0; // personalisation fee is added only if personalised
         const isInCombo = Array.from(selectedProducts.keys()).some(k => k === product.id || k.startsWith(`${product.id}-`));
         
         return (

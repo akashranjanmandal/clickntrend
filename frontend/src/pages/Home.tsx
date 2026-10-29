@@ -13,7 +13,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import ProductCard from '../components/ProductCard';
 import CategoryCard from '../components/CategoryCard';
 import HeroSection from '../components/HeroSection';
-// ProductDetailsModal removed - product clicks now navigate to /product/:id
 import { Product, Category, HeroContent, Stat, Combo, Gender } from '../types';
 import { apiFetch } from '../utils/api';
 import { motion, AnimatePresence } from 'framer-motion';

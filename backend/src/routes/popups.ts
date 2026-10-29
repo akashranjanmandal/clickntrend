@@ -1,5 +1,6 @@
 import express from 'express';
 import { pool } from '../utils/db';
+import { isUuid, cleanText } from '../utils/validate';
 
 const router = express.Router();
 
@@ -28,7 +29,9 @@ router.get('/active', async (_req, res) => {
 // Track popup view (public)
 router.post('/track-view', async (req, res) => {
   try {
-    const { popup_id, session_id } = req.body;
+    const { popup_id } = req.body;
+    const session_id = cleanText(req.body.session_id, 100);
+    if (!isUuid(popup_id) || !session_id) return res.status(400).json({ error: 'Invalid request' });
     await pool.query(
       `INSERT INTO popup_display_stats (popup_id, session_id, viewed_at)
        VALUES ($1, $2, $3)`,
@@ -44,7 +47,9 @@ router.post('/track-view', async (req, res) => {
 // Track popup click (public)
 router.post('/track-click', async (req, res) => {
   try {
-    const { popup_id, session_id } = req.body;
+    const { popup_id } = req.body;
+    const session_id = cleanText(req.body.session_id, 100);
+    if (!isUuid(popup_id) || !session_id) return res.status(400).json({ error: 'Invalid request' });
     await pool.query(
       `UPDATE popup_display_stats
        SET clicked_at = $1

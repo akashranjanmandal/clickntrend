@@ -12,7 +12,7 @@ import { detectAddress } from '../utils/geolocation';
 
 const Checkout: React.FC = () => {
   useSeo({ title: 'Checkout', noindex: true });
-  const { items, total, clearCart } = useCart();
+  const { items, total, clearCart, updatePrices } = useCart();
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(false);
@@ -320,21 +320,33 @@ const Checkout: React.FC = () => {
       
     } catch (error: any) {
       console.error('❌ COD Error:', error);
-      
-      let errorMessage = 'Failed to place order. Please try again.';
-      if (error.message) {
-        try {
-          const parsedError = JSON.parse(error.message);
-          errorMessage = parsedError.error || parsedError.message || errorMessage;
-        } catch {
-          errorMessage = error.message;
-        }
-      }
-      
-      alert(errorMessage);
+      if (!handlePricingError(error)) toast.error(error?.message || 'Failed to place order. Please try again.');
     } finally {
       setLoading(false);
     }
+  };
+
+  /**
+   * The server prices every order itself. It answers PRICE_CHANGED (cart updated to the new
+   * prices), COUPON_INVALID (coupon removed) or ITEM_UNAVAILABLE. Returns true when handled.
+   */
+  const handlePricingError = (error: any): boolean => {
+    const code = error?.data?.code;
+    if (code === 'PRICE_CHANGED') {
+      if (Array.isArray(error.data.items)) updatePrices(error.data.items);
+      toast.error(error.message, { duration: 7000 });
+      return true;
+    }
+    if (code === 'COUPON_INVALID') {
+      removeCoupon();
+      toast.error(error.message, { duration: 6000 });
+      return true;
+    }
+    if (code === 'ITEM_UNAVAILABLE') {
+      toast.error(error.message, { duration: 7000 });
+      return true;
+    }
+    return false;
   };
 
   /* ---------------- CASHFREE ---------------- */
@@ -398,7 +410,7 @@ const Checkout: React.FC = () => {
       }
     } catch (e: any) {
       console.error('Payment error:', e);
-      toast.error(e.message || 'Payment failed. Please try again.');
+      if (!handlePricingError(e)) toast.error(e.message || 'Payment failed. Please try again.');
     } finally {
       setLoading(false);
     }

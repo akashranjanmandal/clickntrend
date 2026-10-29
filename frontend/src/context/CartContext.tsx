@@ -7,6 +7,8 @@ interface CartContextType {
   removeItem: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
   clearCart: () => void;
+  /** Applies server prices (used when checkout reports that prices have changed) */
+  updatePrices: (prices: { id: string; price: number }[]) => void;
   total: number;
   itemCount: number;
 }
@@ -55,6 +57,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setItems([]);
   };
 
+  const updatePrices = (prices: { id: string; price: number }[]) => {
+    const byId = new Map(prices.map(p => [p.id, p.price]));
+    setItems(prev => prev.map(item => (byId.has(item.id) ? { ...item, price: byId.get(item.id)! } : item)));
+  };
+
   const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const itemCount = items.reduce((count, item) => count + item.quantity, 0);
 
@@ -66,6 +73,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         removeItem,
         updateQuantity,
         clearCart,
+        updatePrices,
         total,
         itemCount,
       }}

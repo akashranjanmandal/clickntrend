@@ -188,54 +188,7 @@ router.get('/category/:categoryId', async (req, res) => {
   }
 });
 
-// Create custom combo (public)
-router.post('/custom', async (req, res) => {
-  try {
-    const {
-      name, description, products, subtotal,
-      discount_percentage, discount_amount, total_price,
-      special_requests, item_count,
-    } = req.body;
-
-    if (!products || products.length === 0) {
-      return res.status(400).json({ error: 'At least one product is required' });
-    }
-
-    const now = new Date().toISOString();
-    const customComboResult = await pool.query(
-      `INSERT INTO custom_combos
-         (name, description, subtotal, discount_percentage, discount_amount,
-          total_price, item_count, special_requests, status, created_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-       RETURNING *`,
-      [
-        name || 'Custom Combo', description || '', subtotal,
-        discount_percentage, discount_amount, total_price,
-        item_count, special_requests, 'pending', now,
-      ]
-    );
-
-    const customCombo = customComboResult.rows[0];
-
-    const comboProducts = products.map((p: any) => ({
-      custom_combo_id: customCombo.id,
-      product_id: p.id,
-      quantity: p.quantity || 1,
-    }));
-
-    for (const cp of comboProducts) {
-      await pool.query(
-        'INSERT INTO custom_combo_products (custom_combo_id, product_id, quantity) VALUES ($1,$2,$3)',
-        [cp.custom_combo_id, cp.product_id, cp.quantity]
-      );
-    }
-
-    res.json({ success: true, message: 'Custom combo created successfully', combo: customCombo });
-  } catch (error: any) {
-    console.error('Error creating custom combo:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
+// (Removed: public POST /custom — unused by the site; it let anyone write unlimited rows into custom_combos.)
 
 // ========== ADMIN ROUTES ==========
 

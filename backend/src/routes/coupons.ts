@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import { pool } from '../utils/db';
 import { requireAuth } from '../middleware/auth';
+import { evaluateCoupon } from '../utils/coupons';
 import { buildUpdate, buildInsert, COUPON_FIELDS } from '../utils/sqlUpdate';
 
 const router = express.Router();
@@ -93,86 +94,10 @@ router.delete('/:id', requireAuth, async (req, res) => {
 router.post('/validate', async (req, res) => {
   try {
     const { code, subtotal, email, categories, hasOnlyComboItems } = req.body;
-
-    if (!code) return res.status(400).json({ valid: false, message: 'Coupon code is required' });
-    if (hasOnlyComboItems) {
-      return res.status(400).json({ valid: false, message: 'Coupons cannot be applied to combo orders' });
-    }
-
-    const now = new Date().toISOString();
-    const couponResult = await pool.query(
-      `SELECT * FROM coupons WHERE code = $1 AND is_active = true`,
-      [code.toUpperCase()]
-    );
-
-    if (couponResult.rows.length === 0) {
-      return res.status(404).json({ valid: false, message: 'Invalid coupon code' });
-    }
-
-    // Postgres returns numeric columns as text — convert before doing any maths
-    const raw = couponResult.rows[0];
-    const num = (v: any) => (v === null || v === undefined ? null : Number(v));
-    const coupon = {
-      ...raw,
-      discount_value: Number(raw.discount_value),
-      min_order_amount: num(raw.min_order_amount),
-      max_discount_amount: num(raw.max_discount_amount),
-    };
-    const orderSubtotal = Number(subtotal) || 0;
-
-    if (coupon.end_date && new Date(coupon.end_date) < new Date()) {
-      return res.status(400).json({ valid: false, message: 'Coupon has expired' });
-    }
-    if (coupon.start_date && new Date(coupon.start_date) > new Date()) {
-      return res.status(400).json({ valid: false, message: 'Coupon is not active yet' });
-    }
-    if (coupon.min_order_amount && orderSubtotal < coupon.min_order_amount) {
-      return res.status(400).json({ valid: false, message: `Minimum order amount should be ₹${coupon.min_order_amount}` });
-    }
-    if (coupon.usage_limit && coupon.used_count >= coupon.usage_limit) {
-      return res.status(400).json({ valid: false, message: 'Coupon usage limit exceeded' });
-    }
-
-    if (email && coupon.per_user_limit) {
-      const usageResult = await pool.query(
-        'SELECT COUNT(*) FROM coupon_usage WHERE coupon_id = $1 AND customer_email = $2',
-        [coupon.id, email]
-      );
-      const count = parseInt(usageResult.rows[0].count);
-      if (count >= coupon.per_user_limit) {
-        return res.status(400).json({ valid: false, message: `You have already used this coupon ${count} times` });
-      }
-    }
-
-    if (coupon.applicable_categories?.length > 0 && categories?.length > 0) {
-      const hasApplicableCategory = categories.some((cat: string) =>
-        coupon.applicable_categories.includes(cat)
-      );
-      if (!hasApplicableCategory) {
-        return res.status(400).json({ valid: false, message: 'Coupon not applicable for items in your cart' });
-      }
-    }
-
-    let discountAmount = 0;
-    if (coupon.discount_type === 'percentage') {
-      discountAmount = (orderSubtotal * coupon.discount_value) / 100;
-      if (coupon.max_discount_amount) {
-        discountAmount = Math.min(discountAmount, coupon.max_discount_amount);
-      }
-    } else {
-      discountAmount = coupon.discount_value;
-    }
-
-    res.json({
-      valid: true,
-      coupon: {
-        id: coupon.id,
-        code: coupon.code,
-        discount_type: coupon.discount_type,
-        discount_value: coupon.discount_value,
-        discount_amount: discountAmount,
-      },
-    });
+    const result = await evaluateCoupon({ code, subtotal, email, categories: Array.isArray(categories) ? categories : [], hasOnlyComboItems });
+    if (!result.valid) return res.status(result.status).json({ valid: false, message: result.message });
+    const { id: _id, ...coupon } = result.coupon!; // internal id is not needed by the shop
+    res.json({ valid: true, coupon: { id: result.coupon!.id, ...coupon } });
   } catch (error: any) {
     console.error('Error validating coupon:', error);
     res.status(500).json({ valid: false, message: 'Error validating coupon' });

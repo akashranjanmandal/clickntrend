@@ -1,26 +1,15 @@
 import express from 'express';
 import { pool } from '../utils/db';
 import { requireAuth } from '../middleware/auth';
-import multer from 'multer';
 import { r2 } from '../utils/r2';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { buildUpdate, buildInsert, LOGO_FIELDS } from '../utils/sqlUpdate';
+import { logoUpload, readUpload, cleanupUploads, UploadError } from '../utils/uploads';
 
 const router = express.Router();
 
-const storage = multer.memoryStorage();
-const upload = multer({
-  storage,
-  limits: { fileSize: 50 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = [
-      'image/jpeg', 'image/png', 'image/webp', 'image/jpg',
-      'image/svg+xml', 'image/x-icon', 'image/gif',
-    ];
-    if (allowedTypes.includes(file.mimetype)) cb(null, true);
-    else cb(new Error('Invalid file type. Only images and GIFs are allowed.'));
-  },
-});
+// Logo / favicon (incl. SVG, ICO), 20 MB, real content checked (utils/uploads)
+const upload = logoUpload();
 
 // ========== PUBLIC ROUTES ==========
 
@@ -58,29 +47,29 @@ router.get('/admin', requireAuth, async (req, res) => {
 });
 
 // Upload logo file to R2
-router.post('/admin/upload-logo', requireAuth, upload.single('image'), async (req, res) => {
+router.post('/admin/upload-logo', requireAuth, cleanupUploads, upload.single('image'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
-    const file = req.file;
-    const type = req.body.type || 'logo';
-    const fileExtension = file.originalname.split('.').pop();
-    const fileName = `logos/${type}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExtension}`;
+    const { body, contentType, ext } = await readUpload(req.file, { allowLogoFormats: true });
+    const type = req.body.type === 'favicon' ? 'favicon' : 'logo'; // folder is never taken as free text
+    const fileName = `logos/${type}/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
 
     await r2.send(
       new PutObjectCommand({
         Bucket: process.env.R2_BUCKET_NAME!,
         Key: fileName,
-        Body: file.buffer,
-        ContentType: file.mimetype,
+        Body: body,
+        ContentType: contentType,
       })
     );
 
     const publicUrl = `${process.env.R2_PUBLIC_URL}/${fileName}`;
-    res.json({ success: true, url: publicUrl, file_name: fileName, file_type: file.mimetype });
+    res.json({ success: true, url: publicUrl, file_name: fileName, file_type: contentType });
   } catch (error: any) {
+    if (error instanceof UploadError) return res.status(error.status).json({ error: error.message });
     console.error('❌ Logo upload error:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Failed to upload logo' });
   }
 });
 

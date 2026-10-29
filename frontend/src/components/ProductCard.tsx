@@ -553,6 +553,11 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         <ProductCustomizationModal
           product={product}
           selectedImageUrl={getSelectedColorData()?.image_url || product.image_url}
+          variant={{
+            price: getCurrentPrice(),
+            color_id: getSelectedColorData()?.id, color_name: getSelectedColorData()?.color_name, color_code: getSelectedColorData()?.color_code,
+            size_id: getSelectedSizeData()?.id, size_name: getSelectedSizeData()?.size_name, size_code: getSelectedSizeData()?.size_code,
+          }}
           onClose={() => setShowCustomization(false)}
         />
       )}

@@ -640,7 +640,16 @@ const ProductPage: React.FC = () => {
       </div>
 
       {showCustomization && product && (
-        <ProductCustomizationModal product={product} selectedImageUrl={getCurrentImage()} onClose={() => setShowCustomization(false)} />
+        <ProductCustomizationModal
+          product={product}
+          selectedImageUrl={getCurrentImage()}
+          variant={{
+            price: getCurrentPrice(),
+            color_id: selectedColor?.id, color_name: selectedColor?.color_name, color_code: selectedColor?.color_code,
+            size_id: selectedSize?.id, size_name: selectedSize?.size_name, size_code: selectedSize?.size_code,
+          }}
+          onClose={() => setShowCustomization(false)}
+        />
       )}
     </div>
   );

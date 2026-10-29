@@ -1,39 +1,28 @@
 import express from 'express';
-import multer from 'multer';
 import { requireAuth } from '../middleware/auth';
 import { r2 } from '../utils/r2';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { pool } from '../utils/db';
+import { mediaUpload, readUpload, cleanupUploads, UploadError } from '../utils/uploads';
 
 const router = express.Router();
 
-const storage = multer.memoryStorage();
-const upload = multer({
-  storage,
-  limits: { fileSize: 50 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    const isImage = file.mimetype.startsWith('image/');
-    const isVideo = file.mimetype.startsWith('video/');
-    if (isImage || isVideo) cb(null, true);
-    else cb(new Error('Invalid file type.'));
-  },
-});
+// Image 20 MB or video 100 MB, real content checked (utils/uploads)
+const upload = mediaUpload();
 
-router.post('/upload', requireAuth, upload.single('media'), async (req, res) => {
+router.post('/upload', requireAuth, cleanupUploads, upload.single('media'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
-    const file = req.file;
-    const isVideo = file.mimetype.startsWith('video/');
-    const extension = file.originalname.split('.').pop();
-    const fileName = `hero/${Date.now()}-${Math.random().toString(36).substring(7)}.${extension}`;
+    const { body, contentType, ext, isVideo } = await readUpload(req.file);
+    const fileName = `hero/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
 
     await r2.send(
       new PutObjectCommand({
         Bucket: process.env.R2_BUCKET_NAME!,
         Key: fileName,
-        Body: file.buffer,
-        ContentType: file.mimetype,
+        Body: body,
+        ContentType: contentType,
       })
     );
 

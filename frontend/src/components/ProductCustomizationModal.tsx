@@ -16,14 +16,25 @@ interface ProductCustomizationModalProps {
   onClose: () => void;
   onCustomizeComplete?: (customization: CustomizationData) => void;
   selectedImageUrl?: string; // Pass the currently-selected color image URL
+  /** Selected colour/size and the price including their extras (the server prices it the same way) */
+  variant?: {
+    price: number;
+    color_id?: string; color_name?: string; color_code?: string;
+    size_id?: string; size_name?: string; size_code?: string;
+  };
 }
 
 const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({ 
   product, 
   onClose,
   onCustomizeComplete,
-  selectedImageUrl
+  selectedImageUrl,
+  variant
 }) => {
+  // Same rule as the server: base price incl. colour/size extras, + fee only when personalised
+  const basePrice = variant?.price ?? (Number(product.price) || 0);
+  const fee = Number(product.customization_price) || 0;
+  const itemPrice = basePrice + fee;
   const { addItem } = useCart();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -249,18 +260,21 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
       toast.success('Customization saved!');
       onClose();
     } else {
-      const finalPrice = product.price + (product.customization_price || 0);
+      const personalised = (customization.text_lines?.length || 0) > 0 || (customization.image_urls?.length || 0) > 0;
+      const finalPrice = basePrice + (personalised ? fee : 0);
 
       for (let i = 0; i < quantity; i++) {
         addItem({
-          id: `${product.id}-${Date.now()}-${i}`,
+          id: `${product.id}-${variant?.color_id || ''}-${variant?.size_id || ''}-${Date.now()}-${i}`,
           name: product.name,
           price: finalPrice,
           quantity: 1,
           image_url: getImageUrl(selectedImageUrl || product.image_url),
           type: 'product',
           category: product.category,
-          customization: customization
+          customization: customization,
+          color_id: variant?.color_id, color_name: variant?.color_name, color_code: variant?.color_code,
+          size_id: variant?.size_id, size_name: variant?.size_name, size_code: variant?.size_code,
         });
       }
 
@@ -570,7 +584,7 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
                 <div className="border-t pt-4" onClick={handleModalClick}>
                   <div className="flex justify-between items-center mb-2 text-sm">
                     <span className="text-gray-600">Base Price:</span>
-                    <span className="font-medium">₹{product.price.toLocaleString()}</span>
+                    <span className="font-medium">₹{basePrice.toLocaleString()}</span>
                   </div>
                   {(product.customization_price || 0) > 0 && (
                     <div className="flex justify-between items-center mb-2 text-sm">
@@ -581,7 +595,7 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
                   <div className="flex justify-between items-center text-base font-bold pt-2 border-t">
                     <span>Total per item:</span>
                     <span className="text-premium-gold">
-                      ₹{(product.price + (product.customization_price || 0)).toLocaleString()}
+                      ₹{itemPrice.toLocaleString()}
                     </span>
                   </div>
                 </div>
@@ -633,9 +647,9 @@ const ProductCustomizationModal: React.FC<ProductCustomizationModalProps> = ({
                       Uploading {customImages.filter(img => !img.url).length} images...
                     </span>
                   ) : onCustomizeComplete ? (
-                    `Save Customization • ₹${(product.price + (product.customization_price || 0)).toLocaleString()}`
+                    `Save Customization • ₹${itemPrice.toLocaleString()}`
                   ) : (
-                    `Add to Cart • ₹${((product.price + (product.customization_price || 0)) * quantity).toLocaleString()}`
+                    `Add to Cart • ₹${(itemPrice * quantity).toLocaleString()}`
                   )}
                 </button>
 

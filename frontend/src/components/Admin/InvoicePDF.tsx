@@ -7,7 +7,18 @@ interface InvoicePDFProps {
   onClose?: () => void;
 }
 
-const InvoicePDF: React.FC<InvoicePDFProps> = ({ order, onClose }) => {
+// The print window is built from an HTML string, so customer-typed values must be escaped there
+const escapeHtml = (v: string) =>
+  v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+function escapeDeep<T>(value: T): T {
+  if (typeof value === 'string') return escapeHtml(value) as any;
+  if (Array.isArray(value)) return value.map(escapeDeep) as any;
+  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value as any).map(([k, v]) => [k, escapeDeep(v)])) as any;
+  return value;
+}
+
+const InvoicePDF: React.FC<InvoicePDFProps> = ({ order: rawOrder, onClose }) => {
+  const order = rawOrder; // React rendering below escapes text itself
   const invoiceDate = new Date().toLocaleDateString('en-IN', {
     year: 'numeric', month: 'short', day: 'numeric'
   });
@@ -34,6 +45,7 @@ const InvoicePDF: React.FC<InvoicePDFProps> = ({ order, onClose }) => {
   }[paymentStatus] || { label: 'PAYMENT PENDING', bg: '#fef3c7', fg: '#92400e', cls: 'bg-yellow-100 text-yellow-800' };
 
   const handlePrint = () => {
+    const order = escapeDeep(rawOrder); // every value inserted into the HTML string below is escaped
     const printArea = document.getElementById('invoice-print-area');
     if (!printArea) return;
     const w = window.open('', '_blank', 'width=800,height=900');

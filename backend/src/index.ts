@@ -1,9 +1,11 @@
 import express from 'express';
 import 'dotenv/config';
 import cors from 'cors';
+import helmet from 'helmet';
+import { corsOptions, limits, hideServerErrors } from './middleware/security';
+import { uploadErrorHandler } from './utils/uploads';
 import config from './config';
 import logoRoutes from './routes/logo';
-import { transporter } from './services/gmailService';
 import { runMigrations } from './utils/migrate';
 import sitemapRoutes from './routes/sitemap';
 import ogRoutes from './routes/og';
@@ -32,20 +34,40 @@ import productColorRoutes from './routes/product-colors';
 
 const app = express();
 
-/* ===================== CORS ===================== */
-app.use(cors({
-  origin: true,
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-}));
+/* ===================== SECURITY ===================== */
+app.disable('x-powered-by');
+// Behind nginx: trust the first proxy so req.ip is the visitor's real IP (needed for rate limits)
+app.set('trust proxy', 1);
+// Security headers. CSP is off because the server-rendered pages load the Meta Pixel inline script.
+app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
-app.options('*', cors());
+// JSON bodies are small (files go through the upload routes). rawBody is kept for webhook signatures.
+app.use(express.json({ limit: '2mb', verify: (req: any, _res, buf) => { req.rawBody = buf.toString('utf8'); } }));
+app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 
-// ===== PAYLOAD TOO LARGE ERROR =====
-// rawBody is kept for webhook signature checks (Cashfree signs the exact request body)
-app.use(express.json({ limit: '50mb', verify: (req: any, _res, buf) => { req.rawBody = buf.toString('utf8'); } }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+// Server errors never expose internal details to visitors
+app.use(hideServerErrors);
+
+// Rate limits: off unless RATE_LIMIT=on. Turn on only after nginx forwards the visitor's IP
+// (X-Real-IP / X-Forwarded-For), otherwise every visitor shares one limit.
+if (process.env.RATE_LIMIT === 'on') {
+  app.use('/api', limits.api);
+  app.post('/api/orders/cod', limits.orders);
+  app.post('/api/payment/cashfree/create-order', limits.orders);
+  app.post('/api/payment/cashfree/verify', limits.paymentVerify);
+  app.post('/api/coupons/validate', limits.coupons);
+  app.post('/api/reviews', limits.reviews);
+  app.post('/api/upload/customization', limits.customerUploads);
+  app.post('/api/upload/customizations', limits.customerUploads);
+  app.get('/api/orders/track', limits.lookups);
+  app.get('/api/orders/confirmation/:id', limits.lookups);
+  app.post('/api/popups/track-view', limits.tracking);
+  app.post('/api/popups/track-click', limits.tracking);
+  app.post('/api/social-proof/track-view', limits.tracking);
+  app.post('/api/social-proof/track-purchase', limits.tracking);
+}
 
 console.log('📝 Registering routes...');
 
@@ -140,15 +162,10 @@ app.get('/health', (_req, res) => {
 app.get('/api/test', (_req, res) => {
   res.json({ message: 'Backend is working 🚀' });
 });
-app.get('/smtp-test', async (_req, res) => {
-  try {
-    await transporter.verify();
-    res.json({ status: "SMTP working ✅" });
-  } catch (err) {
-    console.error("SMTP test failed:", err);
-    res.status(500).json({ status: "SMTP failed ❌", error: err });
-  }
-});
+
+// Clear JSON errors for oversized / wrong-type uploads (instead of an HTML error page)
+app.use(uploadErrorHandler);
+
 /* ===================== SERVER ===================== */
 const PORT = config.port || 5000;
 

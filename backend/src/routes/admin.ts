@@ -1,11 +1,11 @@
 import express, { Request, Response } from 'express';
-import multer from 'multer';
 import { pool } from '../utils/db';
 import { requireAuth } from '../middleware/auth';
 import { r2 } from '../utils/r2';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { sendOrderStatusUpdateEmail } from '../services/gmailService';
 import { buildUpdate, CATEGORY_FIELDS, PRODUCT_FIELDS } from '../utils/sqlUpdate';
+import { imageUpload, readUpload, cleanupUploads, UploadError } from '../utils/uploads';
 
 const router = express.Router();
 
@@ -21,41 +21,33 @@ function transformOrder(o: any) {
   };
 }
 
-const storage = multer.memoryStorage();
-const upload = multer({
-  storage,
-  limits: { fileSize: 50 * 1024 * 1024 },
-  fileFilter: (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg', 'image/gif'];
-    if (allowedTypes.includes(file.mimetype)) cb(null, true);
-    else cb(new Error('Invalid file type'));
-  },
-});
+// 20 MB image, real content checked, temp file removed afterwards (utils/uploads)
+const upload = imageUpload(1);
 
 // ========== IMAGE UPLOAD ==========
 
-router.post('/upload-image', requireAuth, upload.single('image'), async (req: Request, res: Response) => {
+router.post('/upload-image', requireAuth, cleanupUploads, upload.single('image'), async (req: Request, res: Response) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
-    const file = req.file;
-    const fileExtension = file.originalname.split('.').pop();
-    const fileName = `product-${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExtension}`;
+    const { body, contentType, ext } = await readUpload(req.file);
+    const fileName = `product-${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
 
     await r2.send(
       new PutObjectCommand({
         Bucket: process.env.R2_BUCKET_NAME!,
         Key: `products/${fileName}`,
-        Body: file.buffer,
-        ContentType: file.mimetype,
+        Body: body,
+        ContentType: contentType,
       })
     );
 
     const publicUrl = `${process.env.R2_PUBLIC_URL}/products/${fileName}`;
     res.json({ success: true, image_url: publicUrl, file_name: fileName, message: 'Image uploaded successfully' });
   } catch (error: any) {
+    if (error instanceof UploadError) return res.status(error.status).json({ error: error.message });
     console.error('Upload error:', error);
-    res.status(500).json({ error: error.message || 'Failed to upload image' });
+    res.status(500).json({ error: 'Failed to upload image' });
   }
 });
 

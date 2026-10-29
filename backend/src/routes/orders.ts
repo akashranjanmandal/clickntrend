@@ -2,6 +2,8 @@ import express, { Request, Response } from 'express';
 import { pool } from '../utils/db';
 import { requireAuth } from '../middleware/auth';
 import { getPaymentSettings } from '../utils/paymentSettings';
+import { priceOrder, assertTotalsMatch, withServerPrices, PricingError } from '../utils/pricing';
+import { ORDER_NUMBER_LOCK } from '../utils/orderNumber';
 import {
   sendOrderConfirmationEmail,
   sendAdminNotification,
@@ -101,20 +103,8 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
   }
 });
 
-// Get orders by phone (public)
-router.get('/customer/:phone', async (req: Request, res: Response) => {
-  try {
-    const { phone } = req.params;
-    const result = await pool.query(
-      'SELECT * FROM orders WHERE customer_phone = $1 ORDER BY created_at DESC',
-      [phone]
-    );
-    res.json(result.rows.map(transformOrder));
-  } catch (error: any) {
-    console.error('Error fetching customer orders:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
+// (Removed: public GET /customer/:phone — it exposed every customer's orders to anyone with a phone number.
+//  Customers use /track with order ID + phone; admins use /api/admin/orders.)
 
 // Update order status (admin)
 router.patch('/:id/status', requireAuth, async (req: Request, res: Response) => {
@@ -159,70 +149,75 @@ router.post('/cod', async (req: Request, res: Response) => {
       return res.status(403).json({ error: 'Cash on Delivery is currently not available. Please pay online.' });
     }
 
-    const custom_order_id = await generateCustomOrderId();
-    const now = new Date().toISOString();
+    // Prices come from the database, never the browser; the cart must show the same total
+    const priced = await priceOrder(order_data, 'cod');
+    assertTotalsMatch(order_data, priced);
+    const data = withServerPrices(order_data, priced);
 
-    const orderRecord = {
-      custom_order_id,
-      items: JSON.stringify(order_data.items || []),
-      subtotal: order_data.subtotal || 0,
-      shipping_charge: order_data.shipping_charge || 0,
-      cod_charge: paymentSettings.cod_charge,
-      coupon_code: order_data.coupon_code || null,
-      coupon_discount: order_data.coupon_discount || 0,
-      total_amount: order_data.total_amount || 0,
-      customer_name: (order_data.name || '').trim(),
-      customer_email: (order_data.email || '').trim().toLowerCase(),
-      customer_phone: (order_data.phone || '').replace(/\D/g, ''),
-      customer_alt_phone: (order_data.alt_phone || '').replace(/\D/g, '') || null,
-      special_requests: (order_data.special_requests || '').trim(),
-      shipping_address: (order_data.address || '').trim(),
-      shipping_city: (order_data.city || '').trim(),
-      shipping_state: (order_data.state || '').trim(),
-      shipping_pincode: (order_data.pincode || '').trim(),
-      shipping_country: 'India',
-      payment_method: 'cod',
-      status: 'pending',
-      created_at: now,
-      updated_at: now,
-    };
+    const client = await pool.connect();
+    let order: any;
+    try {
+      await client.query('BEGIN');
+      // One order number at a time, so two simultaneous orders can't get the same GFTD#
+      await client.query('SELECT pg_advisory_xact_lock($1)', [ORDER_NUMBER_LOCK]);
+      const custom_order_id = await generateCustomOrderId();
+      const now = new Date().toISOString();
 
-    const result = await pool.query(
-      `INSERT INTO orders
-         (custom_order_id, items, subtotal, shipping_charge, cod_charge, coupon_code, coupon_discount,
-          total_amount, customer_name, customer_email, customer_phone, customer_alt_phone, special_requests,
-          shipping_address, shipping_city, shipping_state, shipping_pincode,
-          shipping_country, payment_method, status, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
-       RETURNING *`,
-      Object.values(orderRecord)
-    );
+      const orderRecord = {
+        custom_order_id,
+        items: JSON.stringify(data.items),
+        subtotal: data.subtotal,
+        shipping_charge: data.shipping_charge,
+        cod_charge: data.cod_charge,
+        coupon_code: data.coupon_code,
+        coupon_discount: data.coupon_discount,
+        total_amount: data.total_amount,
+        customer_name: (data.name || '').trim(),
+        customer_email: (data.email || '').trim().toLowerCase(),
+        customer_phone: (data.phone || '').replace(/\D/g, ''),
+        customer_alt_phone: (data.alt_phone || '').replace(/\D/g, '') || null,
+        special_requests: (data.special_requests || '').trim(),
+        shipping_address: (data.address || '').trim(),
+        shipping_city: (data.city || '').trim(),
+        shipping_state: (data.state || '').trim(),
+        shipping_pincode: (data.pincode || '').trim(),
+        shipping_country: 'India',
+        payment_method: 'cod',
+        status: 'pending',
+        created_at: now,
+        updated_at: now,
+      };
 
-    const order = result.rows[0];
+      const result = await client.query(
+        `INSERT INTO orders
+           (custom_order_id, items, subtotal, shipping_charge, cod_charge, coupon_code, coupon_discount,
+            total_amount, customer_name, customer_email, customer_phone, customer_alt_phone, special_requests,
+            shipping_address, shipping_city, shipping_state, shipping_pincode,
+            shipping_country, payment_method, status, created_at, updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
+         RETURNING *`,
+        Object.values(orderRecord)
+      );
+      order = result.rows[0];
 
-    // Track coupon usage if applicable
-    if (order_data.coupon_code && order_data.coupon_discount > 0) {
-      try {
-        const couponResult = await pool.query(
-          'SELECT id FROM coupons WHERE code = $1',
-          [order_data.coupon_code.toUpperCase()]
-        );
+      // Track coupon usage (server-validated discount)
+      if (data.coupon_code && data.coupon_discount > 0) {
+        const couponResult = await client.query('SELECT id FROM coupons WHERE code = $1', [data.coupon_code]);
         if (couponResult.rows.length > 0) {
           const coupon = couponResult.rows[0];
-          await pool.query(
-            `INSERT INTO coupon_usage (coupon_id, order_id, customer_email, discount_amount, used_at)
-             VALUES ($1,$2,$3,$4,$5)`,
-            [coupon.id, order.id, order_data.email, order_data.coupon_discount, now]
+          await client.query(
+            `INSERT INTO coupon_usage (coupon_id, order_id, customer_email, discount_amount, used_at) VALUES ($1,$2,$3,$4,$5)`,
+            [coupon.id, order.id, orderRecord.customer_email, data.coupon_discount, now]
           );
-          // ✅ Replaces supabase.rpc('increment')
-          await pool.query(
-            `UPDATE coupons SET used_count = used_count + 1, updated_at = $1 WHERE id = $2`,
-            [now, coupon.id]
-          );
+          await client.query(`UPDATE coupons SET used_count = used_count + 1, updated_at = $1 WHERE id = $2`, [now, coupon.id]);
         }
-      } catch (couponError) {
-        console.error('⚠️ Error tracking coupon:', couponError);
       }
+      await client.query('COMMIT');
+    } catch (txError) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw txError;
+    } finally {
+      client.release();
     }
 
     // Send emails async
@@ -240,6 +235,7 @@ router.post('/cod', async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
+    if (error instanceof PricingError) return res.status(error.status).json({ success: false, error: error.message, ...error.extra });
     console.error('Error creating COD order:', error);
     res.status(500).json({ error: error.message });
   }
